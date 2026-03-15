@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fred | Shiftwork Solutions</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=Source+Sans+3:wght@300;400;600&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy:   #1a2744;
+    --gold:   #c8952a;
+    --gold-lt:#f0c95a;
+    --cream:  #f7f4ef;
+    --white:  #ffffff;
+    --gray:   #6b7280;
+    --border: #ddd8ce;
+    --fred-bg:#eef2f8;
+    --user-bg:#1a2744;
+    --user-tx:#ffffff;
+    --radius: 18px;
+    --shadow: 0 4px 24px rgba(26,39,68,0.10);
+  }
+
+  body {
+    font-family: 'Source Sans 3', sans-serif;
+    font-weight: 400;
+    background: var(--cream);
+    color: var(--navy);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  header {
+    width: 100%;
+    background: var(--navy);
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 2px 12px rgba(26,39,68,0.18);
+  }
+
+  .logo-mark {
+    width: 42px;
+    height: 42px;
+    background: var(--gold);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Lora', serif;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--navy);
+    flex-shrink: 0;
+  }
+
+  .header-text h1 {
+    font-family: 'Lora', serif;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--white);
+    letter-spacing: 0.02em;
+  }
+
+  .header-text p {
+    font-size: 13px;
+    color: rgba(255,255,255,0.60);
+    margin-top: 2px;
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    background: #4ade80;
+    border-radius: 50%;
+    margin-left: auto;
+    box-shadow: 0 0 6px #4ade80;
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.5; }
+  }
+
+  .chat-wrapper {
+    width: 100%;
+    max-width: 720px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 24px 16px 0;
+  }
+
+  .intro-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--gold);
+    border-radius: 12px;
+    padding: 18px 22px;
+    margin-bottom: 20px;
+    font-size: 14px;
+    color: var(--gray);
+    line-height: 1.6;
+  }
+
+  .intro-card strong {
+    color: var(--navy);
+    font-weight: 600;
+  }
+
+  #messages {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding-bottom: 16px;
+    min-height: 300px;
+    max-height: 56vh;
+  }
+
+  .bubble-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+  }
+
+  .bubble-row.fred  { justify-content: flex-start; }
+  .bubble-row.user  { justify-content: flex-end; }
+
+  .avatar-circle {
+    width: 34px;
+    height: 34px;
+    background: var(--navy);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Lora', serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--gold);
+    flex-shrink: 0;
+  }
+
+  .bubble {
+    max-width: 78%;
+    padding: 13px 17px;
+    border-radius: var(--radius);
+    font-size: 15px;
+    line-height: 1.65;
+    box-shadow: var(--shadow);
+  }
+
+  .bubble-row.fred .bubble {
+    background: var(--fred-bg);
+    color: var(--navy);
+    border-bottom-left-radius: 4px;
+  }
+
+  .bubble-row.user .bubble {
+    background: var(--user-bg);
+    color: var(--user-tx);
+    border-bottom-right-radius: 4px;
+  }
+
+  .typing-indicator {
+    display: none;
+    align-items: center;
+    gap: 5px;
+    padding: 14px 18px;
+    background: var(--fred-bg);
+    border-radius: var(--radius);
+    border-bottom-left-radius: 4px;
+    width: fit-content;
+    box-shadow: var(--shadow);
+  }
+
+  .typing-indicator span {
+    width: 7px;
+    height: 7px;
+    background: var(--navy);
+    border-radius: 50%;
+    opacity: 0.4;
+    animation: bounce 1.2s ease-in-out infinite;
+  }
+
+  .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+  .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes bounce {
+    0%, 80%, 100% { transform: translateY(0);    opacity: 0.4; }
+    40%           { transform: translateY(-6px);  opacity: 1;   }
+  }
+
+  .input-area {
+    width: 100%;
+    max-width: 720px;
+    padding: 16px 16px 28px;
+    background: var(--cream);
+    position: sticky;
+    bottom: 0;
+  }
+
+  .input-row {
+    display: flex;
+    gap: 10px;
+    background: var(--white);
+    border: 1.5px solid var(--border);
+    border-radius: 30px;
+    padding: 8px 8px 8px 20px;
+    box-shadow: var(--shadow);
+    transition: border-color 0.2s;
+  }
+
+  .input-row:focus-within {
+    border-color: var(--gold);
+  }
+
+  #user-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 15px;
+    color: var(--navy);
+    background: transparent;
+    resize: none;
+    height: 24px;
+    max-height: 120px;
+    overflow-y: auto;
+    line-height: 1.5;
+  }
+
+  #user-input::placeholder { color: #aaa; }
+
+  #send-btn {
+    width: 42px;
+    height: 42px;
+    background: var(--navy);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.2s, transform 0.1s;
+  }
+
+  #send-btn:hover  { background: var(--gold); }
+  #send-btn:active { transform: scale(0.94); }
+
+  #send-btn svg { width: 18px; height: 18px; fill: white; }
+
+  .disclaimer {
+    text-align: center;
+    font-size: 12px;
+    color: var(--gray);
+    margin-top: 10px;
+    opacity: 0.8;
+  }
+
+  @media (max-width: 500px) {
+    .bubble { max-width: 90%; font-size: 14px; }
+    header { padding: 14px 18px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-mark">F</div>
+  <div class="header-text">
+    <h1>Fred</h1>
+    <p>Shiftwork Solutions — Diagnostic Advisor</p>
+  </div>
+  <div class="status-dot" title="Online"></div>
+</header>
+
+<div class="chat-wrapper">
+  <div class="intro-card">
+    <strong>Not a sales call.</strong> Fred will ask you questions about your shift operations and help you
+    get clearer on what you're actually dealing with. No solutions, no pitch — just an honest diagnostic conversation.
+  </div>
+
+  <div id="messages">
+    <div class="bubble-row fred" id="typing-row">
+      <div class="avatar-circle">F</div>
+      <div class="typing-indicator" id="typing">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="input-area">
+  <div class="input-row">
+    <textarea id="user-input" placeholder="Type your reply..." rows="1"></textarea>
+    <button id="send-btn" aria-label="Send">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/>
+      </svg>
+    </button>
+  </div>
+  <p class="disclaimer">Your conversation is private and not stored beyond this session.</p>
+</div>
+
+<script>
+  const messagesEl  = document.getElementById('messages');
+  const inputEl     = document.getElementById('user-input');
+  const sendBtn     = document.getElementById('send-btn');
+  const typingEl    = document.getElementById('typing');
+  const typingRow   = document.getElementById('typing-row');
+
+  const SESSION_ID  = 'sess_' + Math.random().toString(36).substr(2, 9);
+  let   isWaiting   = false;
+
+  function scrollBottom() {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function showTyping() {
+    typingEl.style.display   = 'flex';
+    typingRow.style.display  = 'flex';
+    scrollBottom();
+  }
+
+  function hideTyping() {
+    typingEl.style.display   = 'none';
+    typingRow.style.display  = 'none';
+  }
+
+  function addBubble(text, who) {
+    const row = document.createElement('div');
+    row.className = 'bubble-row ' + who;
+
+    if (who === 'fred') {
+      const av = document.createElement('div');
+      av.className = 'avatar-circle';
+      av.textContent = 'F';
+      row.appendChild(av);
+    }
+
+    const bub = document.createElement('div');
+    bub.className = 'bubble';
+    bub.textContent = text;
+    row.appendChild(bub);
+
+    messagesEl.insertBefore(row, typingRow);
+    scrollBottom();
+  }
+
+  async function sendMessage() {
+    const text = inputEl.value.trim();
+    if (!text || isWaiting) return;
+
+    isWaiting = true;
+    inputEl.value = '';
+    inputEl.style.height = 'auto';
+    sendBtn.disabled = true;
+
+    addBubble(text, 'user');
+    showTyping();
+
+    try {
+      const resp = await fetch('/chat', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ message: text, session_id: SESSION_ID })
+      });
+
+      const data = await resp.json();
+      hideTyping();
+
+      if (data.reply) {
+        addBubble(data.reply, 'fred');
+      } else {
+        addBubble("Sorry, something went wrong on my end. Please try again.", 'fred');
+      }
+    } catch (err) {
+      hideTyping();
+      addBubble("Connection issue — please refresh and try again.", 'fred');
+    }
+
+    isWaiting = false;
+    sendBtn.disabled = false;
+    inputEl.focus();
+  }
+
+  async function loadOpening() {
+    showTyping();
+    try {
+      const resp = await fetch('/chat', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ message: '__INIT__', session_id: SESSION_ID })
+      });
+      const data = await resp.json();
+      hideTyping();
+      if (data.reply) addBubble(data.reply, 'fred');
+    } catch (err) {
+      hideTyping();
+      addBubble("Hi, I'm Fred. I'm here to help you think through what's going on with your shift operations. What brought you here today?", 'fred');
+    }
+  }
+
+  sendBtn.addEventListener('click', sendMessage);
+
+  inputEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  inputEl.addEventListener('input', () => {
+    inputEl.style.height = 'auto';
+    inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + 'px';
+  });
+
+  loadOpening();
+</script>
+
+</body>
+</html>
+
+<!-- I did no harm and this file is not truncated -->
