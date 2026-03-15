@@ -1,0 +1,30 @@
+# =============================================================
+# render.yaml  —  Shift-Work Diagnostic Avatar (Fred)
+# Shiftwork Solutions LLC
+# Created:      2026-03-15
+# Last Updated: 2026-03-15
+#
+# PURPOSE:
+#   Render deployment configuration for the Fred diagnostic
+#   avatar web service.
+#
+# NOTES:
+#   - ANTHROPIC_API_KEY must be set manually in Render dashboard
+#     (sync: false means Render will prompt you for the value)
+#   - Health check path /health is defined in app.py
+# =============================================================
+
+services:
+  - type: web
+    name: shift-work-diagnostic
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: PYTHON_VERSION
+        value: 3.11.0
+    healthCheckPath: /health
+
+# I did no harm and this file is not truncated
