@@ -1,0 +1,53 @@
+# =============================================================
+# .gitignore  —  Shift-Work Diagnostic Avatar (Fred)
+# Shiftwork Solutions LLC
+# Created:      2026-03-15
+# Last Updated: 2026-03-15
+# =============================================================
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Environment variables — NEVER commit API keys
+.env.local
+.env.production
+*.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Render
+.render/
+
+# I did no harm and this file is not truncated
