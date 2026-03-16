@@ -74,14 +74,45 @@
     margin-top: 2px;
   }
 
+  .header-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .mute-btn {
+    background: none;
+    border: 1.5px solid rgba(255,255,255,0.30);
+    border-radius: 20px;
+    color: rgba(255,255,255,0.75);
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 12px;
+    padding: 5px 12px;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s, background 0.2s;
+    white-space: nowrap;
+  }
+
+  .mute-btn:hover {
+    border-color: rgba(255,255,255,0.70);
+    color: var(--white);
+  }
+
+  .mute-btn.muted {
+    background: rgba(255,255,255,0.12);
+    border-color: var(--gold);
+    color: var(--gold-lt);
+  }
+
   .status-dot {
     width: 8px;
     height: 8px;
     background: #4ade80;
     border-radius: 50%;
-    margin-left: auto;
     box-shadow: 0 0 6px #4ade80;
     animation: pulse 2.4s ease-in-out infinite;
+    flex-shrink: 0;
   }
 
   @keyframes pulse {
@@ -171,6 +202,36 @@
     border-bottom-right-radius: 4px;
   }
 
+  .speaking-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: 8px;
+    vertical-align: middle;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .speaking-indicator.active { opacity: 1; }
+
+  .speaking-indicator span {
+    width: 3px;
+    background: var(--gold);
+    border-radius: 2px;
+    animation: soundwave 0.8s ease-in-out infinite;
+  }
+
+  .speaking-indicator span:nth-child(1) { height: 6px;  animation-delay: 0s; }
+  .speaking-indicator span:nth-child(2) { height: 10px; animation-delay: 0.1s; }
+  .speaking-indicator span:nth-child(3) { height: 14px; animation-delay: 0.2s; }
+  .speaking-indicator span:nth-child(4) { height: 10px; animation-delay: 0.3s; }
+  .speaking-indicator span:nth-child(5) { height: 6px;  animation-delay: 0.4s; }
+
+  @keyframes soundwave {
+    0%, 100% { transform: scaleY(0.5); opacity: 0.5; }
+    50%       { transform: scaleY(1.0); opacity: 1.0; }
+  }
+
   .typing-indicator {
     display: none;
     align-items: center;
@@ -196,8 +257,8 @@
   .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
 
   @keyframes bounce {
-    0%, 80%, 100% { transform: translateY(0);    opacity: 0.4; }
-    40%           { transform: translateY(-6px);  opacity: 1;   }
+    0%, 80%, 100% { transform: translateY(0);   opacity: 0.4; }
+    40%           { transform: translateY(-6px); opacity: 1;   }
   }
 
   .input-area {
@@ -220,9 +281,7 @@
     transition: border-color 0.2s;
   }
 
-  .input-row:focus-within {
-    border-color: var(--gold);
-  }
+  .input-row:focus-within { border-color: var(--gold); }
 
   #user-input {
     flex: 1;
@@ -257,8 +316,7 @@
 
   #send-btn:hover  { background: var(--gold); }
   #send-btn:active { transform: scale(0.94); }
-
-  #send-btn svg { width: 18px; height: 18px; fill: white; }
+  #send-btn svg    { width: 18px; height: 18px; fill: white; }
 
   .disclaimer {
     text-align: center;
@@ -269,8 +327,9 @@
   }
 
   @media (max-width: 500px) {
-    .bubble { max-width: 90%; font-size: 14px; }
-    header { padding: 14px 18px; }
+    .bubble  { max-width: 90%; font-size: 14px; }
+    header   { padding: 14px 18px; }
+    .mute-btn { font-size: 11px; padding: 4px 10px; }
   }
 </style>
 </head>
@@ -282,7 +341,10 @@
     <h1>Fred</h1>
     <p>Shiftwork Solutions — Diagnostic Advisor</p>
   </div>
-  <div class="status-dot" title="Online"></div>
+  <div class="header-right">
+    <button class="mute-btn" id="mute-btn" onclick="toggleMute()">🔊 Sound on</button>
+    <div class="status-dot" title="Online"></div>
+  </div>
 </header>
 
 <div class="chat-wrapper">
@@ -314,31 +376,80 @@
 </div>
 
 <script>
-  const messagesEl  = document.getElementById('messages');
-  const inputEl     = document.getElementById('user-input');
-  const sendBtn     = document.getElementById('send-btn');
-  const typingEl    = document.getElementById('typing');
-  const typingRow   = document.getElementById('typing-row');
+  const messagesEl = document.getElementById('messages');
+  const inputEl    = document.getElementById('user-input');
+  const sendBtn    = document.getElementById('send-btn');
+  const typingEl   = document.getElementById('typing');
+  const typingRow  = document.getElementById('typing-row');
+  const muteBtn    = document.getElementById('mute-btn');
 
-  const SESSION_ID  = 'sess_' + Math.random().toString(36).substr(2, 9);
-  let   isWaiting   = false;
+  const SESSION_ID = 'sess_' + Math.random().toString(36).substr(2, 9);
+  let isWaiting    = false;
+  let isMuted      = false;
+  let currentAudio = null;
+  let speakingEl   = null;
+
+  function toggleMute() {
+    isMuted = !isMuted;
+    muteBtn.textContent = isMuted ? '🔇 Sound off' : '🔊 Sound on';
+    muteBtn.classList.toggle('muted', isMuted);
+    if (isMuted && currentAudio) {
+      currentAudio.pause();
+      currentAudio = null;
+      if (speakingEl) { speakingEl.classList.remove('active'); speakingEl = null; }
+    }
+  }
 
   function scrollBottom() {
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
   function showTyping() {
-    typingEl.style.display   = 'flex';
-    typingRow.style.display  = 'flex';
+    typingEl.style.display  = 'flex';
+    typingRow.style.display = 'flex';
     scrollBottom();
   }
 
   function hideTyping() {
-    typingEl.style.display   = 'none';
-    typingRow.style.display  = 'none';
+    typingEl.style.display  = 'none';
+    typingRow.style.display = 'none';
   }
 
-  function addBubble(text, who) {
+  function playAudio(b64, indicator) {
+    if (isMuted || !b64) return;
+    try {
+      if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+      if (speakingEl)   { speakingEl.classList.remove('active'); speakingEl = null; }
+
+      const bytes = atob(b64);
+      const arr   = new Uint8Array(bytes.length);
+      for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+      const blob  = new Blob([arr], { type: 'audio/mpeg' });
+      const url   = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+
+      currentAudio = audio;
+      speakingEl   = indicator;
+
+      if (indicator) indicator.classList.add('active');
+
+      audio.play().catch(err => {
+        console.warn('Audio autoplay blocked:', err);
+        if (indicator) indicator.classList.remove('active');
+      });
+
+      audio.addEventListener('ended', () => {
+        URL.revokeObjectURL(url);
+        currentAudio = null;
+        if (indicator) indicator.classList.remove('active');
+        speakingEl = null;
+      });
+    } catch (err) {
+      console.warn('Audio playback error:', err);
+    }
+  }
+
+  function addBubble(text, who, audiob64) {
     const row = document.createElement('div');
     row.className = 'bubble-row ' + who;
 
@@ -352,10 +463,22 @@
     const bub = document.createElement('div');
     bub.className = 'bubble';
     bub.textContent = text;
-    row.appendChild(bub);
 
+    let indicator = null;
+    if (who === 'fred') {
+      indicator = document.createElement('span');
+      indicator.className = 'speaking-indicator';
+      indicator.innerHTML = '<span></span><span></span><span></span><span></span><span></span>';
+      bub.appendChild(indicator);
+    }
+
+    row.appendChild(bub);
     messagesEl.insertBefore(row, typingRow);
     scrollBottom();
+
+    if (who === 'fred' && audiob64) {
+      playAudio(audiob64, indicator);
+    }
   }
 
   async function sendMessage() {
@@ -367,7 +490,7 @@
     inputEl.style.height = 'auto';
     sendBtn.disabled = true;
 
-    addBubble(text, 'user');
+    addBubble(text, 'user', null);
     showTyping();
 
     try {
@@ -381,13 +504,13 @@
       hideTyping();
 
       if (data.reply) {
-        addBubble(data.reply, 'fred');
+        addBubble(data.reply, 'fred', data.audio || null);
       } else {
-        addBubble("Sorry, something went wrong on my end. Please try again.", 'fred');
+        addBubble("Sorry, something went wrong on my end. Please try again.", 'fred', null);
       }
     } catch (err) {
       hideTyping();
-      addBubble("Connection issue — please refresh and try again.", 'fred');
+      addBubble("Connection issue — please refresh and try again.", 'fred', null);
     }
 
     isWaiting = false;
@@ -405,10 +528,10 @@
       });
       const data = await resp.json();
       hideTyping();
-      if (data.reply) addBubble(data.reply, 'fred');
+      if (data.reply) addBubble(data.reply, 'fred', data.audio || null);
     } catch (err) {
       hideTyping();
-      addBubble("Hi, I'm Fred. I'm here to help you think through what's going on with your shift operations. What brought you here today?", 'fred');
+      addBubble("Hi, I'm Fred. I'm here to help you think through what's going on with your shift operations. What brought you here today?", 'fred', null);
     }
   }
 
