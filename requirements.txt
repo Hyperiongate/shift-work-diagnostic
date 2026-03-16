@@ -2,15 +2,16 @@
 # requirements.txt  —  Shift-Work Diagnostic Avatar (Fred)
 # Shiftwork Solutions LLC
 # Created:      2026-03-15
-# Last Updated: 2026-03-15
+# Last Updated: 2026-03-16
 #
 # PINNED FOR PYTHON 3.11 COMPATIBILITY ON RENDER
-# anthropic>=0.40.0 required — 0.28.0 breaks on Python 3.14
+# requests added for ElevenLabs TTS API calls (Phase 2)
 # =============================================================
 
 flask==3.0.3
 flask-cors==4.0.1
 anthropic>=0.40.0
+requests==2.31.0
 python-dotenv==1.0.1
 gunicorn==22.0.0
 
