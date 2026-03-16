@@ -23,14 +23,20 @@
 #                this is a diagnostic process, not a fix session.
 #                Added periodic check-in / summary behavior every
 #                4-5 exchanges so conversation does not drift.
+#   2026-03-16 — Phase 2: Added ElevenLabs TTS. Fred now speaks
+#                every response automatically using Earl voice.
+#                Audio returned as base64 in JSON response.
+#                Graceful fallback to text-only if TTS fails.
 #
 # ROUTES:
 #   GET  /           — Serves the Fred chat UI (index.html)
-#   POST /chat       — Accepts visitor message, returns Fred response
+#   POST /chat       — Accepts visitor message, returns Fred
+#                      response as text + base64 audio
 #   GET  /health     — Render health check
 #
 # ENVIRONMENT VARIABLES (set in Render):
-#   ANTHROPIC_API_KEY  — Claude API key
+#   ANTHROPIC_API_KEY   — Claude API key
+#   ELEVENLABS_API_KEY  — ElevenLabs API key
 #
 # DEPLOYMENT:
 #   GitHub -> Render web service (shift-work-diagnostic)
@@ -38,6 +44,8 @@
 # =============================================================
 
 import os
+import base64
+import requests
 from flask import Flask, request, jsonify, render_template_string
 from flask_cors import CORS
 import anthropic
@@ -45,7 +53,11 @@ import anthropic
 app = Flask(__name__)
 CORS(app)
 
-client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+anthropic_client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+
+ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY")
+ELEVENLABS_VOICE_ID = "bV9ai9Wem8olqrkR49Zw"
+ELEVENLABS_URL = f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}"
 
 FRED_SYSTEM_PROMPT = """
 You are Fred, a diagnostic facilitator for Shiftwork Solutions LLC — a management consulting firm
@@ -64,10 +76,10 @@ schedule was designed in the first place. You carry this experience quietly — 
 but you know how to ask the question that makes someone stop and think.
 
 YOUR PERSONALITY:
-You are warm, unhurried, and genuinely curious. You have a slight Irish sensibility — direct,
-a little dry, never glib. You take what people say seriously. You are not performing empathy;
-you actually want to understand what they are dealing with. You have seen a lot, which means
-you are rarely surprised, but you never make someone feel like their problem is ordinary.
+You are warm, unhurried, and genuinely curious. You are direct, a little dry, never glib.
+You take what people say seriously. You are not performing empathy; you actually want to
+understand what they are dealing with. You have seen a lot, which means you are rarely
+surprised, but you never make someone feel like their problem is ordinary.
 
 HOW YOU TALK:
 - Short responses. Two to four sentences. Never a wall of text.
@@ -139,13 +151,62 @@ would like someone from Jim's team to reach out. Mention shift-work.com as an al
 
 conversation_histories = {}
 
+
+def generate_speech(text):
+    """
+    Call ElevenLabs TTS API and return base64-encoded MP3 audio.
+    Returns None if TTS is unavailable or fails — frontend falls
+    back to text-only gracefully.
+    """
+    if not ELEVENLABS_API_KEY:
+        return None
+
+    try:
+        headers = {
+            "xi-api-key": ELEVENLABS_API_KEY,
+            "Content-Type": "application/json",
+            "Accept": "audio/mpeg"
+        }
+        payload = {
+            "text": text,
+            "model_id": "eleven_turbo_v2",
+            "voice_settings": {
+                "stability": 0.55,
+                "similarity_boost": 0.80,
+                "style": 0.20,
+                "use_speaker_boost": True
+            }
+        }
+        response = requests.post(
+            ELEVENLABS_URL,
+            headers=headers,
+            json=payload,
+            timeout=15
+        )
+        if response.status_code == 200:
+            audio_b64 = base64.b64encode(response.content).decode("utf-8")
+            return audio_b64
+        else:
+            print(f"ElevenLabs error {response.status_code}: {response.text}")
+            return None
+    except Exception as e:
+        print(f"ElevenLabs exception: {e}")
+        return None
+
+
 @app.route("/health")
 def health():
-    return jsonify({"status": "ok", "service": "shift-work-diagnostic"}), 200
+    return jsonify({
+        "status": "ok",
+        "service": "shift-work-diagnostic",
+        "tts_enabled": bool(ELEVENLABS_API_KEY)
+    }), 200
+
 
 @app.route("/")
 def index():
     return render_template_string(open("templates/index.html").read())
+
 
 @app.route("/chat", methods=["POST"])
 def chat():
@@ -171,7 +232,7 @@ def chat():
         conversation_histories[session_id] = conversation_histories[session_id][-40:]
 
     try:
-        response = client.messages.create(
+        response = anthropic_client.messages.create(
             model="claude-sonnet-4-20250514",
             max_tokens=300,
             system=FRED_SYSTEM_PROMPT,
@@ -185,8 +246,11 @@ def chat():
             "content": fred_reply
         })
 
+        audio_b64 = generate_speech(fred_reply)
+
         return jsonify({
             "reply": fred_reply,
+            "audio": audio_b64,
             "session_id": session_id
         }), 200
 
@@ -194,6 +258,7 @@ def chat():
         return jsonify({"error": f"API error: {str(e)}"}), 500
     except Exception as e:
         return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
