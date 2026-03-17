@@ -266,6 +266,15 @@
     border-top: 1px solid var(--border); flex-shrink: 0;
   }
 
+  .mic-hint {
+    text-align: center; font-size: 12px; color: var(--gray);
+    margin-bottom: 8px; opacity: 0.8; user-select: none;
+  }
+
+  .mic-hint.listening {
+    color: #ef4444; opacity: 1; font-weight: 600;
+  }
+
   .input-row {
     display: flex; gap: 8px; background: var(--white);
     border: 1.5px solid var(--border); border-radius: 30px;
@@ -274,6 +283,7 @@
   }
 
   .input-row:focus-within { border-color: var(--gold); }
+  .input-row.recording { border-color: #ef4444; }
 
   #user-input {
     flex: 1; border: none; outline: none;
@@ -284,41 +294,28 @@
 
   #user-input::placeholder { color: #aaa; }
 
-  /* Mic button */
+  /* Push-to-talk mic button */
   #mic-btn {
-    width: 38px; height: 38px; background: none;
-    border: 1.5px solid var(--border); border-radius: 50%;
-    cursor: pointer; display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0; transition: all 0.2s; color: var(--gray);
-    position: relative;
+    width: 38px; height: 38px;
+    background: none; border: 1.5px solid var(--border);
+    border-radius: 50%; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; transition: all 0.15s; color: var(--gray);
+    user-select: none; -webkit-user-select: none;
+    touch-action: none;
   }
 
   #mic-btn:hover { border-color: var(--gold); color: var(--gold); }
 
-  #mic-btn.listening {
-    background: #fee2e2; border-color: #ef4444; color: #ef4444;
+  #mic-btn.recording {
+    background: #ef4444; border-color: #ef4444; color: white;
+    box-shadow: 0 0 0 4px rgba(239,68,68,0.25);
     animation: mic-pulse 1s ease-in-out infinite;
   }
 
-  #mic-btn.listening::after {
-    content: '';
-    position: absolute; inset: -4px;
-    border-radius: 50%; border: 2px solid #ef4444;
-    animation: mic-ring 1s ease-out infinite; opacity: 0;
-  }
+  #mic-btn.unsupported { opacity: 0.35; cursor: not-allowed; }
 
-  @keyframes mic-pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
-  @keyframes mic-ring  { 0%{transform:scale(1);opacity:0.6} 100%{transform:scale(1.5);opacity:0} }
-
-  /* Mic status bar */
-  #mic-status {
-    text-align: center; font-size: 12px; margin-top: 6px;
-    min-height: 18px; transition: color 0.2s;
-    color: var(--gray); opacity: 0.8;
-  }
-
-  #mic-status.listening { color: #ef4444; opacity: 1; }
-  #mic-status.error     { color: #ef4444; opacity: 1; }
+  @keyframes mic-pulse { 0%,100%{box-shadow:0 0 0 4px rgba(239,68,68,0.25)} 50%{box-shadow:0 0 0 8px rgba(239,68,68,0.10)} }
 
   #send-btn {
     width: 38px; height: 38px; background: var(--navy);
@@ -333,7 +330,7 @@
 
   .disclaimer {
     text-align: center; font-size: 11px; color: var(--gray);
-    margin-top: 4px; opacity: 0.7;
+    margin-top: 6px; opacity: 0.7;
   }
 
   /* ── Lead modal ───────────────────────────────────── */
@@ -417,8 +414,8 @@
     at Shiftwork Solutions.
   </div>
   <div class="speaker-notice">
-    🔊 <strong>Turn on your speakers.</strong> Fred will speak his responses.
-    You can type your replies or click the microphone to speak.
+    🔊 <strong>Turn on your speakers.</strong> Fred speaks his responses.
+    Type your reply — or hold the 🎤 button to speak, release to send.
   </div>
   <button id="start-btn" onclick="startConversation()">
     Click here and let's get started
@@ -489,7 +486,7 @@
     <div class="intro-card">
       <strong>Not a sales call.</strong> Fred will ask you questions about your shift operations
       and help you get clearer on what you're actually dealing with.
-      Type your reply or click 🎤 to speak — Fred will respond in voice.
+      Type your reply — or <strong>hold 🎤 to speak, release to send.</strong>
     </div>
 
     <div id="messages">
@@ -502,9 +499,11 @@
     </div>
 
     <div class="input-area">
-      <div class="input-row">
-        <textarea id="user-input" placeholder="Type your reply or click 🎤 to speak..." rows="1"></textarea>
-        <button id="mic-btn" aria-label="Speak" onclick="toggleMic()" title="Click to speak">
+      <div class="mic-hint" id="mic-hint">Hold 🎤 to speak — release to send</div>
+      <div class="input-row" id="input-row">
+        <textarea id="user-input" placeholder="Type your reply..." rows="1"></textarea>
+        <button id="mic-btn" aria-label="Hold to speak"
+          title="Hold to speak, release to send">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
             <path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm0 2a2 2 0 0 0-2 2v6a2 2 0 0 0 4 0V5a2 2 0 0 0-2-2zm-1 14.93V20H9v2h6v-2h-2v-2.07A7 7 0 0 0 19 11h-2a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.93z"/>
           </svg>
@@ -513,7 +512,6 @@
           <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg>
         </button>
       </div>
-      <div id="mic-status"></div>
       <p class="disclaimer">Your conversation is private and not stored beyond this session.</p>
     </div>
   </div>
@@ -557,7 +555,8 @@
   const inputEl     = document.getElementById('user-input');
   const sendBtn     = document.getElementById('send-btn');
   const micBtn      = document.getElementById('mic-btn');
-  const micStatus   = document.getElementById('mic-status');
+  const micHint     = document.getElementById('mic-hint');
+  const inputRow    = document.getElementById('input-row');
   const typingEl    = document.getElementById('typing');
   const typingRow   = document.getElementById('typing-row');
   const muteBtn     = document.getElementById('mute-btn');
@@ -571,9 +570,9 @@
   let speakingEl    = null;
   let leadData      = null;
   let recognition   = null;
-  let isListening   = false;
+  let isRecording   = false;
 
-  // ── Speech recognition ─────────────────────────────────
+  // ── Push-to-talk setup ─────────────────────────────────
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
   if (SpeechRecognition) {
@@ -582,80 +581,69 @@
     recognition.interimResults = true;
     recognition.lang           = 'en-US';
 
-    // Show interim transcript as user speaks
     recognition.onresult = (event) => {
-      let interim = '';
-      let final   = '';
+      let transcript = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        const t = event.results[i][0].transcript;
-        if (event.results[i].isFinal) final += t;
-        else interim += t;
+        transcript += event.results[i][0].transcript;
       }
-      inputEl.value = final || interim;
-      inputEl.style.height = 'auto';
-      inputEl.style.height = Math.min(inputEl.scrollHeight, 100) + 'px';
+      inputEl.value = transcript;
     };
 
-    recognition.onstart = () => {
-      isListening = true;
-      micBtn.classList.add('listening');
-      micBtn.title = 'Listening — speak now, Fred will respond when you stop';
-      micStatus.textContent = '🎤 Listening — speak now...';
-      micStatus.className   = 'listening';
-      // Pause Fred if speaking so mic picks up visitor clearly
-      if (currentAudio) { currentAudio.pause(); currentAudio = null; }
-      if (speakingEl)   { speakingEl.classList.remove('active'); speakingEl = null; }
-    };
-
-    // Auto-submit when speech ends — no second tap needed
     recognition.onend = () => {
-      isListening = false;
-      micBtn.classList.remove('listening');
-      micBtn.title  = 'Click to speak';
-      micStatus.textContent = '';
-      micStatus.className   = '';
-      if (inputEl.value.trim()) {
+      // Only send if user is no longer holding (they released)
+      if (!isRecording && inputEl.value.trim()) {
         sendMessage();
       }
+      stopRecording();
     };
 
     recognition.onerror = (event) => {
-      isListening = false;
-      micBtn.classList.remove('listening');
-      micStatus.className = 'error';
+      console.warn('Speech error:', event.error);
+      stopRecording();
       if (event.error === 'not-allowed') {
-        micStatus.textContent = 'Microphone access denied — please allow access in your browser settings.';
-        micBtn.style.opacity  = '0.4';
-        micBtn.style.cursor   = 'not-allowed';
-      } else if (event.error === 'no-speech') {
-        micStatus.textContent = 'No speech detected — try again.';
-        setTimeout(() => { micStatus.textContent = ''; micStatus.className = ''; }, 3000);
-      } else {
-        micStatus.textContent = 'Microphone error — please try again.';
-        setTimeout(() => { micStatus.textContent = ''; micStatus.className = ''; }, 3000);
+        micHint.textContent = 'Microphone access denied — check browser settings.';
+        micBtn.classList.add('unsupported');
       }
     };
+
   } else {
-    // Browser doesn't support speech recognition — hide mic button
-    micBtn.style.display  = 'none';
-    micStatus.textContent = 'Voice input not supported in this browser. Please type your reply.';
+    // No speech support — hide mic, show note
+    micBtn.classList.add('unsupported');
+    micBtn.title = 'Voice input not supported in this browser';
+    micHint.textContent = 'Voice input not available — please type your reply.';
   }
 
-  function toggleMic() {
-    if (!recognition) return;
-    if (isListening) {
-      recognition.stop();
-    } else {
-      inputEl.value = '';
-      try {
-        recognition.start();
-      } catch(e) {
-        micStatus.textContent = 'Could not start microphone — please try again.';
-        micStatus.className   = 'error';
-        setTimeout(() => { micStatus.textContent = ''; micStatus.className = ''; }, 3000);
-      }
-    }
+  function startRecording() {
+    if (!recognition || isWaiting) return;
+    isRecording = true;
+    inputEl.value = '';
+    micBtn.classList.add('recording');
+    inputRow.classList.add('recording');
+    micHint.textContent = '🔴 Recording — release to send';
+    micHint.classList.add('listening');
+    // Pause Fred if speaking
+    if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+    if (speakingEl)   { speakingEl.classList.remove('active'); speakingEl = null; }
+    try { recognition.start(); } catch(e) { stopRecording(); }
   }
+
+  function stopRecording() {
+    isRecording = false;
+    micBtn.classList.remove('recording');
+    inputRow.classList.remove('recording');
+    micHint.textContent = 'Hold 🎤 to speak — release to send';
+    micHint.classList.remove('listening');
+    try { recognition.stop(); } catch(e) {}
+  }
+
+  // Mouse events (desktop)
+  micBtn.addEventListener('mousedown',  (e) => { e.preventDefault(); startRecording(); });
+  micBtn.addEventListener('mouseup',    (e) => { e.preventDefault(); stopRecording(); });
+  micBtn.addEventListener('mouseleave', (e) => { if (isRecording) stopRecording(); });
+
+  // Touch events (mobile)
+  micBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startRecording(); }, { passive: false });
+  micBtn.addEventListener('touchend',   (e) => { e.preventDefault(); stopRecording(); },  { passive: false });
 
   // ── Start ──────────────────────────────────────────────
   function startConversation() {
@@ -717,7 +705,7 @@
       const blob = await resp.blob();
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement('a');
-      a.href     = url;
+      a.href = url;
       a.download = `Shiftwork-Diagnostic-${new Date().toISOString().slice(0,10)}.pdf`;
       document.body.appendChild(a);
       a.click();
