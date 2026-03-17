@@ -24,10 +24,7 @@
     --shadow: 0 4px 24px rgba(26,39,68,0.10);
   }
 
-  html, body {
-    height: 100%;
-    overflow: hidden;
-  }
+  html, body { height: 100%; overflow: hidden; }
 
   body {
     font-family: 'Source Sans 3', sans-serif;
@@ -101,8 +98,7 @@
     padding: 14px 28px; display: flex;
     align-items: center; gap: 14px;
     box-shadow: 0 2px 12px rgba(26,39,68,0.18);
-    flex-shrink: 0;
-    z-index: 10;
+    flex-shrink: 0; z-index: 10;
   }
 
   .logo-mark {
@@ -142,20 +138,16 @@
 
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
 
-  /* ── Main layout — fills remaining height ─────────── */
+  /* ── Main layout ──────────────────────────────────── */
   .main-layout {
-    display: flex;
-    flex: 1;
-    min-height: 0;  /* critical: allows flex children to shrink below content size */
-    overflow: hidden;
+    display: flex; flex: 1; min-height: 0; overflow: hidden;
   }
 
   /* ── Sidebar ──────────────────────────────────────── */
   .sidebar {
     width: 260px; flex-shrink: 0; background: var(--white);
     border-right: 1px solid var(--border);
-    display: flex; flex-direction: column;
-    overflow-y: auto;
+    display: flex; flex-direction: column; overflow-y: auto;
   }
 
   .sidebar-img { width: 100%; height: 160px; object-fit: cover; display: block; }
@@ -199,33 +191,24 @@
 
   .sidebar-img-2 { width: 100%; height: 120px; object-fit: cover; display: block; margin-top: auto; }
 
-  /* ── Chat column — flex column, fills space ───────── */
+  /* ── Chat column ──────────────────────────────────── */
   .chat-area {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    min-height: 0;  /* critical */
-    overflow: hidden;
+    flex: 1; display: flex; flex-direction: column;
+    min-width: 0; min-height: 0; overflow: hidden;
   }
 
   .intro-card {
     background: var(--white); border-bottom: 1px solid var(--border);
     border-left: 4px solid var(--gold); padding: 12px 20px;
-    font-size: 13px; color: var(--gray); line-height: 1.6;
-    flex-shrink: 0;
+    font-size: 13px; color: var(--gray); line-height: 1.6; flex-shrink: 0;
   }
 
   .intro-card strong { color: var(--navy); font-weight: 600; }
 
-  /* Messages scrolls, input stays fixed at bottom */
   #messages {
-    flex: 1;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    padding: 20px 20px 10px;
+    flex: 1; overflow-y: auto;
+    display: flex; flex-direction: column;
+    gap: 14px; padding: 20px 20px 10px;
     scroll-behavior: smooth;
   }
 
@@ -288,20 +271,17 @@
 
   /* ── Input — always pinned to bottom ─────────────── */
   .input-area {
-    flex-shrink: 0;
-    padding: 10px 16px 14px;
-    background: var(--cream);
-    border-top: 1px solid var(--border);
-    z-index: 5;
+    flex-shrink: 0; padding: 10px 16px 14px;
+    background: var(--cream); border-top: 1px solid var(--border); z-index: 5;
   }
 
   .mic-hint {
-    text-align: center; font-size: 13px;
-    color: var(--navy); font-weight: 600;
-    margin-bottom: 8px; user-select: none;
+    text-align: center; font-size: 13px; color: var(--navy);
+    font-weight: 600; margin-bottom: 8px; user-select: none;
   }
 
-  .mic-hint.listening { color: #ef4444; }
+  .mic-hint.recording { color: #ef4444; }
+  .mic-hint.processing { color: var(--gold); }
 
   .input-row {
     display: flex; gap: 8px; background: var(--white);
@@ -310,8 +290,9 @@
     transition: border-color 0.2s;
   }
 
-  .input-row:focus-within { border-color: var(--gold); }
-  .input-row.recording    { border-color: #ef4444; }
+  .input-row:focus-within  { border-color: var(--gold); }
+  .input-row.recording     { border-color: #ef4444; }
+  .input-row.processing    { border-color: var(--gold); }
 
   #user-input {
     flex: 1; border: none; outline: none;
@@ -322,11 +303,11 @@
 
   #user-input::placeholder { color: #aaa; }
 
+  /* Mic button */
   #mic-btn {
-    width: 38px; height: 38px;
-    background: none; border: 1.5px solid var(--border);
-    border-radius: 50%; cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
+    width: 38px; height: 38px; background: none;
+    border: 1.5px solid var(--border); border-radius: 50%;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
     flex-shrink: 0; transition: all 0.15s; color: var(--gray);
     user-select: none; -webkit-user-select: none; touch-action: none;
   }
@@ -337,6 +318,10 @@
     background: #ef4444; border-color: #ef4444; color: white;
     box-shadow: 0 0 0 4px rgba(239,68,68,0.25);
     animation: mic-pulse 1s ease-in-out infinite;
+  }
+
+  #mic-btn.processing {
+    background: var(--gold); border-color: var(--gold); color: var(--navy);
   }
 
   #mic-btn.unsupported { opacity: 0.35; cursor: not-allowed; }
@@ -424,7 +409,6 @@
 
   .teams-link:hover { text-decoration: underline; }
 
-  /* ── Responsive ───────────────────────────────────── */
   @media (max-width: 680px) {
     .sidebar { display: none; }
     .bubble  { max-width: 90%; }
@@ -468,7 +452,6 @@
 <!-- ── Main layout ────────────────────────────────────── -->
 <div class="main-layout">
 
-  <!-- Sidebar -->
   <aside class="sidebar">
     <img class="sidebar-img"
       src="https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=520&q=80"
@@ -510,11 +493,10 @@
       alt="Manufacturing facility">
   </aside>
 
-  <!-- Chat -->
   <div class="chat-area">
     <div class="intro-card">
       <strong>Most shiftwork problems run deeper than they first appear.</strong>
-      Thomas will ask you a few targeted questions to identify the real issue.
+      Thomas will ask a few targeted questions to identify the real issue.
       Type your replies — or <strong>hold 🎤 to speak, release to send.</strong>
     </div>
 
@@ -579,130 +561,168 @@
 </div>
 
 <script>
-  const messagesEl  = document.getElementById('messages');
-  const inputEl     = document.getElementById('user-input');
-  const sendBtn     = document.getElementById('send-btn');
-  const micBtn      = document.getElementById('mic-btn');
-  const micHint     = document.getElementById('mic-hint');
-  const inputRow    = document.getElementById('input-row');
-  const typingEl    = document.getElementById('typing');
-  const typingRow   = document.getElementById('typing-row');
-  const muteBtn     = document.getElementById('mute-btn');
-  const startScr    = document.getElementById('start-screen');
-  const leadModal   = document.getElementById('lead-modal');
+  const messagesEl = document.getElementById('messages');
+  const inputEl    = document.getElementById('user-input');
+  const sendBtn    = document.getElementById('send-btn');
+  const micBtn     = document.getElementById('mic-btn');
+  const micHint    = document.getElementById('mic-hint');
+  const inputRow   = document.getElementById('input-row');
+  const typingEl   = document.getElementById('typing');
+  const typingRow  = document.getElementById('typing-row');
+  const muteBtn    = document.getElementById('mute-btn');
+  const startScr   = document.getElementById('start-screen');
+  const leadModal  = document.getElementById('lead-modal');
 
-  const SESSION_ID  = 'sess_' + Math.random().toString(36).substr(2, 9);
-  let isWaiting     = false;
-  let isMuted       = false;
-  let currentAudio  = null;
-  let speakingEl    = null;
-  let leadData      = null;
-  let isRecording   = false;
-  let activeRec     = null;
-  let pendingText   = '';
+  const SESSION_ID = 'sess_' + Math.random().toString(36).substr(2, 9);
+  let isWaiting    = false;
+  let isMuted      = false;
+  let currentAudio = null;
+  let speakingEl   = null;
+  let leadData     = null;
 
-  // ── Push-to-talk ───────────────────────────────────────
-  // Fix for delay on subsequent presses:
-  // 1. Build a fresh SpeechRecognition instance every press
-  // 2. Send pendingText immediately on mouseup/touchend
-  //    without waiting for onend to fire
-  // 3. onend only sends if something was missed
+  // ── MediaRecorder-based push-to-talk ───────────────────
+  // Replaces browser SpeechRecognition entirely.
+  // Records audio with MediaRecorder while button held,
+  // sends blob to /transcribe on release, gets text back fast.
 
-  const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
-  let micSupported = !!SpeechRecognitionAPI;
+  let mediaRecorder  = null;
+  let audioChunks    = [];
+  let micStream      = null;
+  let isRecording    = false;
+  let micPermGranted = false;
 
-  if (!micSupported) {
-    micBtn.classList.add('unsupported');
-    micBtn.title = 'Voice input not supported in this browser';
-    micHint.textContent = 'Voice input not available — please type.';
+  async function ensureMicPermission() {
+    if (micPermGranted) return true;
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micPermGranted = true;
+      return true;
+    } catch (e) {
+      micHint.textContent = 'Microphone access denied — check browser settings.';
+      micBtn.classList.add('unsupported');
+      return false;
+    }
   }
 
-  function buildRecognition() {
-    const r = new SpeechRecognitionAPI();
-    r.continuous     = false;
-    r.interimResults = true;
-    r.lang           = 'en-US';
+  async function startRecording() {
+    if (isWaiting || isRecording) return;
 
-    r.onresult = (event) => {
-      let t = '';
-      for (let i = 0; i < event.results.length; i++) {
-        t += event.results[i][0].transcript;
-      }
-      pendingText     = t.trim();
-      inputEl.value   = pendingText;
-    };
-
-    r.onend = () => {
-      // Fallback: if stopRecording already sent, this is a no-op
-      // If not (e.g. recognition timed out), send whatever we have
-      resetMicUI();
-    };
-
-    r.onerror = (event) => {
-      console.warn('Speech error:', event.error);
-      resetMicUI();
-      if (event.error === 'not-allowed') {
-        micHint.textContent = 'Microphone access denied — check browser settings.';
-        micSupported = false;
-        micBtn.classList.add('unsupported');
-      }
-    };
-
-    return r;
-  }
-
-  function resetMicUI() {
-    isRecording = false;
-    micBtn.classList.remove('recording');
-    inputRow.classList.remove('recording');
-    micHint.textContent = '🎤 Hold to speak \u00a0·\u00a0 Release to send';
-    micHint.classList.remove('listening');
-  }
-
-  function startRecording() {
-    if (!micSupported || isWaiting || isRecording) return;
+    const ok = await ensureMicPermission();
+    if (!ok) return;
 
     // Pause Thomas if speaking
     if (currentAudio) { currentAudio.pause(); currentAudio = null; }
     if (speakingEl)   { speakingEl.classList.remove('active'); speakingEl = null; }
 
-    pendingText   = '';
-    inputEl.value = '';
-    isRecording   = true;
+    audioChunks = [];
+    isRecording = true;
+
+    // Fresh stream each time for reliability
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch(e) {
+      micHint.textContent = 'Could not access microphone.';
+      isRecording = false;
+      return;
+    }
+
+    // Prefer webm/opus, fall back to whatever browser supports
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+      ? 'audio/webm;codecs=opus'
+      : MediaRecorder.isTypeSupported('audio/webm')
+        ? 'audio/webm'
+        : '';
+
+    mediaRecorder = mimeType
+      ? new MediaRecorder(micStream, { mimeType })
+      : new MediaRecorder(micStream);
+
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) audioChunks.push(e.data);
+    };
+
+    mediaRecorder.start(100); // collect chunks every 100ms
 
     micBtn.classList.add('recording');
     inputRow.classList.add('recording');
     micHint.textContent = '🔴 Recording — release to send';
-    micHint.classList.add('listening');
-
-    activeRec = buildRecognition();
-    try {
-      activeRec.start();
-    } catch(e) {
-      console.warn('Recognition start error:', e);
-      resetMicUI();
-    }
+    micHint.classList.add('recording');
   }
 
-  function stopRecording() {
-    if (!isRecording) return;
+  async function stopRecording() {
+    if (!isRecording || !mediaRecorder) return;
     isRecording = false;
 
-    // Stop recognition engine
-    if (activeRec) {
-      try { activeRec.stop(); } catch(e) {}
-      activeRec = null;
+    micBtn.classList.remove('recording');
+    micBtn.classList.add('processing');
+    inputRow.classList.remove('recording');
+    inputRow.classList.add('processing');
+    micHint.textContent = '⏳ Transcribing...';
+    micHint.classList.remove('recording');
+    micHint.classList.add('processing');
+
+    mediaRecorder.stop();
+
+    // Stop all tracks
+    if (micStream) {
+      micStream.getTracks().forEach(t => t.stop());
+      micStream = null;
     }
 
-    resetMicUI();
+    // Wait for final ondataavailable then process
+    mediaRecorder.onstop = async () => {
+      const mimeType = mediaRecorder.mimeType || 'audio/webm';
+      const blob = new Blob(audioChunks, { type: mimeType });
+      audioChunks = [];
 
-    // Send IMMEDIATELY — don't wait for onend
-    const text = pendingText || inputEl.value.trim();
-    pendingText = '';
-    if (text) {
-      inputEl.value = text;
-      sendMessage();
-    }
+      if (blob.size < 1000) {
+        // Too small — likely no speech captured
+        resetMicUI();
+        micHint.textContent = 'No audio captured — try again.';
+        setTimeout(() => resetMicUI(), 2000);
+        return;
+      }
+
+      try {
+        const formData = new FormData();
+        formData.append('audio', blob, 'audio.webm');
+
+        const resp = await fetch('/transcribe', {
+          method: 'POST',
+          body:   formData
+        });
+
+        const data = await resp.json();
+        resetMicUI();
+
+        if (data.text && data.text.trim()) {
+          inputEl.value = data.text.trim();
+          sendMessage();
+        } else {
+          micHint.textContent = 'Could not understand audio — please try again.';
+          setTimeout(() => resetMicUI(), 2500);
+        }
+      } catch (err) {
+        console.error('Transcription error:', err);
+        resetMicUI();
+        micHint.textContent = 'Transcription failed — please try again.';
+        setTimeout(() => resetMicUI(), 2500);
+      }
+    };
+  }
+
+  function resetMicUI() {
+    micBtn.classList.remove('recording', 'processing');
+    inputRow.classList.remove('recording', 'processing');
+    micHint.textContent = '🎤 Hold to speak \u00a0·\u00a0 Release to send';
+    micHint.classList.remove('recording', 'processing');
+  }
+
+  // Check MediaRecorder support
+  if (!window.MediaRecorder || !navigator.mediaDevices) {
+    micBtn.classList.add('unsupported');
+    micBtn.disabled = true;
+    micHint.textContent = 'Voice input not available in this browser — please type.';
   }
 
   // Mouse events
@@ -734,7 +754,7 @@
     }
   }
 
-  // ── Sidebar topics ─────────────────────────────────────
+  // ── Sidebar ────────────────────────────────────────────
   function injectTopic(text) {
     if (isWaiting) return;
     inputEl.value = text;
@@ -814,7 +834,9 @@
 
   // ── Bubbles ────────────────────────────────────────────
   function scrollBottom() {
-    messagesEl.scrollTop = messagesEl.scrollHeight;
+    requestAnimationFrame(() => {
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    });
   }
 
   function showTyping() {
@@ -847,8 +869,7 @@
     }
     row.appendChild(bub);
     messagesEl.insertBefore(row, typingRow);
-    // Use requestAnimationFrame to ensure DOM has painted before scrolling
-    requestAnimationFrame(() => scrollBottom());
+    scrollBottom();
     if (who === 'thomas' && audiob64) playAudio(audiob64, indicator);
   }
 
