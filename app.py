@@ -24,6 +24,11 @@
 #   2026-03-17 — Added /transcribe route using ElevenLabs STT
 #                (Scribe v1) to replace unreliable browser
 #                SpeechRecognition API
+#   2026-03-17 — Fixed /transcribe: detect actual browser MIME
+#                type before sending to ElevenLabs. Strips codec
+#                params (e.g. audio/webm;codecs=opus). Handles
+#                Chrome/Edge (webm), Firefox (ogg), Safari (mp4).
+#                Added print logging for debugging.
 #
 # ROUTES:
 #   GET  /              — Serves Thomas chat UI
@@ -330,6 +335,11 @@ def transcribe():
     Receive audio blob from frontend, send to ElevenLabs STT,
     return transcribed text. Replaces unreliable browser
     SpeechRecognition API.
+
+    Handles all browser audio formats:
+    - Chrome/Edge: audio/webm;codecs=opus  -> audio.webm
+    - Firefox:     audio/ogg;codecs=opus   -> audio.ogg
+    - Safari:      audio/mp4               -> audio.mp4
     """
     if not ELEVENLABS_API_KEY:
         return jsonify({"error": "STT not configured"}), 503
@@ -343,15 +353,31 @@ def transcribe():
     if not audio_data:
         return jsonify({"error": "Empty audio file"}), 400
 
+    # Detect MIME type and map to correct filename + content-type
+    # Must strip codec params before lookup:
+    # "audio/webm;codecs=opus" -> "audio/webm"
+    raw_mime  = audio_file.content_type or "audio/webm"
+    base_mime = raw_mime.split(";")[0].strip().lower()
+
+    mime_map = {
+        "audio/webm":  ("audio.webm", "audio/webm"),
+        "audio/ogg":   ("audio.ogg",  "audio/ogg"),
+        "audio/mp4":   ("audio.mp4",  "audio/mp4"),
+        "audio/mpeg":  ("audio.mp3",  "audio/mpeg"),
+        "audio/wav":   ("audio.wav",  "audio/wav"),
+        "audio/x-wav": ("audio.wav",  "audio/wav"),
+    }
+
+    filename, content_type = mime_map.get(base_mime, ("audio.webm", "audio/webm"))
+
+    print(f"STT: raw_mime={raw_mime} base_mime={base_mime} "
+          f"filename={filename} size={len(audio_data)}")
+
     try:
         headers = {"xi-api-key": ELEVENLABS_API_KEY}
-        files   = {
-            "file": ("audio.webm", audio_data, "audio/webm"),
-        }
-        data = {
-            "model_id": "scribe_v1",
-            "language_code": "en"
-        }
+        files   = {"file": (filename, audio_data, content_type)}
+        data    = {"model_id": "scribe_v1", "language_code": "en"}
+
         response = requests.post(
             ELEVENLABS_STT_URL,
             headers=headers,
@@ -359,13 +385,15 @@ def transcribe():
             data=data,
             timeout=20
         )
+
         if response.status_code == 200:
             result = response.json()
             text   = result.get("text", "").strip()
+            print(f"STT result: {repr(text)}")
             return jsonify({"text": text}), 200
-        else:
-            print(f"ElevenLabs STT error {response.status_code}: {response.text}")
-            return jsonify({"error": f"STT failed: {response.status_code}"}), 500
+
+        print(f"ElevenLabs STT error {response.status_code}: {response.text}")
+        return jsonify({"error": f"STT failed: {response.status_code}"}), 500
 
     except Exception as e:
         print(f"ElevenLabs STT exception: {e}")
