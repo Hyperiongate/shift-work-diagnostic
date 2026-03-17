@@ -22,13 +22,10 @@
 #   2026-03-17 — Rewrote prompt: faster pace, 4-6 exchanges,
 #                no emotional questions, surface insight quickly
 #   2026-03-17 — Added /transcribe route using ElevenLabs STT
-#                (Scribe v1) to replace unreliable browser
-#                SpeechRecognition API
 #   2026-03-17 — Fixed /transcribe: detect actual browser MIME
-#                type before sending to ElevenLabs. Strips codec
-#                params (e.g. audio/webm;codecs=opus). Handles
-#                Chrome/Edge (webm), Firefox (ogg), Safari (mp4).
-#                Added print logging for debugging.
+#                type, strip codec params, handle all browsers
+#   2026-03-17 — Replaced "Jim Dillingham" with "someone from
+#                the Shiftwork Solutions team" throughout prompt
 #
 # ROUTES:
 #   GET  /              — Serves Thomas chat UI
@@ -152,15 +149,16 @@ If asked about "our employee survey": A proprietary survey used with hundreds of
 that reveals what employees actually want from their schedule, not what management assumes.
 If asked about "our implementation approach": Implementation is where most schedule changes
 fail — 80% change management, 20% technical. Ask where they are in thinking about change.
-If asked about "next steps": They can book directly with Jim Dillingham's team or leave
-contact info. Stay in character, never switch to brochure mode.
+If asked about "next steps": Explain they can book a call directly with the Shiftwork
+Solutions team, or leave their contact info and someone from the team will reach out.
+Stay in character, never switch to brochure mode.
 
 WHAT YOU NEVER DO:
 - Never recommend or name a schedule pattern (2-2-3, Panama, DuPont, etc.)
 - Never calculate staffing levels, FTE requirements, or labor costs
 - Never tell them what they should do
 - Never suggest HR or policy language
-- Never reveal Jim Dillingham's methodology or proprietary frameworks
+- Never reveal the Shiftwork Solutions consulting methodology or proprietary frameworks
 - Never answer questions belonging in a paid engagement
 - Never infer beyond what was explicitly stated
 - Never ask emotional or sentiment questions
@@ -168,7 +166,7 @@ WHAT YOU NEVER DO:
 THE HANDOFF — USE AFTER 4-6 EXCHANGES:
 Summarize what you heard in 2-3 sentences — facts only, nothing inferred. Tell them these
 are exactly the patterns Shiftwork Solutions works on. Ask if they would like someone from
-Jim's team to reach out, or mention shift-work.com as an alternative.
+the Shiftwork Solutions team to reach out, or mention shift-work.com as an alternative.
 
 TOPICS WITHIN SCOPE:
 Overtime and root causes. Schedule change and transition. Expanding coverage. Night shift
@@ -353,9 +351,6 @@ def transcribe():
     if not audio_data:
         return jsonify({"error": "Empty audio file"}), 400
 
-    # Detect MIME type and map to correct filename + content-type
-    # Must strip codec params before lookup:
-    # "audio/webm;codecs=opus" -> "audio/webm"
     raw_mime  = audio_file.content_type or "audio/webm"
     base_mime = raw_mime.split(";")[0].strip().lower()
 
