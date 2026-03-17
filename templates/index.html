@@ -32,10 +32,9 @@
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    align-items: center;
   }
 
-  /* ── Start screen ───────────────────────────────────────── */
+  /* ── Start screen ─────────────────────────────────── */
   #start-screen {
     position: fixed;
     inset: 0;
@@ -44,46 +43,51 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 32px;
-    z-index: 100;
+    gap: 28px;
+    z-index: 200;
     transition: opacity 0.5s ease;
   }
 
-  #start-screen.hidden {
-    opacity: 0;
-    pointer-events: none;
-  }
+  #start-screen.hidden { opacity: 0; pointer-events: none; }
 
   .start-logo {
-    width: 72px;
-    height: 72px;
+    width: 72px; height: 72px;
     background: var(--gold);
     border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: flex; align-items: center; justify-content: center;
     font-family: 'Lora', serif;
-    font-size: 34px;
-    font-weight: 600;
+    font-size: 34px; font-weight: 600;
     color: var(--navy);
   }
 
   .start-heading {
     font-family: 'Lora', serif;
-    font-size: 26px;
-    font-weight: 600;
+    font-size: 26px; font-weight: 600;
     color: var(--white);
     text-align: center;
-    line-height: 1.3;
   }
 
   .start-sub {
     font-size: 15px;
     color: rgba(255,255,255,0.60);
     text-align: center;
-    max-width: 360px;
-    line-height: 1.6;
+    max-width: 380px;
+    line-height: 1.65;
   }
+
+  .speaker-notice {
+    background: rgba(200,149,42,0.15);
+    border: 1px solid rgba(200,149,42,0.40);
+    border-radius: 10px;
+    padding: 12px 20px;
+    font-size: 13px;
+    color: var(--gold-lt);
+    text-align: center;
+    max-width: 380px;
+    line-height: 1.5;
+  }
+
+  .speaker-notice strong { color: var(--gold-lt); }
 
   #start-btn {
     background: var(--gold);
@@ -91,9 +95,8 @@
     border: none;
     border-radius: 30px;
     font-family: 'Source Sans 3', sans-serif;
-    font-size: 16px;
-    font-weight: 600;
-    padding: 16px 40px;
+    font-size: 16px; font-weight: 600;
+    padding: 16px 44px;
     cursor: pointer;
     transition: background 0.2s, transform 0.1s;
     letter-spacing: 0.02em;
@@ -104,55 +107,47 @@
 
   .start-footer {
     font-size: 12px;
-    color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.30);
     text-align: center;
   }
 
-  /* ── Header ─────────────────────────────────────────────── */
+  /* ── Header ───────────────────────────────────────── */
   header {
     width: 100%;
     background: var(--navy);
-    padding: 18px 32px;
+    padding: 14px 28px;
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 14px;
     box-shadow: 0 2px 12px rgba(26,39,68,0.18);
+    flex-shrink: 0;
   }
 
   .logo-mark {
-    width: 42px;
-    height: 42px;
+    width: 38px; height: 38px;
     background: var(--gold);
     border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: flex; align-items: center; justify-content: center;
     font-family: 'Lora', serif;
-    font-size: 20px;
-    font-weight: 600;
-    color: var(--navy);
-    flex-shrink: 0;
+    font-size: 18px; font-weight: 600;
+    color: var(--navy); flex-shrink: 0;
   }
 
   .header-text h1 {
     font-family: 'Lora', serif;
-    font-size: 18px;
-    font-weight: 600;
+    font-size: 17px; font-weight: 600;
     color: var(--white);
-    letter-spacing: 0.02em;
   }
 
   .header-text p {
-    font-size: 13px;
-    color: rgba(255,255,255,0.60);
-    margin-top: 2px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.55);
+    margin-top: 1px;
   }
 
   .header-right {
     margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: 14px;
+    display: flex; align-items: center; gap: 12px;
   }
 
   .mute-btn {
@@ -169,16 +164,10 @@
   }
 
   .mute-btn:hover { border-color: rgba(255,255,255,0.70); color: var(--white); }
-
-  .mute-btn.muted {
-    background: rgba(255,255,255,0.12);
-    border-color: var(--gold);
-    color: var(--gold-lt);
-  }
+  .mute-btn.muted { background: rgba(255,255,255,0.12); border-color: var(--gold); color: var(--gold-lt); }
 
   .status-dot {
-    width: 8px;
-    height: 8px;
+    width: 8px; height: 8px;
     background: #4ade80;
     border-radius: 50%;
     box-shadow: 0 0 6px #4ade80;
@@ -186,31 +175,127 @@
     flex-shrink: 0;
   }
 
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50%       { opacity: 0.5; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+  /* ── Main layout ──────────────────────────────────── */
+  .main-layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    height: calc(100vh - 58px);
   }
 
-  /* ── Chat ───────────────────────────────────────────────── */
-  .chat-wrapper {
+  /* ── Sidebar ──────────────────────────────────────── */
+  .sidebar {
+    width: 260px;
+    flex-shrink: 0;
+    background: var(--white);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .sidebar-img {
     width: 100%;
-    max-width: 720px;
+    height: 160px;
+    object-fit: cover;
+    display: block;
+  }
+
+  .sidebar-section {
+    padding: 18px 16px 8px;
+  }
+
+  .sidebar-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--gray);
+    margin-bottom: 10px;
+  }
+
+  .topic-btn {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: var(--cream);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 13px;
+    color: var(--navy);
+    cursor: pointer;
+    margin-bottom: 8px;
+    transition: background 0.15s, border-color 0.15s;
+    line-height: 1.4;
+  }
+
+  .topic-btn:hover { background: var(--fred-bg); border-color: var(--gold); }
+  .topic-btn:active { transform: scale(0.98); }
+
+  .sidebar-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 12px 16px;
+  }
+
+  .action-btn {
+    display: block;
+    width: calc(100% - 32px);
+    margin: 0 16px 10px;
+    text-align: center;
+    background: var(--navy);
+    color: var(--white);
+    border: none;
+    border-radius: 10px;
+    padding: 11px 14px;
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+    text-decoration: none;
+  }
+
+  .action-btn:hover { background: var(--gold); color: var(--navy); }
+
+  .action-btn.outline {
+    background: none;
+    border: 1.5px solid var(--navy);
+    color: var(--navy);
+  }
+
+  .action-btn.outline:hover { background: var(--navy); color: var(--white); }
+
+  .sidebar-img-2 {
+    width: 100%;
+    height: 120px;
+    object-fit: cover;
+    display: block;
+    margin-top: auto;
+  }
+
+  /* ── Chat area ────────────────────────────────────── */
+  .chat-area {
     flex: 1;
     display: flex;
     flex-direction: column;
-    padding: 24px 16px 0;
+    overflow: hidden;
+    min-width: 0;
   }
 
   .intro-card {
     background: var(--white);
-    border: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
     border-left: 4px solid var(--gold);
-    border-radius: 12px;
-    padding: 18px 22px;
-    margin-bottom: 20px;
-    font-size: 14px;
+    padding: 12px 20px;
+    font-size: 13px;
     color: var(--gray);
-    line-height: 1.6;
+    line-height: 1.5;
+    flex-shrink: 0;
   }
 
   .intro-card strong { color: var(--navy); font-weight: 600; }
@@ -221,9 +306,7 @@
     display: flex;
     flex-direction: column;
     gap: 14px;
-    padding-bottom: 16px;
-    min-height: 300px;
-    max-height: 56vh;
+    padding: 20px 20px 10px;
   }
 
   .bubble-row { display: flex; align-items: flex-end; gap: 10px; }
@@ -231,25 +314,20 @@
   .bubble-row.user { justify-content: flex-end; }
 
   .avatar-circle {
-    width: 34px;
-    height: 34px;
+    width: 32px; height: 32px;
     background: var(--navy);
     border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: flex; align-items: center; justify-content: center;
     font-family: 'Lora', serif;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--gold);
-    flex-shrink: 0;
+    font-size: 13px; font-weight: 600;
+    color: var(--gold); flex-shrink: 0;
   }
 
   .bubble {
-    max-width: 78%;
-    padding: 13px 17px;
+    max-width: 76%;
+    padding: 12px 16px;
     border-radius: var(--radius);
-    font-size: 15px;
+    font-size: 14px;
     line-height: 1.65;
     box-shadow: var(--shadow);
   }
@@ -292,15 +370,15 @@
   .speaking-indicator span:nth-child(5) { height: 6px;  animation-delay: 0.4s; }
 
   @keyframes soundwave {
-    0%, 100% { transform: scaleY(0.5); opacity: 0.5; }
-    50%       { transform: scaleY(1.0); opacity: 1.0; }
+    0%,100%{transform:scaleY(0.5);opacity:0.5}
+    50%{transform:scaleY(1.0);opacity:1.0}
   }
 
   .typing-indicator {
     display: none;
     align-items: center;
     gap: 5px;
-    padding: 14px 18px;
+    padding: 12px 16px;
     background: var(--fred-bg);
     border-radius: var(--radius);
     border-bottom-left-radius: 4px;
@@ -309,8 +387,7 @@
   }
 
   .typing-indicator span {
-    width: 7px;
-    height: 7px;
+    width: 7px; height: 7px;
     background: var(--navy);
     border-radius: 50%;
     opacity: 0.4;
@@ -321,18 +398,16 @@
   .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
 
   @keyframes bounce {
-    0%, 80%, 100% { transform: translateY(0);   opacity: 0.4; }
-    40%           { transform: translateY(-6px); opacity: 1;   }
+    0%,80%,100%{transform:translateY(0);opacity:0.4}
+    40%{transform:translateY(-6px);opacity:1}
   }
 
-  /* ── Input ──────────────────────────────────────────────── */
+  /* ── Input ────────────────────────────────────────── */
   .input-area {
-    width: 100%;
-    max-width: 720px;
-    padding: 16px 16px 28px;
+    padding: 12px 16px 16px;
     background: var(--cream);
-    position: sticky;
-    bottom: 0;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
   }
 
   .input-row {
@@ -341,7 +416,7 @@
     background: var(--white);
     border: 1.5px solid var(--border);
     border-radius: 30px;
-    padding: 8px 8px 8px 20px;
+    padding: 8px 8px 8px 18px;
     box-shadow: var(--shadow);
     transition: border-color 0.2s;
   }
@@ -350,67 +425,158 @@
 
   #user-input {
     flex: 1;
-    border: none;
-    outline: none;
+    border: none; outline: none;
     font-family: 'Source Sans 3', sans-serif;
-    font-size: 15px;
-    color: var(--navy);
+    font-size: 14px; color: var(--navy);
     background: transparent;
-    resize: none;
-    height: 24px;
-    max-height: 120px;
-    overflow-y: auto;
-    line-height: 1.5;
+    resize: none; height: 24px; max-height: 100px;
+    overflow-y: auto; line-height: 1.5;
   }
 
   #user-input::placeholder { color: #aaa; }
 
   #send-btn {
-    width: 42px;
-    height: 42px;
+    width: 38px; height: 38px;
     background: var(--navy);
-    border: none;
-    border-radius: 50%;
+    border: none; border-radius: 50%;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
     transition: background 0.2s, transform 0.1s;
   }
 
   #send-btn:hover  { background: var(--gold); }
   #send-btn:active { transform: scale(0.94); }
-  #send-btn svg    { width: 18px; height: 18px; fill: white; }
+  #send-btn svg    { width: 16px; height: 16px; fill: white; }
 
   .disclaimer {
     text-align: center;
-    font-size: 12px;
+    font-size: 11px;
     color: var(--gray);
-    margin-top: 10px;
-    opacity: 0.8;
+    margin-top: 8px;
+    opacity: 0.7;
   }
 
-  @media (max-width: 500px) {
-    .bubble   { max-width: 90%; font-size: 14px; }
-    header    { padding: 14px 18px; }
-    .mute-btn { font-size: 11px; padding: 4px 10px; }
-    .start-heading { font-size: 22px; }
-    #start-btn     { font-size: 15px; padding: 14px 32px; }
+  /* ── Lead capture modal ───────────────────────────── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(26,39,68,0.70);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 150;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s;
+  }
+
+  .modal-overlay.active { opacity: 1; pointer-events: all; }
+
+  .modal {
+    background: var(--white);
+    border-radius: 16px;
+    padding: 32px;
+    width: 440px;
+    max-width: 94vw;
+    box-shadow: 0 20px 60px rgba(26,39,68,0.25);
+    transform: translateY(16px);
+    transition: transform 0.3s;
+  }
+
+  .modal-overlay.active .modal { transform: translateY(0); }
+
+  .modal h2 {
+    font-family: 'Lora', serif;
+    font-size: 20px; font-weight: 600;
+    color: var(--navy);
+    margin-bottom: 6px;
+  }
+
+  .modal p {
+    font-size: 14px; color: var(--gray);
+    line-height: 1.5; margin-bottom: 20px;
+  }
+
+  .form-group { margin-bottom: 14px; }
+
+  .form-group label {
+    display: block;
+    font-size: 12px; font-weight: 600;
+    color: var(--navy);
+    margin-bottom: 5px;
+    letter-spacing: 0.03em;
+  }
+
+  .form-group input {
+    width: 100%;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 14px; color: var(--navy);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .form-group input:focus { border-color: var(--gold); }
+
+  .modal-actions {
+    display: flex; gap: 10px;
+    margin-top: 20px;
+  }
+
+  .btn-primary {
+    flex: 1;
+    background: var(--navy); color: var(--white);
+    border: none; border-radius: 10px;
+    padding: 12px; font-family: 'Source Sans 3', sans-serif;
+    font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: background 0.2s;
+  }
+
+  .btn-primary:hover { background: var(--gold); color: var(--navy); }
+
+  .btn-secondary {
+    background: none;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 18px;
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 14px; color: var(--gray);
+    cursor: pointer; transition: border-color 0.2s;
+  }
+
+  .btn-secondary:hover { border-color: var(--navy); color: var(--navy); }
+
+  .teams-link {
+    display: block;
+    text-align: center;
+    margin-top: 14px;
+    font-size: 13px;
+    color: var(--gold);
+    text-decoration: none;
+  }
+
+  .teams-link:hover { text-decoration: underline; }
+
+  /* ── Responsive ───────────────────────────────────── */
+  @media (max-width: 680px) {
+    .sidebar { display: none; }
+    .bubble  { max-width: 90%; }
   }
 </style>
 </head>
 <body>
 
-<!-- ── Start screen ─────────────────────────────────────── -->
+<!-- ── Start screen ──────────────────────────────────── -->
 <div id="start-screen">
   <div class="start-logo">F</div>
-  <div>
-    <div class="start-heading">Talk to Fred</div>
-  </div>
+  <div class="start-heading">Talk to Fred</div>
   <div class="start-sub">
-    Fred will ask you a few questions about your shift operations and help you get clear on
-    what's actually going on — before you talk to anyone at Shiftwork Solutions.
+    Fred will ask you a few questions about your shift operations and help
+    you get clear on what's actually going on — before you talk to anyone
+    at Shiftwork Solutions.
+  </div>
+  <div class="speaker-notice">
+    🔊 <strong>Turn on your speakers.</strong> Fred will speak his responses.
+    Make sure your volume is up before you start.
   </div>
   <button id="start-btn" onclick="startConversation()">
     Click here and let's get started
@@ -418,7 +584,7 @@
   <div class="start-footer">No sales pitch. No obligation. Just an honest conversation.</div>
 </div>
 
-<!-- ── Header ───────────────────────────────────────────── -->
+<!-- ── Header ────────────────────────────────────────── -->
 <header>
   <div class="logo-mark">F</div>
   <div class="header-text">
@@ -431,34 +597,111 @@
   </div>
 </header>
 
-<!-- ── Chat ─────────────────────────────────────────────── -->
-<div class="chat-wrapper">
-  <div class="intro-card">
-    <strong>Not a sales call.</strong> Fred will ask you questions about your shift operations and help you
-    get clearer on what you're actually dealing with. No solutions, no pitch — just an honest diagnostic conversation.
-  </div>
+<!-- ── Main layout ────────────────────────────────────── -->
+<div class="main-layout">
 
-  <div id="messages">
-    <div class="bubble-row fred" id="typing-row">
-      <div class="avatar-circle">F</div>
-      <div class="typing-indicator" id="typing">
-        <span></span><span></span><span></span>
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <img class="sidebar-img"
+      src="https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=520&q=80"
+      alt="Industrial operations">
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Ask Fred About</div>
+      <button class="topic-btn" onclick="injectTopic('Tell me about your process')">
+        🔄 Your consulting process
+      </button>
+      <button class="topic-btn" onclick="injectTopic('Tell me about your employee survey')">
+        📋 Your employee survey
+      </button>
+      <button class="topic-btn" onclick="injectTopic('Tell me about implementation')">
+        🏗️ Implementation & change
+      </button>
+      <button class="topic-btn" onclick="injectTopic('What are the next steps?')">
+        ➡️ Next steps
+      </button>
+    </div>
+
+    <div class="sidebar-divider"></div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Actions</div>
+    </div>
+
+    <button class="action-btn" onclick="showLeadCapture()">
+      📅 Set up a conversation
+    </button>
+    <button class="action-btn outline" onclick="downloadTranscript()">
+      ⬇️ Download transcript
+    </button>
+
+    <div class="sidebar-divider"></div>
+
+    <img class="sidebar-img-2"
+      src="https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?w=520&q=80"
+      alt="Manufacturing facility">
+  </aside>
+
+  <!-- Chat -->
+  <div class="chat-area">
+    <div class="intro-card">
+      <strong>Not a sales call.</strong> Fred will ask you questions about your shift operations
+      and help you get clearer on what you're actually dealing with.
+      No solutions, no pitch — just an honest diagnostic conversation.
+    </div>
+
+    <div id="messages">
+      <div class="bubble-row fred" id="typing-row">
+        <div class="avatar-circle">F</div>
+        <div class="typing-indicator" id="typing">
+          <span></span><span></span><span></span>
+        </div>
       </div>
+    </div>
+
+    <div class="input-area">
+      <div class="input-row">
+        <textarea id="user-input" placeholder="Type your reply..." rows="1"></textarea>
+        <button id="send-btn" aria-label="Send">
+          <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg>
+        </button>
+      </div>
+      <p class="disclaimer">Your conversation is private and not stored beyond this session.</p>
     </div>
   </div>
 </div>
 
-<!-- ── Input ────────────────────────────────────────────── -->
-<div class="input-area">
-  <div class="input-row">
-    <textarea id="user-input" placeholder="Type your reply..." rows="1"></textarea>
-    <button id="send-btn" aria-label="Send">
-      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/>
-      </svg>
-    </button>
+<!-- ── Lead capture modal ─────────────────────────────── -->
+<div class="modal-overlay" id="lead-modal">
+  <div class="modal">
+    <h2>Let's set up a conversation</h2>
+    <p>Leave your details and someone from Jim Dillingham's team will reach out within one business day. Or book directly using the link below.</p>
+    <div class="form-group">
+      <label>Your name</label>
+      <input type="text" id="lead-name" placeholder="Jane Smith">
+    </div>
+    <div class="form-group">
+      <label>Work email</label>
+      <input type="email" id="lead-email" placeholder="jane@company.com">
+    </div>
+    <div class="form-group">
+      <label>Phone (optional)</label>
+      <input type="tel" id="lead-phone" placeholder="(555) 000-0000">
+    </div>
+    <div class="form-group">
+      <label>Company</label>
+      <input type="text" id="lead-company" placeholder="Your company name">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="submitLead()">Send my details</button>
+      <button class="btn-secondary" onclick="closeLeadCapture()">Cancel</button>
+    </div>
+    <a class="teams-link"
+       href="https://outlook.office365.com/book/ShiftworkSolutionsLLC2@shift-work.com/?ismsaljsauthenabled=true"
+       target="_blank">
+      Or book a time directly →
+    </a>
   </div>
-  <p class="disclaimer">Your conversation is private and not stored beyond this session.</p>
 </div>
 
 <script>
@@ -469,24 +712,24 @@
   const typingRow  = document.getElementById('typing-row');
   const muteBtn    = document.getElementById('mute-btn');
   const startScr   = document.getElementById('start-screen');
+  const leadModal  = document.getElementById('lead-modal');
 
   const SESSION_ID = 'sess_' + Math.random().toString(36).substr(2, 9);
   let isWaiting    = false;
   let isMuted      = false;
   let currentAudio = null;
   let speakingEl   = null;
+  let leadData     = null;
 
-  // ── Start screen ──────────────────────────────────────────
+  // ── Start ──────────────────────────────────────────────
   function startConversation() {
-    // Fade out start screen — user interaction has now occurred,
-    // so browser autoplay policy is satisfied for this session.
     startScr.classList.add('hidden');
     setTimeout(() => { startScr.style.display = 'none'; }, 500);
     loadOpening();
     inputEl.focus();
   }
 
-  // ── Mute toggle ───────────────────────────────────────────
+  // ── Mute ───────────────────────────────────────────────
   function toggleMute() {
     isMuted = !isMuted;
     muteBtn.textContent = isMuted ? '🔇 Sound off' : '🔊 Sound on';
@@ -498,22 +741,75 @@
     }
   }
 
-  // ── Helpers ───────────────────────────────────────────────
-  function scrollBottom() {
-    messagesEl.scrollTop = messagesEl.scrollHeight;
+  // ── Sidebar topic injection ────────────────────────────
+  function injectTopic(text) {
+    if (isWaiting) return;
+    inputEl.value = text;
+    sendMessage();
   }
 
-  function showTyping() {
-    typingEl.style.display  = 'flex';
-    typingRow.style.display = 'flex';
-    scrollBottom();
+  // ── Lead capture ───────────────────────────────────────
+  function showLeadCapture() {
+    leadModal.classList.add('active');
   }
 
-  function hideTyping() {
-    typingEl.style.display  = 'none';
-    typingRow.style.display = 'none';
+  function closeLeadCapture() {
+    leadModal.classList.remove('active');
   }
 
+  async function submitLead() {
+    const name    = document.getElementById('lead-name').value.trim();
+    const email   = document.getElementById('lead-email').value.trim();
+    const phone   = document.getElementById('lead-phone').value.trim();
+    const company = document.getElementById('lead-company').value.trim();
+
+    if (!name || !email) {
+      alert('Please enter your name and email.');
+      return;
+    }
+
+    leadData = { Name: name, Email: email, Phone: phone, Company: company };
+    closeLeadCapture();
+
+    addBubble(
+      `Thanks ${name} — someone from Jim's team will be in touch at ${email} within one business day.`,
+      'fred', null
+    );
+  }
+
+  // ── Transcript download ────────────────────────────────
+  async function downloadTranscript() {
+    try {
+      const resp = await fetch('/transcript', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          session_id: SESSION_ID,
+          lead_info:  leadData || null
+        })
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json();
+        alert('Could not generate transcript: ' + (err.error || 'Unknown error'));
+        return;
+      }
+
+      const blob = await resp.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `Shiftwork-Diagnostic-${new Date().toISOString().slice(0,10)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('Transcript download failed. Please try again.');
+    }
+  }
+
+  // ── Audio ──────────────────────────────────────────────
   function playAudio(b64, indicator) {
     if (isMuted || !b64) return;
     try {
@@ -529,7 +825,6 @@
 
       currentAudio = audio;
       speakingEl   = indicator;
-
       if (indicator) indicator.classList.add('active');
 
       audio.play().catch(err => {
@@ -548,19 +843,35 @@
     }
   }
 
+  // ── Bubbles ────────────────────────────────────────────
+  function scrollBottom() {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function showTyping() {
+    typingEl.style.display  = 'flex';
+    typingRow.style.display = 'flex';
+    scrollBottom();
+  }
+
+  function hideTyping() {
+    typingEl.style.display  = 'none';
+    typingRow.style.display = 'none';
+  }
+
   function addBubble(text, who, audiob64) {
     const row = document.createElement('div');
     row.className = 'bubble-row ' + who;
 
     if (who === 'fred') {
       const av = document.createElement('div');
-      av.className = 'avatar-circle';
+      av.className   = 'avatar-circle';
       av.textContent = 'F';
       row.appendChild(av);
     }
 
     const bub = document.createElement('div');
-    bub.className = 'bubble';
+    bub.className   = 'bubble';
     bub.textContent = text;
 
     let indicator = null;
@@ -575,12 +886,10 @@
     messagesEl.insertBefore(row, typingRow);
     scrollBottom();
 
-    if (who === 'fred' && audiob64) {
-      playAudio(audiob64, indicator);
-    }
+    if (who === 'fred' && audiob64) playAudio(audiob64, indicator);
   }
 
-  // ── Send message ──────────────────────────────────────────
+  // ── Send message ───────────────────────────────────────
   async function sendMessage() {
     const text = inputEl.value.trim();
     if (!text || isWaiting) return;
@@ -599,10 +908,8 @@
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ message: text, session_id: SESSION_ID })
       });
-
       const data = await resp.json();
       hideTyping();
-
       if (data.reply) {
         addBubble(data.reply, 'fred', data.audio || null);
       } else {
@@ -618,9 +925,7 @@
     inputEl.focus();
   }
 
-  // ── Opening message ───────────────────────────────────────
-  // Called only after user clicks Start — browser autoplay
-  // is unlocked because a user gesture has already occurred.
+  // ── Opening ────────────────────────────────────────────
   async function loadOpening() {
     showTyping();
     try {
@@ -638,7 +943,12 @@
     }
   }
 
-  // ── Event listeners ───────────────────────────────────────
+  // ── Close modal on overlay click ───────────────────────
+  leadModal.addEventListener('click', e => {
+    if (e.target === leadModal) closeLeadCapture();
+  });
+
+  // ── Event listeners ────────────────────────────────────
   sendBtn.addEventListener('click', sendMessage);
 
   inputEl.addEventListener('keydown', e => {
@@ -650,7 +960,7 @@
 
   inputEl.addEventListener('input', () => {
     inputEl.style.height = 'auto';
-    inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + 'px';
+    inputEl.style.height = Math.min(inputEl.scrollHeight, 100) + 'px';
   });
 </script>
 
