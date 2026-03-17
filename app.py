@@ -10,30 +10,25 @@
 #   underneath their stated problem — before handing off to
 #   Shiftwork Solutions.
 #
-# DESIGN PRINCIPLE:
-#   Thomas asks questions, not answers them. He reveals complexity
-#   without solving it and hands off at the right moment.
-#
 # CHANGE LOG:
 #   2026-03-15 — Initial build
-#   2026-03-15 — Rewrote system prompt from scripted examples
-#                to principles-based guidance so Claude responds
-#                authentically rather than parroting templates.
-#   2026-03-16 — Added opening framing and periodic check-ins.
-#   2026-03-16 — Phase 2: ElevenLabs TTS, auto-play voice.
-#   2026-03-16 — Phase 3 features: PDF transcript, lead capture,
-#                sidebar topic awareness, Teams booking link.
-#   2026-03-16 — Tightened system prompt: Thomas must never infer,
-#                assume, or extrapolate beyond what visitor said.
-#   2026-03-17 — Renamed Fred to Thomas. Updated voice ID.
-#   2026-03-17 — Rewrote system prompt to move faster: gather
-#                key facts, surface insight, hand off. No
-#                open-ended emotional questions. 4-6 exchanges
-#                then summarize and transition.
+#   2026-03-15 — Rewrote system prompt to principles-based guidance
+#   2026-03-16 — Added opening framing and periodic check-ins
+#   2026-03-16 — Phase 2: ElevenLabs TTS, auto-play voice
+#   2026-03-16 — Phase 3: PDF transcript, lead capture, sidebar,
+#                Teams booking link
+#   2026-03-16 — Tightened system prompt: no inference/assumption
+#   2026-03-17 — Renamed to Thomas, updated voice ID
+#   2026-03-17 — Rewrote prompt: faster pace, 4-6 exchanges,
+#                no emotional questions, surface insight quickly
+#   2026-03-17 — Added /transcribe route using ElevenLabs STT
+#                (Scribe v1) to replace unreliable browser
+#                SpeechRecognition API
 #
 # ROUTES:
 #   GET  /              — Serves Thomas chat UI
 #   POST /chat          — Thomas response + audio
+#   POST /transcribe    — Audio blob -> text via ElevenLabs STT
 #   POST /transcript    — Download PDF transcript
 #   GET  /health        — Render health check
 #
@@ -66,7 +61,8 @@ anthropic_client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY
 
 ELEVENLABS_API_KEY  = os.environ.get("ELEVENLABS_API_KEY")
 ELEVENLABS_VOICE_ID = "L0Dsvb3SLTyegXwtm47J"
-ELEVENLABS_URL      = f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}"
+ELEVENLABS_TTS_URL  = f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}"
+ELEVENLABS_STT_URL  = "https://api.elevenlabs.io/v1/speech-to-text"
 
 TEAMS_BOOKING_LINK  = "https://outlook.office365.com/book/ShiftworkSolutionsLLC2@shift-work.com/?ismsaljsauthenabled=true"
 
@@ -183,6 +179,7 @@ conversation_histories = {}
 
 
 def generate_speech(text):
+    """Call ElevenLabs TTS, return base64 MP3. Returns None on failure."""
     if not ELEVENLABS_API_KEY:
         return None
     try:
@@ -201,25 +198,26 @@ def generate_speech(text):
                 "use_speaker_boost": True
             }
         }
-        response = requests.post(ELEVENLABS_URL, headers=headers,
+        response = requests.post(ELEVENLABS_TTS_URL, headers=headers,
                                  json=payload, timeout=15)
         if response.status_code == 200:
             return base64.b64encode(response.content).decode("utf-8")
-        print(f"ElevenLabs error {response.status_code}: {response.text}")
+        print(f"ElevenLabs TTS error {response.status_code}: {response.text}")
         return None
     except Exception as e:
-        print(f"ElevenLabs exception: {e}")
+        print(f"ElevenLabs TTS exception: {e}")
         return None
 
 
 def generate_transcript_pdf(session_id, messages, lead_info=None):
+    """Generate branded PDF transcript. Returns BytesIO buffer."""
     buffer = io.BytesIO()
     c = pdf_canvas.Canvas(buffer, pagesize=letter)
     width, height = letter
-    navy  = HexColor("#1a2744")
-    gold  = HexColor("#c8952a")
-    gray  = HexColor("#6b7280")
-    dark  = HexColor("#1f2937")
+    navy   = HexColor("#1a2744")
+    gold   = HexColor("#c8952a")
+    gray   = HexColor("#6b7280")
+    dark   = HexColor("#1f2937")
     margin = inch
 
     def check_page(y, needed=1.5):
@@ -324,6 +322,54 @@ def health():
 @app.route("/")
 def index():
     return render_template_string(open("templates/index.html").read())
+
+
+@app.route("/transcribe", methods=["POST"])
+def transcribe():
+    """
+    Receive audio blob from frontend, send to ElevenLabs STT,
+    return transcribed text. Replaces unreliable browser
+    SpeechRecognition API.
+    """
+    if not ELEVENLABS_API_KEY:
+        return jsonify({"error": "STT not configured"}), 503
+
+    if "audio" not in request.files:
+        return jsonify({"error": "No audio file provided"}), 400
+
+    audio_file = request.files["audio"]
+    audio_data = audio_file.read()
+
+    if not audio_data:
+        return jsonify({"error": "Empty audio file"}), 400
+
+    try:
+        headers = {"xi-api-key": ELEVENLABS_API_KEY}
+        files   = {
+            "file": ("audio.webm", audio_data, "audio/webm"),
+        }
+        data = {
+            "model_id": "scribe_v1",
+            "language_code": "en"
+        }
+        response = requests.post(
+            ELEVENLABS_STT_URL,
+            headers=headers,
+            files=files,
+            data=data,
+            timeout=20
+        )
+        if response.status_code == 200:
+            result = response.json()
+            text   = result.get("text", "").strip()
+            return jsonify({"text": text}), 200
+        else:
+            print(f"ElevenLabs STT error {response.status_code}: {response.text}")
+            return jsonify({"error": f"STT failed: {response.status_code}"}), 500
+
+    except Exception as e:
+        print(f"ElevenLabs STT exception: {e}")
+        return jsonify({"error": f"STT exception: {str(e)}"}), 500
 
 
 @app.route("/chat", methods=["POST"])
