@@ -17,11 +17,16 @@
     --white:  #ffffff;
     --gray:   #6b7280;
     --border: #ddd8ce;
-    --fred-bg:#eef2f8;
+    --thomas-bg:#eef2f8;
     --user-bg:#1a2744;
     --user-tx:#ffffff;
     --radius: 18px;
     --shadow: 0 4px 24px rgba(26,39,68,0.10);
+  }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
   }
 
   body {
@@ -29,7 +34,6 @@
     font-weight: 400;
     background: var(--cream);
     color: var(--navy);
-    min-height: 100vh;
     display: flex;
     flex-direction: column;
   }
@@ -96,7 +100,9 @@
     width: 100%; background: var(--navy);
     padding: 14px 28px; display: flex;
     align-items: center; gap: 14px;
-    box-shadow: 0 2px 12px rgba(26,39,68,0.18); flex-shrink: 0;
+    box-shadow: 0 2px 12px rgba(26,39,68,0.18);
+    flex-shrink: 0;
+    z-index: 10;
   }
 
   .logo-mark {
@@ -136,14 +142,20 @@
 
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
 
-  /* ── Main layout ──────────────────────────────────── */
-  .main-layout { display: flex; flex: 1; overflow: hidden; height: calc(100vh - 58px); }
+  /* ── Main layout — fills remaining height ─────────── */
+  .main-layout {
+    display: flex;
+    flex: 1;
+    min-height: 0;  /* critical: allows flex children to shrink below content size */
+    overflow: hidden;
+  }
 
   /* ── Sidebar ──────────────────────────────────────── */
   .sidebar {
     width: 260px; flex-shrink: 0; background: var(--white);
     border-right: 1px solid var(--border);
-    display: flex; flex-direction: column; overflow-y: auto;
+    display: flex; flex-direction: column;
+    overflow-y: auto;
   }
 
   .sidebar-img { width: 100%; height: 160px; object-fit: cover; display: block; }
@@ -164,7 +176,7 @@
     transition: background 0.15s, border-color 0.15s; line-height: 1.4;
   }
 
-  .topic-btn:hover { background: var(--fred-bg); border-color: var(--gold); }
+  .topic-btn:hover { background: var(--thomas-bg); border-color: var(--gold); }
   .topic-btn:active { transform: scale(0.98); }
 
   .sidebar-divider { height: 1px; background: var(--border); margin: 12px 16px; }
@@ -187,20 +199,34 @@
 
   .sidebar-img-2 { width: 100%; height: 120px; object-fit: cover; display: block; margin-top: auto; }
 
-  /* ── Chat area ────────────────────────────────────── */
-  .chat-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+  /* ── Chat column — flex column, fills space ───────── */
+  .chat-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;  /* critical */
+    overflow: hidden;
+  }
 
   .intro-card {
     background: var(--white); border-bottom: 1px solid var(--border);
-    border-left: 4px solid var(--gold); padding: 14px 20px;
-    font-size: 13px; color: var(--gray); line-height: 1.6; flex-shrink: 0;
+    border-left: 4px solid var(--gold); padding: 12px 20px;
+    font-size: 13px; color: var(--gray); line-height: 1.6;
+    flex-shrink: 0;
   }
 
   .intro-card strong { color: var(--navy); font-weight: 600; }
 
+  /* Messages scrolls, input stays fixed at bottom */
   #messages {
-    flex: 1; overflow-y: auto; display: flex; flex-direction: column;
-    gap: 14px; padding: 20px 20px 10px;
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 20px 20px 10px;
+    scroll-behavior: smooth;
   }
 
   .bubble-row { display: flex; align-items: flex-end; gap: 10px; }
@@ -219,7 +245,7 @@
     font-size: 14px; line-height: 1.65; box-shadow: var(--shadow);
   }
 
-  .bubble-row.thomas .bubble { background: var(--fred-bg); color: var(--navy); border-bottom-left-radius: 4px; }
+  .bubble-row.thomas .bubble { background: var(--thomas-bg); color: var(--navy); border-bottom-left-radius: 4px; }
   .bubble-row.user   .bubble { background: var(--user-bg); color: var(--user-tx); border-bottom-right-radius: 4px; }
 
   .speaking-indicator {
@@ -244,7 +270,7 @@
 
   .typing-indicator {
     display: none; align-items: center; gap: 5px;
-    padding: 12px 16px; background: var(--fred-bg);
+    padding: 12px 16px; background: var(--thomas-bg);
     border-radius: var(--radius); border-bottom-left-radius: 4px;
     width: fit-content; box-shadow: var(--shadow);
   }
@@ -260,10 +286,13 @@
 
   @keyframes bounce { 0%,80%,100%{transform:translateY(0);opacity:0.4} 40%{transform:translateY(-6px);opacity:1} }
 
-  /* ── Input ────────────────────────────────────────── */
+  /* ── Input — always pinned to bottom ─────────────── */
   .input-area {
-    padding: 10px 16px 14px; background: var(--cream);
-    border-top: 1px solid var(--border); flex-shrink: 0;
+    flex-shrink: 0;
+    padding: 10px 16px 14px;
+    background: var(--cream);
+    border-top: 1px solid var(--border);
+    z-index: 5;
   }
 
   .mic-hint {
@@ -410,7 +439,7 @@
   <div class="start-heading">Talk to Thomas</div>
   <div class="start-sub">
     Most shiftwork problems have a root cause that's different from what shows up on the surface.
-    Thomas will ask you a few questions to help you figure out what's really going on —
+    Thomas will ask you a few questions to help figure out what's really going on —
     before you talk to anyone at Shiftwork Solutions.
   </div>
   <div class="speaker-notice">
@@ -485,7 +514,7 @@
   <div class="chat-area">
     <div class="intro-card">
       <strong>Most shiftwork problems run deeper than they first appear.</strong>
-      Thomas will ask you a few questions to help identify the real issue underneath the symptoms.
+      Thomas will ask you a few targeted questions to identify the real issue.
       Type your replies — or <strong>hold 🎤 to speak, release to send.</strong>
     </div>
 
@@ -569,12 +598,15 @@
   let speakingEl    = null;
   let leadData      = null;
   let isRecording   = false;
+  let activeRec     = null;
+  let pendingText   = '';
 
   // ── Push-to-talk ───────────────────────────────────────
-  // Key fix: create a FRESH SpeechRecognition instance each time
-  // the user presses the mic button. Reusing the same instance
-  // causes increasing delays on subsequent presses because the
-  // browser's recognition engine accumulates state between sessions.
+  // Fix for delay on subsequent presses:
+  // 1. Build a fresh SpeechRecognition instance every press
+  // 2. Send pendingText immediately on mouseup/touchend
+  //    without waiting for onend to fire
+  // 3. onend only sends if something was missed
 
   const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
   let micSupported = !!SpeechRecognitionAPI;
@@ -582,29 +614,28 @@
   if (!micSupported) {
     micBtn.classList.add('unsupported');
     micBtn.title = 'Voice input not supported in this browser';
-    micHint.textContent = 'Voice input not available in this browser — please type.';
+    micHint.textContent = 'Voice input not available — please type.';
   }
 
   function buildRecognition() {
-    // Always build a fresh instance — no accumulated state, no delay
     const r = new SpeechRecognitionAPI();
     r.continuous     = false;
     r.interimResults = true;
     r.lang           = 'en-US';
 
     r.onresult = (event) => {
-      let transcript = '';
+      let t = '';
       for (let i = 0; i < event.results.length; i++) {
-        transcript += event.results[i][0].transcript;
+        t += event.results[i][0].transcript;
       }
-      inputEl.value = transcript.trim();
+      pendingText     = t.trim();
+      inputEl.value   = pendingText;
     };
 
     r.onend = () => {
-      // Fire immediately when recognition ends — no waiting
-      const text = inputEl.value.trim();
+      // Fallback: if stopRecording already sent, this is a no-op
+      // If not (e.g. recognition timed out), send whatever we have
       resetMicUI();
-      if (text) sendMessage();
     };
 
     r.onerror = (event) => {
@@ -620,8 +651,6 @@
     return r;
   }
 
-  let activeRecognition = null;
-
   function resetMicUI() {
     isRecording = false;
     micBtn.classList.remove('recording');
@@ -631,24 +660,24 @@
   }
 
   function startRecording() {
-    if (!micSupported || isWaiting) return;
-    if (isRecording) return;
+    if (!micSupported || isWaiting || isRecording) return;
 
-    // Pause Thomas if speaking so mic picks up visitor clearly
+    // Pause Thomas if speaking
     if (currentAudio) { currentAudio.pause(); currentAudio = null; }
     if (speakingEl)   { speakingEl.classList.remove('active'); speakingEl = null; }
 
-    isRecording = true;
+    pendingText   = '';
     inputEl.value = '';
+    isRecording   = true;
+
     micBtn.classList.add('recording');
     inputRow.classList.add('recording');
     micHint.textContent = '🔴 Recording — release to send';
     micHint.classList.add('listening');
 
-    // Fresh instance every time — eliminates delay buildup
-    activeRecognition = buildRecognition();
+    activeRec = buildRecognition();
     try {
-      activeRecognition.start();
+      activeRec.start();
     } catch(e) {
       console.warn('Recognition start error:', e);
       resetMicUI();
@@ -656,19 +685,32 @@
   }
 
   function stopRecording() {
-    if (!isRecording || !activeRecognition) return;
+    if (!isRecording) return;
     isRecording = false;
-    // Stop immediately — onend fires and triggers send
-    try { activeRecognition.stop(); } catch(e) {}
-    activeRecognition = null;
+
+    // Stop recognition engine
+    if (activeRec) {
+      try { activeRec.stop(); } catch(e) {}
+      activeRec = null;
+    }
+
+    resetMicUI();
+
+    // Send IMMEDIATELY — don't wait for onend
+    const text = pendingText || inputEl.value.trim();
+    pendingText = '';
+    if (text) {
+      inputEl.value = text;
+      sendMessage();
+    }
   }
 
-  // Mouse events (desktop)
+  // Mouse events
   micBtn.addEventListener('mousedown',  (e) => { e.preventDefault(); startRecording(); });
   micBtn.addEventListener('mouseup',    (e) => { e.preventDefault(); stopRecording(); });
   micBtn.addEventListener('mouseleave', (e) => { if (isRecording) stopRecording(); });
 
-  // Touch events (mobile / tablet)
+  // Touch events
   micBtn.addEventListener('touchstart',  (e) => { e.preventDefault(); startRecording(); }, { passive: false });
   micBtn.addEventListener('touchend',    (e) => { e.preventDefault(); stopRecording(); },  { passive: false });
   micBtn.addEventListener('touchcancel', (e) => { if (isRecording) stopRecording(); },     { passive: false });
@@ -771,7 +813,9 @@
   }
 
   // ── Bubbles ────────────────────────────────────────────
-  function scrollBottom() { messagesEl.scrollTop = messagesEl.scrollHeight; }
+  function scrollBottom() {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
 
   function showTyping() {
     typingEl.style.display  = 'flex';
@@ -803,7 +847,8 @@
     }
     row.appendChild(bub);
     messagesEl.insertBefore(row, typingRow);
-    scrollBottom();
+    // Use requestAnimationFrame to ensure DOM has painted before scrolling
+    requestAnimationFrame(() => scrollBottom());
     if (who === 'thomas' && audiob64) playAudio(audiob64, indicator);
   }
 
@@ -850,7 +895,7 @@
       if (data.reply) addBubble(data.reply, 'thomas', data.audio || null);
     } catch (err) {
       hideTyping();
-      addBubble("Hi, I'm Thomas. I'm here to help you figure out what's really going on with your shift operations — before you talk to anyone at Shiftwork Solutions. What brought you here today?", 'thomas', null);
+      addBubble("Hi, I'm Thomas. I'm here to help you figure out what's really going on with your shift operations. What brought you here today?", 'thomas', null);
     }
   }
 
