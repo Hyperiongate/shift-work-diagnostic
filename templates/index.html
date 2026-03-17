@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fred | Shiftwork Solutions</title>
+<title>Thomas | Shiftwork Solutions</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=Source+Sans+3:wght@300;400;600&display=swap');
 
@@ -61,7 +61,7 @@
 
   .start-sub {
     font-size: 15px; color: rgba(255,255,255,0.60);
-    text-align: center; max-width: 380px; line-height: 1.65;
+    text-align: center; max-width: 400px; line-height: 1.65;
   }
 
   .speaker-notice {
@@ -69,7 +69,7 @@
     border: 1px solid rgba(200,149,42,0.40);
     border-radius: 10px; padding: 12px 20px;
     font-size: 13px; color: var(--gold-lt);
-    text-align: center; max-width: 380px; line-height: 1.5;
+    text-align: center; max-width: 400px; line-height: 1.5;
   }
 
   .speaker-notice strong { color: var(--gold-lt); }
@@ -204,8 +204,8 @@
   }
 
   .bubble-row { display: flex; align-items: flex-end; gap: 10px; }
-  .bubble-row.fred { justify-content: flex-start; }
-  .bubble-row.user { justify-content: flex-end; }
+  .bubble-row.thomas { justify-content: flex-start; }
+  .bubble-row.user   { justify-content: flex-end; }
 
   .avatar-circle {
     width: 32px; height: 32px; background: var(--navy); border-radius: 50%;
@@ -219,8 +219,8 @@
     font-size: 14px; line-height: 1.65; box-shadow: var(--shadow);
   }
 
-  .bubble-row.fred .bubble { background: var(--fred-bg); color: var(--navy); border-bottom-left-radius: 4px; }
-  .bubble-row.user .bubble { background: var(--user-bg); color: var(--user-tx); border-bottom-right-radius: 4px; }
+  .bubble-row.thomas .bubble { background: var(--fred-bg); color: var(--navy); border-bottom-left-radius: 4px; }
+  .bubble-row.user   .bubble { background: var(--user-bg); color: var(--user-tx); border-bottom-right-radius: 4px; }
 
   .speaking-indicator {
     display: inline-flex; align-items: center; gap: 3px;
@@ -266,17 +266,13 @@
     border-top: 1px solid var(--border); flex-shrink: 0;
   }
 
-  /* Mic hint — visible, not faint */
   .mic-hint {
     text-align: center; font-size: 13px;
     color: var(--navy); font-weight: 600;
     margin-bottom: 8px; user-select: none;
-    letter-spacing: 0.01em;
   }
 
-  .mic-hint.listening {
-    color: #ef4444;
-  }
+  .mic-hint.listening { color: #ef4444; }
 
   .input-row {
     display: flex; gap: 8px; background: var(--white);
@@ -297,7 +293,6 @@
 
   #user-input::placeholder { color: #aaa; }
 
-  /* Push-to-talk mic button */
   #mic-btn {
     width: 38px; height: 38px;
     background: none; border: 1.5px solid var(--border);
@@ -411,15 +406,15 @@
 
 <!-- ── Start screen ──────────────────────────────────── -->
 <div id="start-screen">
-  <div class="start-logo">F</div>
-  <div class="start-heading">Talk to Fred</div>
+  <div class="start-logo">T</div>
+  <div class="start-heading">Talk to Thomas</div>
   <div class="start-sub">
-    Fred solves shiftwork problems — but the first step is always
-    understanding the symptoms to find the real issue underneath.
-    He'll ask you a few questions and help you get clear on what's actually going on.
+    Most shiftwork problems have a root cause that's different from what shows up on the surface.
+    Thomas will ask you a few questions to help you figure out what's really going on —
+    before you talk to anyone at Shiftwork Solutions.
   </div>
   <div class="speaker-notice">
-    🔊 <strong>Turn on your speakers.</strong> Fred speaks his responses.
+    🔊 <strong>Turn on your speakers.</strong> Thomas speaks his responses.
     Type your reply — or hold the 🎤 button to speak, release to send.
   </div>
   <button id="start-btn" onclick="startConversation()">
@@ -430,9 +425,9 @@
 
 <!-- ── Header ────────────────────────────────────────── -->
 <header>
-  <div class="logo-mark">F</div>
+  <div class="logo-mark">T</div>
   <div class="header-text">
-    <h1>Fred</h1>
+    <h1>Thomas</h1>
     <p>Shiftwork Solutions — Diagnostic Advisor</p>
   </div>
   <div class="header-right">
@@ -451,7 +446,7 @@
       alt="Industrial operations">
 
     <div class="sidebar-section">
-      <div class="sidebar-label">Ask Fred About</div>
+      <div class="sidebar-label">Ask Thomas About</div>
       <button class="topic-btn" onclick="injectTopic('Tell me about your consulting process')">
         🔄 Our consulting process
       </button>
@@ -489,14 +484,14 @@
   <!-- Chat -->
   <div class="chat-area">
     <div class="intro-card">
-      <strong>Shiftwork Solutions solves shiftwork problems.</strong>
-      The first step is always understanding the symptoms to find the real issue underneath.
-      Fred will ask you a few questions — type your replies, or <strong>hold 🎤 to speak and release to send.</strong>
+      <strong>Most shiftwork problems run deeper than they first appear.</strong>
+      Thomas will ask you a few questions to help identify the real issue underneath the symptoms.
+      Type your replies — or <strong>hold 🎤 to speak, release to send.</strong>
     </div>
 
     <div id="messages">
-      <div class="bubble-row fred" id="typing-row">
-        <div class="avatar-circle">F</div>
+      <div class="bubble-row thomas" id="typing-row">
+        <div class="avatar-circle">T</div>
         <div class="typing-indicator" id="typing">
           <span></span><span></span><span></span>
         </div>
@@ -573,21 +568,31 @@
   let currentAudio  = null;
   let speakingEl    = null;
   let leadData      = null;
-  let recognition   = null;
   let isRecording   = false;
 
-  // ── Push-to-talk setup ─────────────────────────────────
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  // ── Push-to-talk ───────────────────────────────────────
+  // Key fix: create a FRESH SpeechRecognition instance each time
+  // the user presses the mic button. Reusing the same instance
+  // causes increasing delays on subsequent presses because the
+  // browser's recognition engine accumulates state between sessions.
 
-  if (SpeechRecognition) {
-    recognition = new SpeechRecognition();
-    // Use continuous=true so recognition does not auto-stop mid-sentence
-    recognition.continuous     = true;
-    recognition.interimResults = true;
-    recognition.lang           = 'en-US';
+  const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let micSupported = !!SpeechRecognitionAPI;
 
-    recognition.onresult = (event) => {
-      // Build full transcript from all results so far
+  if (!micSupported) {
+    micBtn.classList.add('unsupported');
+    micBtn.title = 'Voice input not supported in this browser';
+    micHint.textContent = 'Voice input not available in this browser — please type.';
+  }
+
+  function buildRecognition() {
+    // Always build a fresh instance — no accumulated state, no delay
+    const r = new SpeechRecognitionAPI();
+    r.continuous     = false;
+    r.interimResults = true;
+    r.lang           = 'en-US';
+
+    r.onresult = (event) => {
       let transcript = '';
       for (let i = 0; i < event.results.length; i++) {
         transcript += event.results[i][0].transcript;
@@ -595,64 +600,67 @@
       inputEl.value = transcript.trim();
     };
 
-    recognition.onend = () => {
-      // Recognition ended (either we stopped it or it timed out)
-      // Only send if we stopped deliberately (user released button)
-      // and there is something to send
-      if (!isRecording && inputEl.value.trim()) {
-        sendMessage();
-      }
-      // Reset visual state
-      micBtn.classList.remove('recording');
-      inputRow.classList.remove('recording');
-      micHint.textContent = '🎤 Hold to speak \u00a0·\u00a0 Release to send';
-      micHint.classList.remove('listening');
-      isRecording = false;
+    r.onend = () => {
+      // Fire immediately when recognition ends — no waiting
+      const text = inputEl.value.trim();
+      resetMicUI();
+      if (text) sendMessage();
     };
 
-    recognition.onerror = (event) => {
+    r.onerror = (event) => {
       console.warn('Speech error:', event.error);
-      isRecording = false;
-      micBtn.classList.remove('recording');
-      inputRow.classList.remove('recording');
-      micHint.classList.remove('listening');
-      micHint.textContent = '🎤 Hold to speak \u00a0·\u00a0 Release to send';
+      resetMicUI();
       if (event.error === 'not-allowed') {
         micHint.textContent = 'Microphone access denied — check browser settings.';
+        micSupported = false;
         micBtn.classList.add('unsupported');
       }
     };
 
-  } else {
-    micBtn.classList.add('unsupported');
-    micBtn.title = 'Voice input not supported in this browser';
-    micHint.textContent = 'Voice input not available in this browser — please type.';
+    return r;
+  }
+
+  let activeRecognition = null;
+
+  function resetMicUI() {
+    isRecording = false;
+    micBtn.classList.remove('recording');
+    inputRow.classList.remove('recording');
+    micHint.textContent = '🎤 Hold to speak \u00a0·\u00a0 Release to send';
+    micHint.classList.remove('listening');
   }
 
   function startRecording() {
-    if (!recognition || isWaiting || micBtn.classList.contains('unsupported')) return;
+    if (!micSupported || isWaiting) return;
+    if (isRecording) return;
+
+    // Pause Thomas if speaking so mic picks up visitor clearly
+    if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+    if (speakingEl)   { speakingEl.classList.remove('active'); speakingEl = null; }
+
     isRecording = true;
     inputEl.value = '';
     micBtn.classList.add('recording');
     inputRow.classList.add('recording');
     micHint.textContent = '🔴 Recording — release to send';
     micHint.classList.add('listening');
-    // Pause Fred if speaking so mic picks up visitor clearly
-    if (currentAudio) { currentAudio.pause(); currentAudio = null; }
-    if (speakingEl)   { speakingEl.classList.remove('active'); speakingEl = null; }
+
+    // Fresh instance every time — eliminates delay buildup
+    activeRecognition = buildRecognition();
     try {
-      recognition.start();
+      activeRecognition.start();
     } catch(e) {
-      // Recognition may already be running — safe to ignore
       console.warn('Recognition start error:', e);
+      resetMicUI();
     }
   }
 
   function stopRecording() {
-    if (!isRecording) return;
+    if (!isRecording || !activeRecognition) return;
     isRecording = false;
-    // Stop recognition — onend fires and triggers sendMessage if there is text
-    try { recognition.stop(); } catch(e) {}
+    // Stop immediately — onend fires and triggers send
+    try { activeRecognition.stop(); } catch(e) {}
+    activeRecognition = null;
   }
 
   // Mouse events (desktop)
@@ -661,9 +669,9 @@
   micBtn.addEventListener('mouseleave', (e) => { if (isRecording) stopRecording(); });
 
   // Touch events (mobile / tablet)
-  micBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startRecording(); }, { passive: false });
-  micBtn.addEventListener('touchend',   (e) => { e.preventDefault(); stopRecording(); },  { passive: false });
-  micBtn.addEventListener('touchcancel',(e) => { if (isRecording) stopRecording(); },     { passive: false });
+  micBtn.addEventListener('touchstart',  (e) => { e.preventDefault(); startRecording(); }, { passive: false });
+  micBtn.addEventListener('touchend',    (e) => { e.preventDefault(); stopRecording(); },  { passive: false });
+  micBtn.addEventListener('touchcancel', (e) => { if (isRecording) stopRecording(); },     { passive: false });
 
   // ── Start ──────────────────────────────────────────────
   function startConversation() {
@@ -705,7 +713,7 @@
     closeLeadCapture();
     addBubble(
       `Thanks ${name} — someone from Jim's team will be in touch at ${email} within one business day.`,
-      'fred', null
+      'thomas', null
     );
   }
 
@@ -779,15 +787,15 @@
   function addBubble(text, who, audiob64) {
     const row = document.createElement('div');
     row.className = 'bubble-row ' + who;
-    if (who === 'fred') {
+    if (who === 'thomas') {
       const av = document.createElement('div');
-      av.className = 'avatar-circle'; av.textContent = 'F';
+      av.className = 'avatar-circle'; av.textContent = 'T';
       row.appendChild(av);
     }
     const bub = document.createElement('div');
     bub.className = 'bubble'; bub.textContent = text;
     let indicator = null;
-    if (who === 'fred') {
+    if (who === 'thomas') {
       indicator = document.createElement('span');
       indicator.className = 'speaking-indicator';
       indicator.innerHTML = '<span></span><span></span><span></span><span></span><span></span>';
@@ -796,7 +804,7 @@
     row.appendChild(bub);
     messagesEl.insertBefore(row, typingRow);
     scrollBottom();
-    if (who === 'fred' && audiob64) playAudio(audiob64, indicator);
+    if (who === 'thomas' && audiob64) playAudio(audiob64, indicator);
   }
 
   // ── Send ───────────────────────────────────────────────
@@ -817,13 +825,13 @@
       const data = await resp.json();
       hideTyping();
       if (data.reply) {
-        addBubble(data.reply, 'fred', data.audio || null);
+        addBubble(data.reply, 'thomas', data.audio || null);
       } else {
-        addBubble("Sorry, something went wrong on my end. Please try again.", 'fred', null);
+        addBubble("Sorry, something went wrong on my end. Please try again.", 'thomas', null);
       }
     } catch (err) {
       hideTyping();
-      addBubble("Connection issue — please refresh and try again.", 'fred', null);
+      addBubble("Connection issue — please refresh and try again.", 'thomas', null);
     }
     isWaiting = false; sendBtn.disabled = false; inputEl.focus();
   }
@@ -839,10 +847,10 @@
       });
       const data = await resp.json();
       hideTyping();
-      if (data.reply) addBubble(data.reply, 'fred', data.audio || null);
+      if (data.reply) addBubble(data.reply, 'thomas', data.audio || null);
     } catch (err) {
       hideTyping();
-      addBubble("Hi, I'm Fred. I'm here to help you think through what's going on with your shift operations. What brought you here today?", 'fred', null);
+      addBubble("Hi, I'm Thomas. I'm here to help you figure out what's really going on with your shift operations — before you talk to anyone at Shiftwork Solutions. What brought you here today?", 'thomas', null);
     }
   }
 
