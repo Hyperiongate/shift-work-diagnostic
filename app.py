@@ -19,20 +19,17 @@
 #   2026-03-15 — Rewrote system prompt from scripted examples
 #                to principles-based guidance so Claude responds
 #                authentically rather than parroting templates.
-#   2026-03-16 — Added opening framing so visitors understand
-#                this is a diagnostic process, not a fix session.
-#                Added periodic check-in / summary behavior every
-#                4-5 exchanges so conversation does not drift.
-#   2026-03-16 — Phase 2: Added ElevenLabs TTS. Fred now speaks
-#                every response automatically using Earl voice.
-#                Audio returned as base64 in JSON response.
-#                Graceful fallback to text-only if TTS fails.
+#   2026-03-16 — Added opening framing and periodic check-ins.
+#   2026-03-16 — Phase 2: ElevenLabs TTS, Earl voice, auto-play.
+#   2026-03-16 — Phase 3 features: PDF transcript generation,
+#                lead capture route, sidebar topic awareness,
+#                Teams booking link support.
 #
 # ROUTES:
-#   GET  /           — Serves the Fred chat UI (index.html)
-#   POST /chat       — Accepts visitor message, returns Fred
-#                      response as text + base64 audio
-#   GET  /health     — Render health check
+#   GET  /              — Serves Fred chat UI
+#   POST /chat          — Fred response + audio
+#   POST /transcript    — Download PDF transcript
+#   GET  /health        — Render health check
 #
 # ENVIRONMENT VARIABLES (set in Render):
 #   ANTHROPIC_API_KEY   — Claude API key
@@ -46,18 +43,26 @@
 import os
 import base64
 import requests
-from flask import Flask, request, jsonify, render_template_string
+import io
+from datetime import datetime
+from flask import Flask, request, jsonify, render_template_string, send_file
 from flask_cors import CORS
 import anthropic
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.units import inch
+from reportlab.lib.colors import HexColor
+from reportlab.pdfgen import canvas as pdf_canvas
 
 app = Flask(__name__)
 CORS(app)
 
 anthropic_client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
-ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY")
+ELEVENLABS_API_KEY  = os.environ.get("ELEVENLABS_API_KEY")
 ELEVENLABS_VOICE_ID = "bV9ai9Wem8olqrkR49Zw"
-ELEVENLABS_URL = f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}"
+ELEVENLABS_URL      = f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}"
+
+TEAMS_BOOKING_LINK  = "https://outlook.office365.com/book/ShiftworkSolutionsLLC2@shift-work.com/?ismsaljsauthenabled=true"
 
 FRED_SYSTEM_PROMPT = """
 You are Fred, a diagnostic facilitator for Shiftwork Solutions LLC — a management consulting firm
@@ -91,11 +96,11 @@ HOW YOU TALK:
 
 HOW THE CONVERSATION OPENS:
 When you introduce yourself, do two things in your opening message. First, briefly explain what
-this conversation is and is not — something like: you are here to help them both get clearer on
-what is actually going on, not to hand them a fix. You will ask some questions, listen carefully,
-and between the two of you figure out what the real issue is. That is it. Then ask what brought
-them here today. Keep the framing short — two or three sentences at most. It should feel like
-a person talking, not a disclaimer being read.
+this conversation is and is not — you are here to help them both get clearer on what is actually
+going on, not to hand them a fix. You will ask some questions, listen carefully, and between the
+two of you figure out what the real issue is. Then ask what brought them here today. Keep the
+framing short — two or three sentences at most. It should feel like a person talking, not a
+disclaimer being read.
 
 HOW THE CONVERSATION WORKS:
 After the opening, you listen. Then you ask one question that goes one level deeper than what
@@ -106,13 +111,25 @@ As you learn more, you occasionally surface a complexity they may not have seen 
 off, but because noticing it is genuinely useful to them. You do this as an observation, not
 a lecture. Then you note that this is the kind of thing Shiftwork Solutions works on.
 
+SIDEBAR TOPICS — WHEN VISITOR ASKS ABOUT THESE, RESPOND NATURALLY IN CHARACTER:
+If the visitor asks about "your process": Briefly explain that Shiftwork Solutions starts by
+understanding the operation deeply before recommending anything — surveys, site visits,
+data analysis — then weave it back to their situation with a question.
+If the visitor asks about "your survey": Explain that Shiftwork Solutions has a proprietary
+employee survey used with hundreds of facilities that reveals what employees actually want
+from their schedule — not what management assumes — then connect it to their situation.
+If the visitor asks about "implementation": Note that implementation is where most schedule
+changes fail — it is 80% change management and 20% technical — then ask where they are in
+their thinking about change.
+If the visitor asks about "next steps": Explain they can book a call directly with Jim
+Dillingham's team, or provide their contact info and someone will reach out. Keep it warm,
+not salesy.
+Always stay in character as Fred. Never switch to brochure mode.
+
 PERIODIC CHECK-INS — IMPORTANT:
 Every four or five exchanges, pause the questioning and do a brief check-in. Summarize in two
-or three plain sentences what you have heard so far — the main problem as they have described
-it and any important details that have come up. Then ask something like: does that capture it,
-or is there something you would push back on or add? This does two things: it shows you have
-been listening, and it gives them a chance to correct your understanding or redirect the
-conversation before you go further down a path. After the check-in, continue the diagnostic
+or three plain sentences what you have heard so far. Then ask: does that capture it, or is
+there something you would push back on or add? After the check-in, continue the diagnostic
 if there is more to understand, or move toward the handoff if you have a clear enough picture.
 The check-in should feel natural, not mechanical. Do not use the same phrasing every time.
 
@@ -154,13 +171,11 @@ conversation_histories = {}
 
 def generate_speech(text):
     """
-    Call ElevenLabs TTS API and return base64-encoded MP3 audio.
-    Returns None if TTS is unavailable or fails — frontend falls
-    back to text-only gracefully.
+    Call ElevenLabs TTS and return base64 MP3.
+    Returns None on failure — frontend falls back to text-only.
     """
     if not ELEVENLABS_API_KEY:
         return None
-
     try:
         headers = {
             "xi-api-key": ELEVENLABS_API_KEY,
@@ -177,21 +192,128 @@ def generate_speech(text):
                 "use_speaker_boost": True
             }
         }
-        response = requests.post(
-            ELEVENLABS_URL,
-            headers=headers,
-            json=payload,
-            timeout=15
-        )
+        response = requests.post(ELEVENLABS_URL, headers=headers,
+                                 json=payload, timeout=15)
         if response.status_code == 200:
-            audio_b64 = base64.b64encode(response.content).decode("utf-8")
-            return audio_b64
-        else:
-            print(f"ElevenLabs error {response.status_code}: {response.text}")
-            return None
+            return base64.b64encode(response.content).decode("utf-8")
+        print(f"ElevenLabs error {response.status_code}: {response.text}")
+        return None
     except Exception as e:
         print(f"ElevenLabs exception: {e}")
         return None
+
+
+def generate_transcript_pdf(session_id, messages, lead_info=None):
+    """
+    Generate a branded PDF transcript of the conversation.
+    Returns a BytesIO buffer ready to send as a file download.
+    """
+    buffer = io.BytesIO()
+    c = pdf_canvas.Canvas(buffer, pagesize=letter)
+    width, height = letter
+    navy  = HexColor("#1a2744")
+    gold  = HexColor("#c8952a")
+    gray  = HexColor("#6b7280")
+    dark  = HexColor("#1f2937")
+    margin = inch
+
+    def check_page(y, needed=1.5):
+        if y < needed * inch:
+            c.showPage()
+            return height - margin
+        return y
+
+    # Header bar
+    c.setFillColor(navy)
+    c.rect(0, height - 1.4*inch, width, 1.4*inch, fill=1, stroke=0)
+    c.setFillColor(gold)
+    c.setFont("Helvetica-Bold", 20)
+    c.drawString(margin, height - 0.65*inch, "Shiftwork Solutions LLC")
+    c.setFillColorRGB(1, 1, 1)
+    c.setFont("Helvetica", 11)
+    c.drawRightString(width - margin, height - 0.55*inch,
+                      "Diagnostic Conversation Transcript")
+    c.drawRightString(width - margin, height - 0.85*inch,
+                      datetime.now().strftime("%B %d, %Y"))
+
+    y = height - 1.9*inch
+
+    # Section heading
+    c.setFillColor(navy)
+    c.setFont("Helvetica-Bold", 13)
+    c.drawString(margin, y, "Conversation Transcript")
+    y -= 0.1*inch
+    c.setStrokeColor(gold)
+    c.setLineWidth(1.5)
+    c.line(margin, y, width - margin, y)
+    y -= 0.35*inch
+
+    # Messages
+    max_w = width - 2*margin - 0.25*inch
+
+    for msg in messages:
+        role    = msg.get("role", "")
+        content = msg.get("content", "")
+        if content == "__INIT__":
+            continue
+
+        speaker = "Fred" if role == "assistant" else "Visitor"
+        c.setFillColor(navy if role == "assistant" else gray)
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(margin, y, speaker + ":")
+        y -= 0.22*inch
+
+        c.setFont("Helvetica", 10)
+        c.setFillColor(dark)
+        words = content.split()
+        line  = ""
+        for word in words:
+            test = (line + " " + word).strip()
+            if c.stringWidth(test, "Helvetica", 10) < max_w:
+                line = test
+            else:
+                c.drawString(margin + 0.25*inch, y, line)
+                y -= 0.18*inch
+                y  = check_page(y)
+                line = word
+        if line:
+            c.drawString(margin + 0.25*inch, y, line)
+            y -= 0.18*inch
+
+        y -= 0.18*inch
+        y = check_page(y)
+
+    # Lead info block
+    if lead_info:
+        y = check_page(y, needed=3)
+        y -= 0.2*inch
+        c.setFillColor(navy)
+        c.setFont("Helvetica-Bold", 13)
+        c.drawString(margin, y, "Contact Information Provided")
+        y -= 0.1*inch
+        c.setStrokeColor(gold)
+        c.setLineWidth(1.5)
+        c.line(margin, y, width - margin, y)
+        y -= 0.3*inch
+        c.setFont("Helvetica", 11)
+        c.setFillColor(dark)
+        for key, val in lead_info.items():
+            if val:
+                c.drawString(margin, y, f"{key}:  {val}")
+                y -= 0.28*inch
+
+    # Footer bar
+    c.setFillColor(navy)
+    c.rect(0, 0, width, 0.65*inch, fill=1, stroke=0)
+    c.setFillColorRGB(1, 1, 1)
+    c.setFont("Helvetica", 9)
+    c.drawString(margin, 0.38*inch,
+                 "Shiftwork Solutions LLC  |  jim@shift-work.com  |  shift-work.com  |  (415) 763-5005")
+    c.drawRightString(width - margin, 0.38*inch, "Confidential")
+
+    c.save()
+    buffer.seek(0)
+    return buffer
 
 
 @app.route("/health")
@@ -214,7 +336,7 @@ def chat():
     if not data:
         return jsonify({"error": "No data provided"}), 400
 
-    session_id = data.get("session_id", "default")
+    session_id   = data.get("session_id", "default")
     user_message = data.get("message", "").strip()
 
     if not user_message:
@@ -224,12 +346,12 @@ def chat():
         conversation_histories[session_id] = []
 
     conversation_histories[session_id].append({
-        "role": "user",
-        "content": user_message
+        "role": "user", "content": user_message
     })
 
     if len(conversation_histories[session_id]) > 40:
-        conversation_histories[session_id] = conversation_histories[session_id][-40:]
+        conversation_histories[session_id] = \
+            conversation_histories[session_id][-40:]
 
     try:
         response = anthropic_client.messages.create(
@@ -238,19 +360,14 @@ def chat():
             system=FRED_SYSTEM_PROMPT,
             messages=conversation_histories[session_id]
         )
-
         fred_reply = response.content[0].text
-
         conversation_histories[session_id].append({
-            "role": "assistant",
-            "content": fred_reply
+            "role": "assistant", "content": fred_reply
         })
-
         audio_b64 = generate_speech(fred_reply)
-
         return jsonify({
-            "reply": fred_reply,
-            "audio": audio_b64,
+            "reply":      fred_reply,
+            "audio":      audio_b64,
             "session_id": session_id
         }), 200
 
@@ -258,6 +375,43 @@ def chat():
         return jsonify({"error": f"API error: {str(e)}"}), 500
     except Exception as e:
         return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
+
+
+@app.route("/transcript", methods=["POST"])
+def download_transcript():
+    """
+    Generate and return a PDF transcript of the conversation.
+    Accepts optional lead_info dict to append to the PDF.
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    session_id = data.get("session_id", "default")
+    lead_info  = data.get("lead_info", None)
+    messages   = conversation_histories.get(session_id, [])
+
+    if not messages:
+        return jsonify({"error": "No conversation found for this session"}), 404
+
+    try:
+        pdf_buffer = generate_transcript_pdf(session_id, messages, lead_info)
+        filename   = f"Shiftwork-Diagnostic-{datetime.now().strftime('%Y-%m-%d')}.pdf"
+        return send_file(
+            pdf_buffer,
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name=filename
+        )
+    except Exception as e:
+        print(f"Transcript PDF error: {e}")
+        return jsonify({"error": f"PDF generation failed: {str(e)}"}), 500
+
+
+@app.route("/booking-link")
+def booking_link():
+    """Return the Teams booking link for frontend use."""
+    return jsonify({"url": TEAMS_BOOKING_LINK}), 200
 
 
 if __name__ == "__main__":
