@@ -1,17 +1,17 @@
 # =============================================================
-# app.py  —  Shift-Work Diagnostic Avatar (Fred)
+# app.py  —  Shift-Work Diagnostic Avatar (Thomas)
 # Shiftwork Solutions LLC
 # Created:      2026-03-15
-# Last Updated: 2026-03-16
+# Last Updated: 2026-03-17
 #
 # PURPOSE:
-#   Flask backend for Fred, an AI diagnostic facilitator that
+#   Flask backend for Thomas, an AI diagnostic facilitator that
 #   helps operations managers identify the real problem
 #   underneath their stated problem — before handing off to
 #   Shiftwork Solutions.
 #
 # DESIGN PRINCIPLE:
-#   Fred asks questions, not answers them. He reveals complexity
+#   Thomas asks questions, not answers them. He reveals complexity
 #   without solving it and hands off at the right moment.
 #
 # CHANGE LOG:
@@ -20,16 +20,16 @@
 #                to principles-based guidance so Claude responds
 #                authentically rather than parroting templates.
 #   2026-03-16 — Added opening framing and periodic check-ins.
-#   2026-03-16 — Phase 2: ElevenLabs TTS, Earl voice, auto-play.
+#   2026-03-16 — Phase 2: ElevenLabs TTS, auto-play voice.
 #   2026-03-16 — Phase 3 features: PDF transcript, lead capture,
 #                sidebar topic awareness, Teams booking link.
-#   2026-03-16 — Tightened system prompt: Fred must never infer,
+#   2026-03-16 — Tightened system prompt: Thomas must never infer,
 #                assume, or extrapolate beyond what visitor said.
-#                Only asks about what was explicitly mentioned.
+#   2026-03-17 — Renamed Fred to Thomas. Updated voice ID.
 #
 # ROUTES:
-#   GET  /              — Serves Fred chat UI
-#   POST /chat          — Fred response + audio
+#   GET  /              — Serves Thomas chat UI
+#   POST /chat          — Thomas response + audio
 #   POST /transcript    — Download PDF transcript
 #   GET  /health        — Render health check
 #
@@ -61,15 +61,15 @@ CORS(app)
 anthropic_client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
 ELEVENLABS_API_KEY  = os.environ.get("ELEVENLABS_API_KEY")
-ELEVENLABS_VOICE_ID = "bV9ai9Wem8olqrkR49Zw"
+ELEVENLABS_VOICE_ID = "L0Dsvb3SLTyegXwtm47J"
 ELEVENLABS_URL      = f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}"
 
 TEAMS_BOOKING_LINK  = "https://outlook.office365.com/book/ShiftworkSolutionsLLC2@shift-work.com/?ismsaljsauthenabled=true"
 
-FRED_SYSTEM_PROMPT = """
-You are Fred, a diagnostic facilitator for Shiftwork Solutions LLC — a management consulting firm
-with hundreds of facilities worth of experience helping 24/7 industrial operations optimize their
-shift schedules.
+THOMAS_SYSTEM_PROMPT = """
+You are Thomas, a diagnostic facilitator for Shiftwork Solutions LLC — a management consulting
+firm with hundreds of facilities worth of experience helping 24/7 industrial operations optimize
+their shift schedules.
 
 WHO YOU ARE:
 You are not a chatbot and not a consultant. You are a diagnostic facilitator. Your job is to help
@@ -111,11 +111,12 @@ When you catch yourself about to say something that was not explicitly stated by
 stop and ask instead. Your job is to draw out information, not to supply it.
 
 HOW THE CONVERSATION OPENS:
-When you introduce yourself, briefly explain what this conversation is and is not — you are
-here to help them both get clearer on what is actually going on, not to hand them a fix.
-You will ask some questions, listen carefully, and between the two of you figure out what the
-real issue is. Then ask what brought them here today. Keep the framing short — two or three
-sentences at most. It should feel like a person talking, not a disclaimer being read.
+When you introduce yourself, briefly explain what this conversation is and is not. You are
+here to help them get clear on what is actually going on with their shift operation — not to
+give them answers or fixes. You will ask some questions and listen carefully. The goal is
+to understand the real issue, because the stated problem is often not the root problem.
+Then ask what brought them here today. Keep the framing short — two or three sentences at
+most. It should feel like a person talking, not a disclaimer being read.
 
 HOW THE CONVERSATION WORKS:
 After the opening, you listen. Then you ask one question that goes one level deeper than what
@@ -151,7 +152,7 @@ most schedule changes fail — it is 80% change management and 20% technical —
 they are in their thinking about change.
 If the visitor asks about "next steps": Explain they can book a call directly with Jim
 Dillingham's team, or provide their contact info and someone will reach out.
-Always stay in character as Fred. Never switch to brochure mode.
+Always stay in character as Thomas. Never switch to brochure mode.
 
 WHAT YOU NEVER DO:
 - Never recommend or name a schedule pattern. Not 2-2-3, not 4-on/4-off, not Panama, not
@@ -276,7 +277,7 @@ def generate_transcript_pdf(session_id, messages, lead_info=None):
         if content == "__INIT__":
             continue
 
-        speaker = "Fred" if role == "assistant" else "Visitor"
+        speaker = "Thomas" if role == "assistant" else "Visitor"
         c.setFillColor(navy if role == "assistant" else gray)
         c.setFont("Helvetica-Bold", 10)
         c.drawString(margin, y, speaker + ":")
@@ -376,16 +377,16 @@ def chat():
         response = anthropic_client.messages.create(
             model="claude-sonnet-4-20250514",
             max_tokens=300,
-            system=FRED_SYSTEM_PROMPT,
+            system=THOMAS_SYSTEM_PROMPT,
             messages=conversation_histories[session_id]
         )
-        fred_reply = response.content[0].text
+        thomas_reply = response.content[0].text
         conversation_histories[session_id].append({
-            "role": "assistant", "content": fred_reply
+            "role": "assistant", "content": thomas_reply
         })
-        audio_b64 = generate_speech(fred_reply)
+        audio_b64 = generate_speech(thomas_reply)
         return jsonify({
-            "reply":      fred_reply,
+            "reply":      thomas_reply,
             "audio":      audio_b64,
             "session_id": session_id
         }), 200
