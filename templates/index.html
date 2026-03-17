@@ -36,15 +36,11 @@
 
   /* ── Start screen ─────────────────────────────────── */
   #start-screen {
-    position: fixed;
-    inset: 0;
+    position: fixed; inset: 0;
     background: var(--navy);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 28px;
-    z-index: 200;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 28px; z-index: 200;
     transition: opacity 0.5s ease;
   }
 
@@ -52,52 +48,38 @@
 
   .start-logo {
     width: 72px; height: 72px;
-    background: var(--gold);
-    border-radius: 50%;
+    background: var(--gold); border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    font-family: 'Lora', serif;
-    font-size: 34px; font-weight: 600;
+    font-family: 'Lora', serif; font-size: 34px; font-weight: 600;
     color: var(--navy);
   }
 
   .start-heading {
-    font-family: 'Lora', serif;
-    font-size: 26px; font-weight: 600;
-    color: var(--white);
-    text-align: center;
+    font-family: 'Lora', serif; font-size: 26px; font-weight: 600;
+    color: var(--white); text-align: center;
   }
 
   .start-sub {
-    font-size: 15px;
-    color: rgba(255,255,255,0.60);
-    text-align: center;
-    max-width: 380px;
-    line-height: 1.65;
+    font-size: 15px; color: rgba(255,255,255,0.60);
+    text-align: center; max-width: 380px; line-height: 1.65;
   }
 
   .speaker-notice {
     background: rgba(200,149,42,0.15);
     border: 1px solid rgba(200,149,42,0.40);
-    border-radius: 10px;
-    padding: 12px 20px;
-    font-size: 13px;
-    color: var(--gold-lt);
-    text-align: center;
-    max-width: 380px;
-    line-height: 1.5;
+    border-radius: 10px; padding: 12px 20px;
+    font-size: 13px; color: var(--gold-lt);
+    text-align: center; max-width: 380px; line-height: 1.5;
   }
 
   .speaker-notice strong { color: var(--gold-lt); }
 
   #start-btn {
-    background: var(--gold);
-    color: var(--navy);
-    border: none;
-    border-radius: 30px;
+    background: var(--gold); color: var(--navy);
+    border: none; border-radius: 30px;
     font-family: 'Source Sans 3', sans-serif;
     font-size: 16px; font-weight: 600;
-    padding: 16px 44px;
-    cursor: pointer;
+    padding: 16px 44px; cursor: pointer;
     transition: background 0.2s, transform 0.1s;
     letter-spacing: 0.02em;
   }
@@ -106,59 +88,39 @@
   #start-btn:active { transform: scale(0.97); }
 
   .start-footer {
-    font-size: 12px;
-    color: rgba(255,255,255,0.30);
-    text-align: center;
+    font-size: 12px; color: rgba(255,255,255,0.30); text-align: center;
   }
 
   /* ── Header ───────────────────────────────────────── */
   header {
-    width: 100%;
-    background: var(--navy);
-    padding: 14px 28px;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    box-shadow: 0 2px 12px rgba(26,39,68,0.18);
-    flex-shrink: 0;
+    width: 100%; background: var(--navy);
+    padding: 14px 28px; display: flex;
+    align-items: center; gap: 14px;
+    box-shadow: 0 2px 12px rgba(26,39,68,0.18); flex-shrink: 0;
   }
 
   .logo-mark {
-    width: 38px; height: 38px;
-    background: var(--gold);
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-family: 'Lora', serif;
-    font-size: 18px; font-weight: 600;
+    width: 38px; height: 38px; background: var(--gold);
+    border-radius: 50%; display: flex;
+    align-items: center; justify-content: center;
+    font-family: 'Lora', serif; font-size: 18px; font-weight: 600;
     color: var(--navy); flex-shrink: 0;
   }
 
   .header-text h1 {
-    font-family: 'Lora', serif;
-    font-size: 17px; font-weight: 600;
+    font-family: 'Lora', serif; font-size: 17px; font-weight: 600;
     color: var(--white);
   }
 
-  .header-text p {
-    font-size: 12px;
-    color: rgba(255,255,255,0.55);
-    margin-top: 1px;
-  }
+  .header-text p { font-size: 12px; color: rgba(255,255,255,0.55); margin-top: 1px; }
 
-  .header-right {
-    margin-left: auto;
-    display: flex; align-items: center; gap: 12px;
-  }
+  .header-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
 
   .mute-btn {
-    background: none;
-    border: 1.5px solid rgba(255,255,255,0.30);
-    border-radius: 20px;
-    color: rgba(255,255,255,0.75);
-    font-family: 'Source Sans 3', sans-serif;
-    font-size: 12px;
-    padding: 5px 12px;
-    cursor: pointer;
+    background: none; border: 1.5px solid rgba(255,255,255,0.30);
+    border-radius: 20px; color: rgba(255,255,255,0.75);
+    font-family: 'Source Sans 3', sans-serif; font-size: 12px;
+    padding: 5px 12px; cursor: pointer;
     transition: border-color 0.2s, color 0.2s, background 0.2s;
     white-space: nowrap;
   }
@@ -167,146 +129,78 @@
   .mute-btn.muted { background: rgba(255,255,255,0.12); border-color: var(--gold); color: var(--gold-lt); }
 
   .status-dot {
-    width: 8px; height: 8px;
-    background: #4ade80;
-    border-radius: 50%;
+    width: 8px; height: 8px; background: #4ade80; border-radius: 50%;
     box-shadow: 0 0 6px #4ade80;
-    animation: pulse 2.4s ease-in-out infinite;
-    flex-shrink: 0;
+    animation: pulse 2.4s ease-in-out infinite; flex-shrink: 0;
   }
 
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
 
   /* ── Main layout ──────────────────────────────────── */
-  .main-layout {
-    display: flex;
-    flex: 1;
-    overflow: hidden;
-    height: calc(100vh - 58px);
-  }
+  .main-layout { display: flex; flex: 1; overflow: hidden; height: calc(100vh - 58px); }
 
   /* ── Sidebar ──────────────────────────────────────── */
   .sidebar {
-    width: 260px;
-    flex-shrink: 0;
-    background: var(--white);
+    width: 260px; flex-shrink: 0; background: var(--white);
     border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
+    display: flex; flex-direction: column; overflow-y: auto;
   }
 
-  .sidebar-img {
-    width: 100%;
-    height: 160px;
-    object-fit: cover;
-    display: block;
-  }
+  .sidebar-img { width: 100%; height: 160px; object-fit: cover; display: block; }
 
-  .sidebar-section {
-    padding: 18px 16px 8px;
-  }
+  .sidebar-section { padding: 18px 16px 8px; }
 
   .sidebar-label {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--gray);
-    margin-bottom: 10px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--gray); margin-bottom: 10px;
   }
 
   .topic-btn {
-    display: block;
-    width: 100%;
-    text-align: left;
-    background: var(--cream);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 10px 14px;
-    font-family: 'Source Sans 3', sans-serif;
-    font-size: 13px;
-    color: var(--navy);
-    cursor: pointer;
-    margin-bottom: 8px;
-    transition: background 0.15s, border-color 0.15s;
-    line-height: 1.4;
+    display: block; width: 100%; text-align: left;
+    background: var(--cream); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px;
+    font-family: 'Source Sans 3', sans-serif; font-size: 13px;
+    color: var(--navy); cursor: pointer; margin-bottom: 8px;
+    transition: background 0.15s, border-color 0.15s; line-height: 1.4;
   }
 
   .topic-btn:hover { background: var(--fred-bg); border-color: var(--gold); }
   .topic-btn:active { transform: scale(0.98); }
 
-  .sidebar-divider {
-    height: 1px;
-    background: var(--border);
-    margin: 12px 16px;
-  }
+  .sidebar-divider { height: 1px; background: var(--border); margin: 12px 16px; }
 
   .action-btn {
-    display: block;
-    width: calc(100% - 32px);
-    margin: 0 16px 10px;
-    text-align: center;
-    background: var(--navy);
-    color: var(--white);
-    border: none;
-    border-radius: 10px;
-    padding: 11px 14px;
-    font-family: 'Source Sans 3', sans-serif;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.15s;
-    text-decoration: none;
+    display: block; width: calc(100% - 32px); margin: 0 16px 10px;
+    text-align: center; background: var(--navy); color: var(--white);
+    border: none; border-radius: 10px; padding: 11px 14px;
+    font-family: 'Source Sans 3', sans-serif; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: background 0.15s; text-decoration: none;
   }
 
   .action-btn:hover { background: var(--gold); color: var(--navy); }
 
   .action-btn.outline {
-    background: none;
-    border: 1.5px solid var(--navy);
-    color: var(--navy);
+    background: none; border: 1.5px solid var(--navy); color: var(--navy);
   }
 
   .action-btn.outline:hover { background: var(--navy); color: var(--white); }
 
-  .sidebar-img-2 {
-    width: 100%;
-    height: 120px;
-    object-fit: cover;
-    display: block;
-    margin-top: auto;
-  }
+  .sidebar-img-2 { width: 100%; height: 120px; object-fit: cover; display: block; margin-top: auto; }
 
   /* ── Chat area ────────────────────────────────────── */
-  .chat-area {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    min-width: 0;
-  }
+  .chat-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
 
   .intro-card {
-    background: var(--white);
-    border-bottom: 1px solid var(--border);
-    border-left: 4px solid var(--gold);
-    padding: 12px 20px;
-    font-size: 13px;
-    color: var(--gray);
-    line-height: 1.5;
-    flex-shrink: 0;
+    background: var(--white); border-bottom: 1px solid var(--border);
+    border-left: 4px solid var(--gold); padding: 12px 20px;
+    font-size: 13px; color: var(--gray); line-height: 1.5; flex-shrink: 0;
   }
 
   .intro-card strong { color: var(--navy); font-weight: 600; }
 
   #messages {
-    flex: 1;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    padding: 20px 20px 10px;
+    flex: 1; overflow-y: auto; display: flex; flex-direction: column;
+    gap: 14px; padding: 20px 20px 10px;
   }
 
   .bubble-row { display: flex; align-items: flex-end; gap: 10px; }
@@ -314,52 +208,29 @@
   .bubble-row.user { justify-content: flex-end; }
 
   .avatar-circle {
-    width: 32px; height: 32px;
-    background: var(--navy);
-    border-radius: 50%;
+    width: 32px; height: 32px; background: var(--navy); border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    font-family: 'Lora', serif;
-    font-size: 13px; font-weight: 600;
+    font-family: 'Lora', serif; font-size: 13px; font-weight: 600;
     color: var(--gold); flex-shrink: 0;
   }
 
   .bubble {
-    max-width: 76%;
-    padding: 12px 16px;
-    border-radius: var(--radius);
-    font-size: 14px;
-    line-height: 1.65;
-    box-shadow: var(--shadow);
+    max-width: 76%; padding: 12px 16px; border-radius: var(--radius);
+    font-size: 14px; line-height: 1.65; box-shadow: var(--shadow);
   }
 
-  .bubble-row.fred .bubble {
-    background: var(--fred-bg);
-    color: var(--navy);
-    border-bottom-left-radius: 4px;
-  }
-
-  .bubble-row.user .bubble {
-    background: var(--user-bg);
-    color: var(--user-tx);
-    border-bottom-right-radius: 4px;
-  }
+  .bubble-row.fred .bubble { background: var(--fred-bg); color: var(--navy); border-bottom-left-radius: 4px; }
+  .bubble-row.user .bubble { background: var(--user-bg); color: var(--user-tx); border-bottom-right-radius: 4px; }
 
   .speaking-indicator {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    margin-left: 8px;
-    vertical-align: middle;
-    opacity: 0;
-    transition: opacity 0.3s;
+    display: inline-flex; align-items: center; gap: 3px;
+    margin-left: 8px; vertical-align: middle; opacity: 0; transition: opacity 0.3s;
   }
 
   .speaking-indicator.active { opacity: 1; }
 
   .speaking-indicator span {
-    width: 3px;
-    background: var(--gold);
-    border-radius: 2px;
+    width: 3px; background: var(--gold); border-radius: 2px;
     animation: soundwave 0.8s ease-in-out infinite;
   }
 
@@ -369,105 +240,91 @@
   .speaking-indicator span:nth-child(4) { height: 10px; animation-delay: 0.3s; }
   .speaking-indicator span:nth-child(5) { height: 6px;  animation-delay: 0.4s; }
 
-  @keyframes soundwave {
-    0%,100%{transform:scaleY(0.5);opacity:0.5}
-    50%{transform:scaleY(1.0);opacity:1.0}
-  }
+  @keyframes soundwave { 0%,100%{transform:scaleY(0.5);opacity:0.5} 50%{transform:scaleY(1.0);opacity:1.0} }
 
   .typing-indicator {
-    display: none;
-    align-items: center;
-    gap: 5px;
-    padding: 12px 16px;
-    background: var(--fred-bg);
-    border-radius: var(--radius);
-    border-bottom-left-radius: 4px;
-    width: fit-content;
-    box-shadow: var(--shadow);
+    display: none; align-items: center; gap: 5px;
+    padding: 12px 16px; background: var(--fred-bg);
+    border-radius: var(--radius); border-bottom-left-radius: 4px;
+    width: fit-content; box-shadow: var(--shadow);
   }
 
   .typing-indicator span {
-    width: 7px; height: 7px;
-    background: var(--navy);
-    border-radius: 50%;
-    opacity: 0.4;
+    width: 7px; height: 7px; background: var(--navy);
+    border-radius: 50%; opacity: 0.4;
     animation: bounce 1.2s ease-in-out infinite;
   }
 
   .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
   .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
 
-  @keyframes bounce {
-    0%,80%,100%{transform:translateY(0);opacity:0.4}
-    40%{transform:translateY(-6px);opacity:1}
-  }
+  @keyframes bounce { 0%,80%,100%{transform:translateY(0);opacity:0.4} 40%{transform:translateY(-6px);opacity:1} }
 
   /* ── Input ────────────────────────────────────────── */
   .input-area {
-    padding: 12px 16px 16px;
-    background: var(--cream);
-    border-top: 1px solid var(--border);
-    flex-shrink: 0;
+    padding: 12px 16px 16px; background: var(--cream);
+    border-top: 1px solid var(--border); flex-shrink: 0;
   }
 
   .input-row {
-    display: flex;
-    gap: 8px;
-    background: var(--white);
-    border: 1.5px solid var(--border);
-    border-radius: 30px;
-    padding: 8px 8px 8px 18px;
-    box-shadow: var(--shadow);
+    display: flex; gap: 8px; background: var(--white);
+    border: 1.5px solid var(--border); border-radius: 30px;
+    padding: 8px 8px 8px 18px; box-shadow: var(--shadow);
     transition: border-color 0.2s;
   }
 
   .input-row:focus-within { border-color: var(--gold); }
 
   #user-input {
-    flex: 1;
-    border: none; outline: none;
-    font-family: 'Source Sans 3', sans-serif;
-    font-size: 14px; color: var(--navy);
-    background: transparent;
-    resize: none; height: 24px; max-height: 100px;
+    flex: 1; border: none; outline: none;
+    font-family: 'Source Sans 3', sans-serif; font-size: 14px; color: var(--navy);
+    background: transparent; resize: none; height: 24px; max-height: 100px;
     overflow-y: auto; line-height: 1.5;
   }
 
   #user-input::placeholder { color: #aaa; }
 
+  /* Mic button */
   #mic-btn {
-    width: 38px; height: 38px;
-    background: none;
-    border: 1.5px solid var(--border);
-    border-radius: 50%;
-    cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-    transition: background 0.2s, border-color 0.2s, transform 0.1s;
-    color: var(--gray);
+    width: 38px; height: 38px; background: none;
+    border: 1.5px solid var(--border); border-radius: 50%;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; transition: all 0.2s; color: var(--gray);
+    position: relative;
   }
 
   #mic-btn:hover { border-color: var(--gold); color: var(--gold); }
+
   #mic-btn.listening {
-    background: #fee2e2;
-    border-color: #ef4444;
-    color: #ef4444;
+    background: #fee2e2; border-color: #ef4444; color: #ef4444;
     animation: mic-pulse 1s ease-in-out infinite;
   }
 
-  @keyframes mic-pulse {
-    0%,100% { transform: scale(1); }
-    50%      { transform: scale(1.08); }
+  #mic-btn.listening::after {
+    content: '';
+    position: absolute; inset: -4px;
+    border-radius: 50%; border: 2px solid #ef4444;
+    animation: mic-ring 1s ease-out infinite; opacity: 0;
   }
 
+  @keyframes mic-pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+  @keyframes mic-ring  { 0%{transform:scale(1);opacity:0.6} 100%{transform:scale(1.5);opacity:0} }
+
+  /* Mic status bar */
+  #mic-status {
+    text-align: center; font-size: 12px; margin-top: 6px;
+    min-height: 18px; transition: color 0.2s;
+    color: var(--gray); opacity: 0.8;
+  }
+
+  #mic-status.listening { color: #ef4444; opacity: 1; }
+  #mic-status.error     { color: #ef4444; opacity: 1; }
+
   #send-btn {
-    width: 38px; height: 38px;
-    background: var(--navy);
-    border: none; border-radius: 50%;
-    cursor: pointer;
+    width: 38px; height: 38px; background: var(--navy);
+    border: none; border-radius: 50%; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-    transition: background 0.2s, transform 0.1s;
+    flex-shrink: 0; transition: background 0.2s, transform 0.1s;
   }
 
   #send-btn:hover  { background: var(--gold); }
@@ -475,120 +332,71 @@
   #send-btn svg    { width: 16px; height: 16px; fill: white; }
 
   .disclaimer {
-    text-align: center;
-    font-size: 11px;
-    color: var(--gray);
-    margin-top: 8px;
-    opacity: 0.7;
+    text-align: center; font-size: 11px; color: var(--gray);
+    margin-top: 4px; opacity: 0.7;
   }
 
-  /* ── Lead capture modal ───────────────────────────── */
+  /* ── Lead modal ───────────────────────────────────── */
   .modal-overlay {
-    position: fixed; inset: 0;
-    background: rgba(26,39,68,0.70);
+    position: fixed; inset: 0; background: rgba(26,39,68,0.70);
     display: flex; align-items: center; justify-content: center;
-    z-index: 150;
-    opacity: 0; pointer-events: none;
-    transition: opacity 0.3s;
+    z-index: 150; opacity: 0; pointer-events: none; transition: opacity 0.3s;
   }
 
   .modal-overlay.active { opacity: 1; pointer-events: all; }
 
   .modal {
-    background: var(--white);
-    border-radius: 16px;
-    padding: 32px;
-    width: 440px;
-    max-width: 94vw;
+    background: var(--white); border-radius: 16px; padding: 32px;
+    width: 440px; max-width: 94vw;
     box-shadow: 0 20px 60px rgba(26,39,68,0.25);
-    transform: translateY(16px);
-    transition: transform 0.3s;
+    transform: translateY(16px); transition: transform 0.3s;
   }
 
   .modal-overlay.active .modal { transform: translateY(0); }
 
-  .modal h2 {
-    font-family: 'Lora', serif;
-    font-size: 20px; font-weight: 600;
-    color: var(--navy);
-    margin-bottom: 6px;
-  }
-
-  .modal p {
-    font-size: 14px; color: var(--gray);
-    line-height: 1.5; margin-bottom: 20px;
-  }
+  .modal h2 { font-family: 'Lora', serif; font-size: 20px; font-weight: 600; color: var(--navy); margin-bottom: 6px; }
+  .modal p  { font-size: 14px; color: var(--gray); line-height: 1.5; margin-bottom: 20px; }
 
   .form-group { margin-bottom: 14px; }
 
   .form-group label {
-    display: block;
-    font-size: 12px; font-weight: 600;
-    color: var(--navy);
-    margin-bottom: 5px;
-    letter-spacing: 0.03em;
+    display: block; font-size: 12px; font-weight: 600;
+    color: var(--navy); margin-bottom: 5px; letter-spacing: 0.03em;
   }
 
   .form-group input {
-    width: 100%;
-    border: 1.5px solid var(--border);
-    border-radius: 8px;
-    padding: 10px 14px;
-    font-family: 'Source Sans 3', sans-serif;
-    font-size: 14px; color: var(--navy);
-    outline: none;
-    transition: border-color 0.2s;
+    width: 100%; border: 1.5px solid var(--border); border-radius: 8px;
+    padding: 10px 14px; font-family: 'Source Sans 3', sans-serif;
+    font-size: 14px; color: var(--navy); outline: none; transition: border-color 0.2s;
   }
 
   .form-group input:focus { border-color: var(--gold); }
 
-  .modal-actions {
-    display: flex; gap: 10px;
-    margin-top: 20px;
-  }
+  .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
 
   .btn-primary {
-    flex: 1;
-    background: var(--navy); color: var(--white);
-    border: none; border-radius: 10px;
-    padding: 12px; font-family: 'Source Sans 3', sans-serif;
-    font-size: 14px; font-weight: 600;
+    flex: 1; background: var(--navy); color: var(--white);
+    border: none; border-radius: 10px; padding: 12px;
+    font-family: 'Source Sans 3', sans-serif; font-size: 14px; font-weight: 600;
     cursor: pointer; transition: background 0.2s;
   }
 
   .btn-primary:hover { background: var(--gold); color: var(--navy); }
 
   .btn-secondary {
-    background: none;
-    border: 1.5px solid var(--border);
-    border-radius: 10px;
-    padding: 12px 18px;
-    font-family: 'Source Sans 3', sans-serif;
-    font-size: 14px; color: var(--gray);
-    cursor: pointer; transition: border-color 0.2s;
+    background: none; border: 1.5px solid var(--border); border-radius: 10px;
+    padding: 12px 18px; font-family: 'Source Sans 3', sans-serif;
+    font-size: 14px; color: var(--gray); cursor: pointer; transition: border-color 0.2s;
   }
 
   .btn-secondary:hover { border-color: var(--navy); color: var(--navy); }
 
   .teams-link {
-    display: block;
-    text-align: center;
-    margin-top: 14px;
-    font-size: 13px;
-    color: var(--gold);
-    text-decoration: none;
+    display: block; text-align: center; margin-top: 14px;
+    font-size: 13px; color: var(--gold); text-decoration: none;
   }
 
   .teams-link:hover { text-decoration: underline; }
-
-  /* ── No mic notice ────────────────────────────────── */
-  #no-mic-notice {
-    display: none;
-    font-size: 12px;
-    color: #ef4444;
-    text-align: center;
-    margin-top: 6px;
-  }
 
   /* ── Responsive ───────────────────────────────────── */
   @media (max-width: 680px) {
@@ -610,7 +418,7 @@
   </div>
   <div class="speaker-notice">
     🔊 <strong>Turn on your speakers.</strong> Fred will speak his responses.
-    You can type your replies or use the microphone button.
+    You can type your replies or click the microphone to speak.
   </div>
   <button id="start-btn" onclick="startConversation()">
     Click here and let's get started
@@ -642,13 +450,13 @@
 
     <div class="sidebar-section">
       <div class="sidebar-label">Ask Fred About</div>
-      <button class="topic-btn" onclick="injectTopic('Tell me about our consulting process')">
+      <button class="topic-btn" onclick="injectTopic('Tell me about your consulting process')">
         🔄 Our consulting process
       </button>
-      <button class="topic-btn" onclick="injectTopic('Tell me about our employee survey')">
+      <button class="topic-btn" onclick="injectTopic('Tell me about your employee survey')">
         📋 Our employee survey
       </button>
-      <button class="topic-btn" onclick="injectTopic('Tell me about our implementation approach')">
+      <button class="topic-btn" onclick="injectTopic('Tell me about your implementation approach')">
         🏗️ Our implementation approach
       </button>
       <button class="topic-btn" onclick="injectTopic('What are the next steps?')">
@@ -681,7 +489,7 @@
     <div class="intro-card">
       <strong>Not a sales call.</strong> Fred will ask you questions about your shift operations
       and help you get clearer on what you're actually dealing with.
-      Type your replies or click the 🎤 microphone button to speak.
+      Type your reply or click 🎤 to speak — Fred will respond in voice.
     </div>
 
     <div id="messages">
@@ -695,7 +503,7 @@
 
     <div class="input-area">
       <div class="input-row">
-        <textarea id="user-input" placeholder="Type your reply or use the mic..." rows="1"></textarea>
+        <textarea id="user-input" placeholder="Type your reply or click 🎤 to speak..." rows="1"></textarea>
         <button id="mic-btn" aria-label="Speak" onclick="toggleMic()" title="Click to speak">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
             <path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm0 2a2 2 0 0 0-2 2v6a2 2 0 0 0 4 0V5a2 2 0 0 0-2-2zm-1 14.93V20H9v2h6v-2h-2v-2.07A7 7 0 0 0 19 11h-2a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.93z"/>
@@ -705,7 +513,7 @@
           <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg>
         </button>
       </div>
-      <p id="no-mic-notice">Your browser doesn't support voice input. Please type your reply.</p>
+      <div id="mic-status"></div>
       <p class="disclaimer">Your conversation is private and not stored beyond this session.</p>
     </div>
   </div>
@@ -745,44 +553,36 @@
 </div>
 
 <script>
-  const messagesEl    = document.getElementById('messages');
-  const inputEl       = document.getElementById('user-input');
-  const sendBtn       = document.getElementById('send-btn');
-  const micBtn        = document.getElementById('mic-btn');
-  const typingEl      = document.getElementById('typing');
-  const typingRow     = document.getElementById('typing-row');
-  const muteBtn       = document.getElementById('mute-btn');
-  const startScr      = document.getElementById('start-screen');
-  const leadModal     = document.getElementById('lead-modal');
-  const noMicNotice   = document.getElementById('no-mic-notice');
+  const messagesEl  = document.getElementById('messages');
+  const inputEl     = document.getElementById('user-input');
+  const sendBtn     = document.getElementById('send-btn');
+  const micBtn      = document.getElementById('mic-btn');
+  const micStatus   = document.getElementById('mic-status');
+  const typingEl    = document.getElementById('typing');
+  const typingRow   = document.getElementById('typing-row');
+  const muteBtn     = document.getElementById('mute-btn');
+  const startScr    = document.getElementById('start-screen');
+  const leadModal   = document.getElementById('lead-modal');
 
-  const SESSION_ID    = 'sess_' + Math.random().toString(36).substr(2, 9);
-  let isWaiting       = false;
-  let isMuted         = false;
-  let currentAudio    = null;
-  let speakingEl      = null;
-  let leadData        = null;
-  let recognition     = null;
-  let isListening     = false;
+  const SESSION_ID  = 'sess_' + Math.random().toString(36).substr(2, 9);
+  let isWaiting     = false;
+  let isMuted       = false;
+  let currentAudio  = null;
+  let speakingEl    = null;
+  let leadData      = null;
+  let recognition   = null;
+  let isListening   = false;
 
-  // ── Speech recognition setup ───────────────────────────
+  // ── Speech recognition ─────────────────────────────────
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
   if (SpeechRecognition) {
     recognition = new SpeechRecognition();
-    recognition.continuous      = false;
-    recognition.interimResults  = true;
-    recognition.lang            = 'en-US';
+    recognition.continuous     = false;
+    recognition.interimResults = true;
+    recognition.lang           = 'en-US';
 
-    recognition.onstart = () => {
-      isListening = true;
-      micBtn.classList.add('listening');
-      micBtn.title = 'Listening — click to stop';
-      // Pause Fred if he is speaking
-      if (currentAudio) { currentAudio.pause(); currentAudio = null; }
-      if (speakingEl)   { speakingEl.classList.remove('active'); speakingEl = null; }
-    };
-
+    // Show interim transcript as user speaks
     recognition.onresult = (event) => {
       let interim = '';
       let final   = '';
@@ -796,27 +596,49 @@
       inputEl.style.height = Math.min(inputEl.scrollHeight, 100) + 'px';
     };
 
+    recognition.onstart = () => {
+      isListening = true;
+      micBtn.classList.add('listening');
+      micBtn.title = 'Listening — speak now, Fred will respond when you stop';
+      micStatus.textContent = '🎤 Listening — speak now...';
+      micStatus.className   = 'listening';
+      // Pause Fred if speaking so mic picks up visitor clearly
+      if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+      if (speakingEl)   { speakingEl.classList.remove('active'); speakingEl = null; }
+    };
+
+    // Auto-submit when speech ends — no second tap needed
     recognition.onend = () => {
       isListening = false;
       micBtn.classList.remove('listening');
-      micBtn.title = 'Click to speak';
-      // Auto-send if there is text
-      if (inputEl.value.trim()) sendMessage();
+      micBtn.title  = 'Click to speak';
+      micStatus.textContent = '';
+      micStatus.className   = '';
+      if (inputEl.value.trim()) {
+        sendMessage();
+      }
     };
 
     recognition.onerror = (event) => {
-      console.warn('Speech recognition error:', event.error);
       isListening = false;
       micBtn.classList.remove('listening');
+      micStatus.className = 'error';
       if (event.error === 'not-allowed') {
-        noMicNotice.textContent = 'Microphone access denied. Please allow microphone access and try again.';
-        noMicNotice.style.display = 'block';
+        micStatus.textContent = 'Microphone access denied — please allow access in your browser settings.';
+        micBtn.style.opacity  = '0.4';
+        micBtn.style.cursor   = 'not-allowed';
+      } else if (event.error === 'no-speech') {
+        micStatus.textContent = 'No speech detected — try again.';
+        setTimeout(() => { micStatus.textContent = ''; micStatus.className = ''; }, 3000);
+      } else {
+        micStatus.textContent = 'Microphone error — please try again.';
+        setTimeout(() => { micStatus.textContent = ''; micStatus.className = ''; }, 3000);
       }
     };
   } else {
-    // Browser doesn't support speech recognition
-    micBtn.style.display = 'none';
-    noMicNotice.style.display = 'block';
+    // Browser doesn't support speech recognition — hide mic button
+    micBtn.style.display  = 'none';
+    micStatus.textContent = 'Voice input not supported in this browser. Please type your reply.';
   }
 
   function toggleMic() {
@@ -825,7 +647,13 @@
       recognition.stop();
     } else {
       inputEl.value = '';
-      recognition.start();
+      try {
+        recognition.start();
+      } catch(e) {
+        micStatus.textContent = 'Could not start microphone — please try again.';
+        micStatus.className   = 'error';
+        setTimeout(() => { micStatus.textContent = ''; micStatus.className = ''; }, 3000);
+      }
     }
   }
 
@@ -843,13 +671,12 @@
     muteBtn.textContent = isMuted ? '🔇 Sound off' : '🔊 Sound on';
     muteBtn.classList.toggle('muted', isMuted);
     if (isMuted && currentAudio) {
-      currentAudio.pause();
-      currentAudio = null;
+      currentAudio.pause(); currentAudio = null;
       if (speakingEl) { speakingEl.classList.remove('active'); speakingEl = null; }
     }
   }
 
-  // ── Sidebar topic injection ────────────────────────────
+  // ── Sidebar topics ─────────────────────────────────────
   function injectTopic(text) {
     if (isWaiting) return;
     inputEl.value = text;
@@ -857,7 +684,7 @@
   }
 
   // ── Lead capture ───────────────────────────────────────
-  function showLeadCapture() { leadModal.classList.add('active'); }
+  function showLeadCapture()  { leadModal.classList.add('active'); }
   function closeLeadCapture() { leadModal.classList.remove('active'); }
 
   async function submitLead() {
@@ -865,12 +692,7 @@
     const email   = document.getElementById('lead-email').value.trim();
     const phone   = document.getElementById('lead-phone').value.trim();
     const company = document.getElementById('lead-company').value.trim();
-
-    if (!name || !email) {
-      alert('Please enter your name and email.');
-      return;
-    }
-
+    if (!name || !email) { alert('Please enter your name and email.'); return; }
     leadData = { Name: name, Email: email, Phone: phone, Company: company };
     closeLeadCapture();
     addBubble(
@@ -879,7 +701,7 @@
     );
   }
 
-  // ── Transcript download ────────────────────────────────
+  // ── Transcript ─────────────────────────────────────────
   async function downloadTranscript() {
     try {
       const resp = await fetch('/transcript', {
@@ -912,32 +734,24 @@
     try {
       if (currentAudio) { currentAudio.pause(); currentAudio = null; }
       if (speakingEl)   { speakingEl.classList.remove('active'); speakingEl = null; }
-
       const bytes = atob(b64);
       const arr   = new Uint8Array(bytes.length);
       for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
       const blob  = new Blob([arr], { type: 'audio/mpeg' });
       const url   = URL.createObjectURL(blob);
       const audio = new Audio(url);
-
-      currentAudio = audio;
-      speakingEl   = indicator;
+      currentAudio = audio; speakingEl = indicator;
       if (indicator) indicator.classList.add('active');
-
       audio.play().catch(err => {
         console.warn('Autoplay blocked:', err);
         if (indicator) indicator.classList.remove('active');
       });
-
       audio.addEventListener('ended', () => {
-        URL.revokeObjectURL(url);
-        currentAudio = null;
+        URL.revokeObjectURL(url); currentAudio = null;
         if (indicator) indicator.classList.remove('active');
         speakingEl = null;
       });
-    } catch (err) {
-      console.warn('Audio error:', err);
-    }
+    } catch (err) { console.warn('Audio error:', err); }
   }
 
   // ── Bubbles ────────────────────────────────────────────
@@ -957,18 +771,13 @@
   function addBubble(text, who, audiob64) {
     const row = document.createElement('div');
     row.className = 'bubble-row ' + who;
-
     if (who === 'fred') {
       const av = document.createElement('div');
-      av.className   = 'avatar-circle';
-      av.textContent = 'F';
+      av.className = 'avatar-circle'; av.textContent = 'F';
       row.appendChild(av);
     }
-
     const bub = document.createElement('div');
-    bub.className   = 'bubble';
-    bub.textContent = text;
-
+    bub.className = 'bubble'; bub.textContent = text;
     let indicator = null;
     if (who === 'fred') {
       indicator = document.createElement('span');
@@ -976,11 +785,9 @@
       indicator.innerHTML = '<span></span><span></span><span></span><span></span><span></span>';
       bub.appendChild(indicator);
     }
-
     row.appendChild(bub);
     messagesEl.insertBefore(row, typingRow);
     scrollBottom();
-
     if (who === 'fred' && audiob64) playAudio(audiob64, indicator);
   }
 
@@ -988,15 +795,11 @@
   async function sendMessage() {
     const text = inputEl.value.trim();
     if (!text || isWaiting) return;
-
     isWaiting = true;
-    inputEl.value = '';
-    inputEl.style.height = 'auto';
+    inputEl.value = ''; inputEl.style.height = 'auto';
     sendBtn.disabled = true;
-
     addBubble(text, 'user', null);
     showTyping();
-
     try {
       const resp = await fetch('/chat', {
         method:  'POST',
@@ -1014,10 +817,7 @@
       hideTyping();
       addBubble("Connection issue — please refresh and try again.", 'fred', null);
     }
-
-    isWaiting = false;
-    sendBtn.disabled = false;
-    inputEl.focus();
+    isWaiting = false; sendBtn.disabled = false; inputEl.focus();
   }
 
   // ── Opening ────────────────────────────────────────────
@@ -1038,20 +838,12 @@
     }
   }
 
-  // ── Event listeners ────────────────────────────────────
-  leadModal.addEventListener('click', e => {
-    if (e.target === leadModal) closeLeadCapture();
-  });
-
+  // ── Events ─────────────────────────────────────────────
+  leadModal.addEventListener('click', e => { if (e.target === leadModal) closeLeadCapture(); });
   sendBtn.addEventListener('click', sendMessage);
-
   inputEl.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   });
-
   inputEl.addEventListener('input', () => {
     inputEl.style.height = 'auto';
     inputEl.style.height = Math.min(inputEl.scrollHeight, 100) + 'px';
