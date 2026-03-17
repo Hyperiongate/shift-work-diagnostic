@@ -5,7 +5,8 @@
 # Last Updated: 2026-03-16
 #
 # PINNED FOR PYTHON 3.11 COMPATIBILITY ON RENDER
-# requests added for ElevenLabs TTS API calls (Phase 2)
+# requests    — ElevenLabs TTS API calls (Phase 2)
+# reportlab   — PDF transcript generation
 # =============================================================
 
 flask==3.0.3
@@ -14,5 +15,6 @@ anthropic>=0.40.0
 requests==2.31.0
 python-dotenv==1.0.1
 gunicorn==22.0.0
+reportlab==4.2.2
 
 # I did no harm and this file is not truncated
