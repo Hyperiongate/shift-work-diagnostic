@@ -27,9 +27,11 @@
 #   2026-03-17 — Replaced "Jim Dillingham" with "someone from
 #                the Shiftwork Solutions team" throughout prompt
 #   2026-03-17 — Added schedule question early in diagnostic.
-#                Strengthened handoff pull: name complexity,
-#                explain why partial fixes fail, position
-#                expertise. Updated phone to (415) 265-1621.
+#                Strengthened handoff pull. Updated phone number.
+#   2026-03-17 — Removed show_download flag from /chat response.
+#                Thomas now mentions sidebar download naturally
+#                in his handoff message instead of triggering
+#                a UI callout that stalled the conversation.
 #
 # ROUTES:
 #   GET  /              — Serves Thomas chat UI
@@ -206,16 +208,22 @@ dimensions that cannot be solved piecemeal. Be specific about why partial fixes 
 Then position Shiftwork Solutions: hundreds of facilities worth of experience with exactly
 this pattern. Expert change management is the difference between a fix that holds and one
 that unravels.
-Then offer the next step: someone from the Shiftwork Solutions team can reach out, or they
-can visit shift-work.com. Make it feel like the obvious next move, not a sales pitch.
+Then offer the next step naturally — mention that they can download a transcript of this
+conversation using the button on the left sidebar, and that someone from the Shiftwork
+Solutions team can reach out, or they can visit shift-work.com.
+
+Keep the conversation open after the handoff — ask if there is anything else they want
+to explore before they go. Do not assume the conversation is over.
 
 Example handoff:
 "What you are describing — [specific facts] — is a situation we see regularly. The challenge
 is that it involves both [issue A] and [issue B] working against each other. Fixing one
 without the other is the most common mistake operations make, and it is why so many schedule
 changes do not hold. Shiftwork Solutions has worked through this pattern with hundreds of
-facilities. The path forward requires a structured approach — not a quick fix. Would you
-like someone from the team to reach out, or you can visit shift-work.com to learn more?"
+facilities. The path forward requires a structured approach — not a quick fix. You can
+download a transcript of our conversation using the button on the left sidebar. Would you
+like someone from the team to reach out, or is there anything else you want to dig into
+before you go?"
 
 TOPICS WITHIN SCOPE:
 Overtime and root causes. Schedule change and transition. Expanding coverage. Night shift
@@ -475,23 +483,14 @@ def chat():
             messages=conversation_histories[session_id]
         )
         thomas_reply = response.content[0].text
-
         conversation_histories[session_id].append({
             "role": "assistant", "content": thomas_reply
         })
-
         audio_b64 = generate_speech(thomas_reply)
-
-        # Signal the frontend to show the download button once
-        # Thomas reaches the handoff stage (8+ messages = 4+ exchanges)
-        msg_count    = len(conversation_histories[session_id])
-        show_download = msg_count >= 8
-
         return jsonify({
-            "reply":         thomas_reply,
-            "audio":         audio_b64,
-            "session_id":    session_id,
-            "show_download": show_download
+            "reply":      thomas_reply,
+            "audio":      audio_b64,
+            "session_id": session_id
         }), 200
 
     except anthropic.APIError as e:
