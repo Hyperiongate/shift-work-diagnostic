@@ -412,7 +412,7 @@
 
   .input-row {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     background: var(--white);
     border: 1.5px solid var(--border);
     border-radius: 30px;
@@ -434,6 +434,31 @@
   }
 
   #user-input::placeholder { color: #aaa; }
+
+  #mic-btn {
+    width: 38px; height: 38px;
+    background: none;
+    border: 1.5px solid var(--border);
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.2s, border-color 0.2s, transform 0.1s;
+    color: var(--gray);
+  }
+
+  #mic-btn:hover { border-color: var(--gold); color: var(--gold); }
+  #mic-btn.listening {
+    background: #fee2e2;
+    border-color: #ef4444;
+    color: #ef4444;
+    animation: mic-pulse 1s ease-in-out infinite;
+  }
+
+  @keyframes mic-pulse {
+    0%,100% { transform: scale(1); }
+    50%      { transform: scale(1.08); }
+  }
 
   #send-btn {
     width: 38px; height: 38px;
@@ -556,6 +581,15 @@
 
   .teams-link:hover { text-decoration: underline; }
 
+  /* ── No mic notice ────────────────────────────────── */
+  #no-mic-notice {
+    display: none;
+    font-size: 12px;
+    color: #ef4444;
+    text-align: center;
+    margin-top: 6px;
+  }
+
   /* ── Responsive ───────────────────────────────────── */
   @media (max-width: 680px) {
     .sidebar { display: none; }
@@ -576,7 +610,7 @@
   </div>
   <div class="speaker-notice">
     🔊 <strong>Turn on your speakers.</strong> Fred will speak his responses.
-    Make sure your volume is up before you start.
+    You can type your replies or use the microphone button.
   </div>
   <button id="start-btn" onclick="startConversation()">
     Click here and let's get started
@@ -608,14 +642,14 @@
 
     <div class="sidebar-section">
       <div class="sidebar-label">Ask Fred About</div>
-      <button class="topic-btn" onclick="injectTopic('Tell me about your process')">
-        🔄 Your consulting process
+      <button class="topic-btn" onclick="injectTopic('Tell me about our consulting process')">
+        🔄 Our consulting process
       </button>
-      <button class="topic-btn" onclick="injectTopic('Tell me about your employee survey')">
-        📋 Your employee survey
+      <button class="topic-btn" onclick="injectTopic('Tell me about our employee survey')">
+        📋 Our employee survey
       </button>
-      <button class="topic-btn" onclick="injectTopic('Tell me about implementation')">
-        🏗️ Implementation & change
+      <button class="topic-btn" onclick="injectTopic('Tell me about our implementation approach')">
+        🏗️ Our implementation approach
       </button>
       <button class="topic-btn" onclick="injectTopic('What are the next steps?')">
         ➡️ Next steps
@@ -647,7 +681,7 @@
     <div class="intro-card">
       <strong>Not a sales call.</strong> Fred will ask you questions about your shift operations
       and help you get clearer on what you're actually dealing with.
-      No solutions, no pitch — just an honest diagnostic conversation.
+      Type your replies or click the 🎤 microphone button to speak.
     </div>
 
     <div id="messages">
@@ -661,11 +695,17 @@
 
     <div class="input-area">
       <div class="input-row">
-        <textarea id="user-input" placeholder="Type your reply..." rows="1"></textarea>
+        <textarea id="user-input" placeholder="Type your reply or use the mic..." rows="1"></textarea>
+        <button id="mic-btn" aria-label="Speak" onclick="toggleMic()" title="Click to speak">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+            <path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm0 2a2 2 0 0 0-2 2v6a2 2 0 0 0 4 0V5a2 2 0 0 0-2-2zm-1 14.93V20H9v2h6v-2h-2v-2.07A7 7 0 0 0 19 11h-2a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.93z"/>
+          </svg>
+        </button>
         <button id="send-btn" aria-label="Send">
           <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg>
         </button>
       </div>
+      <p id="no-mic-notice">Your browser doesn't support voice input. Please type your reply.</p>
       <p class="disclaimer">Your conversation is private and not stored beyond this session.</p>
     </div>
   </div>
@@ -705,21 +745,89 @@
 </div>
 
 <script>
-  const messagesEl = document.getElementById('messages');
-  const inputEl    = document.getElementById('user-input');
-  const sendBtn    = document.getElementById('send-btn');
-  const typingEl   = document.getElementById('typing');
-  const typingRow  = document.getElementById('typing-row');
-  const muteBtn    = document.getElementById('mute-btn');
-  const startScr   = document.getElementById('start-screen');
-  const leadModal  = document.getElementById('lead-modal');
+  const messagesEl    = document.getElementById('messages');
+  const inputEl       = document.getElementById('user-input');
+  const sendBtn       = document.getElementById('send-btn');
+  const micBtn        = document.getElementById('mic-btn');
+  const typingEl      = document.getElementById('typing');
+  const typingRow     = document.getElementById('typing-row');
+  const muteBtn       = document.getElementById('mute-btn');
+  const startScr      = document.getElementById('start-screen');
+  const leadModal     = document.getElementById('lead-modal');
+  const noMicNotice   = document.getElementById('no-mic-notice');
 
-  const SESSION_ID = 'sess_' + Math.random().toString(36).substr(2, 9);
-  let isWaiting    = false;
-  let isMuted      = false;
-  let currentAudio = null;
-  let speakingEl   = null;
-  let leadData     = null;
+  const SESSION_ID    = 'sess_' + Math.random().toString(36).substr(2, 9);
+  let isWaiting       = false;
+  let isMuted         = false;
+  let currentAudio    = null;
+  let speakingEl      = null;
+  let leadData        = null;
+  let recognition     = null;
+  let isListening     = false;
+
+  // ── Speech recognition setup ───────────────────────────
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (SpeechRecognition) {
+    recognition = new SpeechRecognition();
+    recognition.continuous      = false;
+    recognition.interimResults  = true;
+    recognition.lang            = 'en-US';
+
+    recognition.onstart = () => {
+      isListening = true;
+      micBtn.classList.add('listening');
+      micBtn.title = 'Listening — click to stop';
+      // Pause Fred if he is speaking
+      if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+      if (speakingEl)   { speakingEl.classList.remove('active'); speakingEl = null; }
+    };
+
+    recognition.onresult = (event) => {
+      let interim = '';
+      let final   = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const t = event.results[i][0].transcript;
+        if (event.results[i].isFinal) final += t;
+        else interim += t;
+      }
+      inputEl.value = final || interim;
+      inputEl.style.height = 'auto';
+      inputEl.style.height = Math.min(inputEl.scrollHeight, 100) + 'px';
+    };
+
+    recognition.onend = () => {
+      isListening = false;
+      micBtn.classList.remove('listening');
+      micBtn.title = 'Click to speak';
+      // Auto-send if there is text
+      if (inputEl.value.trim()) sendMessage();
+    };
+
+    recognition.onerror = (event) => {
+      console.warn('Speech recognition error:', event.error);
+      isListening = false;
+      micBtn.classList.remove('listening');
+      if (event.error === 'not-allowed') {
+        noMicNotice.textContent = 'Microphone access denied. Please allow microphone access and try again.';
+        noMicNotice.style.display = 'block';
+      }
+    };
+  } else {
+    // Browser doesn't support speech recognition
+    micBtn.style.display = 'none';
+    noMicNotice.style.display = 'block';
+  }
+
+  function toggleMic() {
+    if (!recognition) return;
+    if (isListening) {
+      recognition.stop();
+    } else {
+      inputEl.value = '';
+      recognition.start();
+    }
+  }
 
   // ── Start ──────────────────────────────────────────────
   function startConversation() {
@@ -749,13 +857,8 @@
   }
 
   // ── Lead capture ───────────────────────────────────────
-  function showLeadCapture() {
-    leadModal.classList.add('active');
-  }
-
-  function closeLeadCapture() {
-    leadModal.classList.remove('active');
-  }
+  function showLeadCapture() { leadModal.classList.add('active'); }
+  function closeLeadCapture() { leadModal.classList.remove('active'); }
 
   async function submitLead() {
     const name    = document.getElementById('lead-name').value.trim();
@@ -770,7 +873,6 @@
 
     leadData = { Name: name, Email: email, Phone: phone, Company: company };
     closeLeadCapture();
-
     addBubble(
       `Thanks ${name} — someone from Jim's team will be in touch at ${email} within one business day.`,
       'fred', null
@@ -783,18 +885,13 @@
       const resp = await fetch('/transcript', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          session_id: SESSION_ID,
-          lead_info:  leadData || null
-        })
+        body:    JSON.stringify({ session_id: SESSION_ID, lead_info: leadData || null })
       });
-
       if (!resp.ok) {
         const err = await resp.json();
         alert('Could not generate transcript: ' + (err.error || 'Unknown error'));
         return;
       }
-
       const blob = await resp.blob();
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement('a');
@@ -828,7 +925,7 @@
       if (indicator) indicator.classList.add('active');
 
       audio.play().catch(err => {
-        console.warn('Audio autoplay blocked:', err);
+        console.warn('Autoplay blocked:', err);
         if (indicator) indicator.classList.remove('active');
       });
 
@@ -839,14 +936,12 @@
         speakingEl = null;
       });
     } catch (err) {
-      console.warn('Audio playback error:', err);
+      console.warn('Audio error:', err);
     }
   }
 
   // ── Bubbles ────────────────────────────────────────────
-  function scrollBottom() {
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-  }
+  function scrollBottom() { messagesEl.scrollTop = messagesEl.scrollHeight; }
 
   function showTyping() {
     typingEl.style.display  = 'flex';
@@ -889,7 +984,7 @@
     if (who === 'fred' && audiob64) playAudio(audiob64, indicator);
   }
 
-  // ── Send message ───────────────────────────────────────
+  // ── Send ───────────────────────────────────────────────
   async function sendMessage() {
     const text = inputEl.value.trim();
     if (!text || isWaiting) return;
@@ -943,12 +1038,11 @@
     }
   }
 
-  // ── Close modal on overlay click ───────────────────────
+  // ── Event listeners ────────────────────────────────────
   leadModal.addEventListener('click', e => {
     if (e.target === leadModal) closeLeadCapture();
   });
 
-  // ── Event listeners ────────────────────────────────────
   sendBtn.addEventListener('click', sendMessage);
 
   inputEl.addEventListener('keydown', e => {
