@@ -168,10 +168,18 @@ def query_swarm_norms(query_term):
         lines = ["NORMATIVE DATABASE — LIVE BENCHMARKS (use as teasers only):"]
         for r in results[:3]:
             question = r.get("question", "")
-            avg      = r.get("average") or r.get("norm_average")
+            # Swarm returns norm_mean (not average or norm_average)
+            avg      = r.get("norm_mean")
             section  = r.get("section", "")
-            if question and avg is not None:
-                lines.append(f"- {section}: \"{question[:80]}\" — norm avg: {round(float(avg), 1)}")
+            count    = r.get("company_data_count", 0)
+            # Skip categorical questions with no numeric norm data
+            if not question or avg is None or count == 0:
+                continue
+            lines.append(
+                f"- {section}: \"{question[:80]}\" — "
+                f"norm avg: {round(float(avg), 1)} "
+                f"({count} facilities)"
+            )
         if len(lines) == 1:
             return None  # No usable data rows
         return "\n".join(lines)
