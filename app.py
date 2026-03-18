@@ -776,7 +776,8 @@ def generate_transcript_pdf(session_id, messages, lead_info=None):
     c.line(margin, y, width - margin, y)
     y -= 0.35*inch
 
-    max_w = width - 2*margin - 0.25*inch
+    text_indent = 0.25*inch
+    max_w = width - 2*margin - text_indent - 0.15*inch
 
     for msg in messages:
         role    = msg.get("role", "")
@@ -797,12 +798,12 @@ def generate_transcript_pdf(session_id, messages, lead_info=None):
             if c.stringWidth(test, "Helvetica", 10) < max_w:
                 line = test
             else:
-                c.drawString(margin + 0.25*inch, y, line)
+                c.drawString(margin + text_indent, y, line)
                 y -= 0.18*inch
                 y  = check_page(y)
                 line = word
         if line:
-            c.drawString(margin + 0.25*inch, y, line)
+            c.drawString(margin + text_indent, y, line)
             y -= 0.18*inch
         y -= 0.18*inch
         y = check_page(y)
