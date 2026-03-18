@@ -11,8 +11,7 @@
                  sidebar with topic buttons, Teams booking link
     2026-03-17 — Renamed to Thomas, updated voice, push-to-talk mic
     2026-03-17 — ElevenLabs STT replaces browser SpeechRecognition
-    2026-03-18 — Multi-topic sidebar architecture:
-                 Group 1 "Explore a Topic" — 6 topic buttons,
+    2026-03-18 — Multi-topic sidebar architecture: 6 topic buttons,
                  each passes topic key to /chat and /opening.
                  Group 2 "Take Action" — booking + transcript.
                  Active topic highlighted in sidebar.
@@ -22,6 +21,13 @@
                  when bot_detected:true returned from /chat.
                  __INIT__ replaced by /opening route.
                  Topic label shown in header subtitle.
+    2026-03-18 — Merged 'Employee Engagement' and 'Change
+                 Management' into single sidebar button.
+                 Removed 'change' topic key from TOPIC_LABELS.
+                 Start screen updated to reference multiple topics
+                 without listing them. Diagnostic opening message
+                 updated to mention a few example topics and
+                 reference the sidebar.
 
   I did no harm and this file is not truncated
 -->
@@ -488,9 +494,8 @@
   <div class="start-heading">Talk to Thomas</div>
   <div class="start-sub">
     Most shiftwork problems have a root cause that's different from what shows up on the surface.
-    Thomas will help you think through what's really going on — and connect you with
-    Shiftwork Solutions when you're ready.
-    A downloadable transcript of your conversation is available at the end.
+    Thomas will help you think through what's really going on — and you can explore multiple
+    topics using the sidebar. A downloadable transcript of your conversation is available at the end.
   </div>
   <div class="speaker-notice">
     🔊 <strong>Turn on your speakers.</strong> Thomas speaks his responses.
@@ -534,15 +539,9 @@
       </button>
 
       <button class="topic-btn" id="btn-engagement"
-        onclick="switchTopic('engagement', 'Employee Engagement', this)">
+        onclick="switchTopic('engagement', 'Employee Engagement &amp; Change Management', this)">
         <span class="topic-icon">📋</span>
-        <span class="topic-label">Employee engagement</span>
-      </button>
-
-      <button class="topic-btn" id="btn-change"
-        onclick="switchTopic('change', 'Change Management', this)">
-        <span class="topic-icon">🔄</span>
-        <span class="topic-label">Change management</span>
+        <span class="topic-label">Employee engagement &amp; change management</span>
       </button>
 
       <button class="topic-btn" id="btn-process"
@@ -690,10 +689,10 @@
   let leadData       = null;
 
   // Topic labels for header subtitle
+  // NOTE: 'change' key removed — merged into 'engagement'
   const TOPIC_LABELS = {
     diagnostic:     'Shiftwork Solutions — Diagnostic Advisor',
-    engagement:     'Shiftwork Solutions — Employee Engagement',
-    change:         'Shiftwork Solutions — Change Management',
+    engagement:     'Shiftwork Solutions — Employee Engagement & Change Management',
     process:        'Shiftwork Solutions — Our Consulting Process',
     engage_us:      'Shiftwork Solutions — How to Engage Us',
     implementation: 'Shiftwork Solutions — Implementation',
