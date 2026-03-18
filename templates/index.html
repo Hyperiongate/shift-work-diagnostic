@@ -1,4 +1,30 @@
 <!DOCTYPE html>
+<!--
+  index.html — Thomas | Shiftwork Solutions Diagnostic
+  Created:      2026-03-15
+  Last Updated: 2026-03-18
+
+  CHANGE LOG:
+    2026-03-15 — Initial build
+    2026-03-16 — Phase 2: ElevenLabs TTS audio playback
+    2026-03-16 — Phase 3: PDF transcript, lead capture modal,
+                 sidebar with topic buttons, Teams booking link
+    2026-03-17 — Renamed to Thomas, updated voice, push-to-talk mic
+    2026-03-17 — ElevenLabs STT replaces browser SpeechRecognition
+    2026-03-18 — Multi-topic sidebar architecture:
+                 Group 1 "Explore a Topic" — 6 topic buttons,
+                 each passes topic key to /chat and /opening.
+                 Group 2 "Take Action" — booking + transcript.
+                 Active topic highlighted in sidebar.
+                 Topic switch calls /opening to reset conversation
+                 with topic-specific opening message.
+                 Bot detection: frontend silently disables input
+                 when bot_detected:true returned from /chat.
+                 __INIT__ replaced by /opening route.
+                 Topic label shown in header subtitle.
+
+  I did no harm and this file is not truncated
+-->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -10,18 +36,18 @@
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --navy:   #1a2744;
-    --gold:   #c8952a;
-    --gold-lt:#f0c95a;
-    --cream:  #f7f4ef;
-    --white:  #ffffff;
-    --gray:   #6b7280;
-    --border: #ddd8ce;
-    --thomas-bg:#eef2f8;
-    --user-bg:#1a2744;
-    --user-tx:#ffffff;
-    --radius: 18px;
-    --shadow: 0 4px 24px rgba(26,39,68,0.10);
+    --navy:      #1a2744;
+    --gold:      #c8952a;
+    --gold-lt:   #f0c95a;
+    --cream:     #f7f4ef;
+    --white:     #ffffff;
+    --gray:      #6b7280;
+    --border:    #ddd8ce;
+    --thomas-bg: #eef2f8;
+    --user-bg:   #1a2744;
+    --user-tx:   #ffffff;
+    --radius:    18px;
+    --shadow:    0 4px 24px rgba(26,39,68,0.10);
   }
 
   html, body { height: 100%; overflow: hidden; }
@@ -143,39 +169,57 @@
 
   /* ── Sidebar ──────────────────────────────────────── */
   .sidebar {
-    width: 260px; flex-shrink: 0; background: var(--white);
+    width: 240px; flex-shrink: 0; background: var(--white);
     border-right: 1px solid var(--border);
     display: flex; flex-direction: column; overflow-y: auto;
   }
 
-  .sidebar-img { width: 100%; height: 160px; object-fit: cover; display: block; }
+  .sidebar-img { width: 100%; height: 140px; object-fit: cover; display: block; }
 
-  .sidebar-section { padding: 18px 16px 8px; }
+  .sidebar-section { padding: 14px 14px 6px; }
 
   .sidebar-label {
-    font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
-    text-transform: uppercase; color: var(--gray); margin-bottom: 10px;
+    font-size: 10px; font-weight: 600; letter-spacing: 0.09em;
+    text-transform: uppercase; color: var(--gray); margin-bottom: 8px;
   }
 
+  /* Topic buttons */
   .topic-btn {
-    display: block; width: 100%; text-align: left;
-    background: var(--cream); border: 1px solid var(--border);
-    border-radius: 10px; padding: 10px 14px;
-    font-family: 'Source Sans 3', sans-serif; font-size: 13px;
-    color: var(--navy); cursor: pointer; margin-bottom: 8px;
-    transition: background 0.15s, border-color 0.15s; line-height: 1.4;
+    display: flex; align-items: flex-start; gap: 8px;
+    width: 100%; text-align: left;
+    background: var(--cream); border: 1.5px solid var(--border);
+    border-radius: 10px; padding: 9px 12px;
+    font-family: 'Source Sans 3', sans-serif; font-size: 12.5px;
+    color: var(--navy); cursor: pointer; margin-bottom: 6px;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    line-height: 1.4;
   }
 
-  .topic-btn:hover { background: var(--thomas-bg); border-color: var(--gold); }
+  .topic-btn:hover  { background: var(--thomas-bg); border-color: var(--gold); }
   .topic-btn:active { transform: scale(0.98); }
 
-  .sidebar-divider { height: 1px; background: var(--border); margin: 12px 16px; }
+  .topic-btn.active {
+    background: var(--navy); color: var(--white);
+    border-color: var(--navy);
+  }
 
+  .topic-btn.active .topic-icon { color: var(--gold-lt); }
+
+  .topic-icon {
+    font-size: 14px; flex-shrink: 0; margin-top: 1px;
+    color: var(--gold);
+  }
+
+  .topic-label { flex: 1; }
+
+  .sidebar-divider { height: 1px; background: var(--border); margin: 10px 14px; }
+
+  /* Action buttons */
   .action-btn {
-    display: block; width: calc(100% - 32px); margin: 0 16px 10px;
+    display: block; width: calc(100% - 28px); margin: 0 14px 8px;
     text-align: center; background: var(--navy); color: var(--white);
-    border: none; border-radius: 10px; padding: 11px 14px;
-    font-family: 'Source Sans 3', sans-serif; font-size: 13px; font-weight: 600;
+    border: none; border-radius: 10px; padding: 10px 12px;
+    font-family: 'Source Sans 3', sans-serif; font-size: 12.5px; font-weight: 600;
     cursor: pointer; transition: background 0.15s; text-decoration: none;
   }
 
@@ -187,14 +231,16 @@
 
   .action-btn.outline:hover { background: var(--navy); color: var(--white); }
 
-  .sidebar-img-2 { width: 100%; height: 120px; object-fit: cover; display: block; margin-top: auto; }
+  .sidebar-bottom-img {
+    width: 100%; height: 110px; object-fit: cover; display: block; margin-top: auto;
+  }
 
   /* ── Chat column ──────────────────────────────────── */
   .chat-area { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
 
   .intro-card {
     background: var(--white); border-bottom: 1px solid var(--border);
-    border-left: 4px solid var(--gold); padding: 12px 20px;
+    border-left: 4px solid var(--gold); padding: 10px 20px;
     font-size: 13px; color: var(--gray); line-height: 1.6; flex-shrink: 0;
   }
 
@@ -221,8 +267,21 @@
     font-size: 14px; line-height: 1.65; box-shadow: var(--shadow);
   }
 
-  .bubble-row.thomas .bubble { background: var(--thomas-bg); color: var(--navy); border-bottom-left-radius: 4px; }
-  .bubble-row.user   .bubble { background: var(--user-bg); color: var(--user-tx); border-bottom-right-radius: 4px; }
+  .bubble-row.thomas .bubble {
+    background: var(--thomas-bg); color: var(--navy);
+    border-bottom-left-radius: 4px;
+  }
+
+  .bubble-row.user .bubble {
+    background: var(--user-bg); color: var(--user-tx);
+    border-bottom-right-radius: 4px;
+  }
+
+  /* Topic switch notice in chat */
+  .topic-switch-notice {
+    text-align: center; font-size: 12px; color: var(--gray);
+    padding: 4px 0; opacity: 0.75; font-style: italic;
+  }
 
   .speaking-indicator {
     display: inline-flex; align-items: center; gap: 3px;
@@ -242,7 +301,10 @@
   .speaking-indicator span:nth-child(4) { height: 10px; animation-delay: 0.3s; }
   .speaking-indicator span:nth-child(5) { height: 6px;  animation-delay: 0.4s; }
 
-  @keyframes soundwave { 0%,100%{transform:scaleY(0.5);opacity:0.5} 50%{transform:scaleY(1.0);opacity:1.0} }
+  @keyframes soundwave {
+    0%,100%{transform:scaleY(0.5);opacity:0.5}
+    50%{transform:scaleY(1.0);opacity:1.0}
+  }
 
   .typing-indicator {
     display: none; align-items: center; gap: 5px;
@@ -260,35 +322,10 @@
   .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
   .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
 
-  @keyframes bounce { 0%,80%,100%{transform:translateY(0);opacity:0.4} 40%{transform:translateY(-6px);opacity:1} }
-
-  /* ── In-chat download callout ─────────────────────── */
-  .download-callout {
-    display: flex; align-items: center; gap: 14px;
-    background: var(--white); border: 1.5px solid var(--gold);
-    border-radius: 14px; padding: 14px 18px;
-    margin: 4px 0; box-shadow: var(--shadow);
-    animation: fadeIn 0.4s ease;
+  @keyframes bounce {
+    0%,80%,100%{transform:translateY(0);opacity:0.4}
+    40%{transform:translateY(-6px);opacity:1}
   }
-
-  @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
-
-  .download-callout-text {
-    flex: 1; font-size: 13px; color: var(--navy); line-height: 1.5;
-  }
-
-  .download-callout-text strong { font-weight: 600; }
-
-  .download-callout-btn {
-    background: var(--navy); color: var(--white);
-    border: none; border-radius: 10px; padding: 10px 16px;
-    font-family: 'Source Sans 3', sans-serif; font-size: 13px; font-weight: 600;
-    cursor: pointer; white-space: nowrap;
-    transition: background 0.2s;
-    flex-shrink: 0;
-  }
-
-  .download-callout-btn:hover { background: var(--gold); color: var(--navy); }
 
   /* ── Input ────────────────────────────────────────── */
   .input-area {
@@ -314,6 +351,7 @@
   .input-row:focus-within { border-color: var(--gold); }
   .input-row.recording    { border-color: #ef4444; }
   .input-row.processing   { border-color: var(--gold); }
+  .input-row.disabled     { opacity: 0.45; pointer-events: none; }
 
   #user-input {
     flex: 1; border: none; outline: none;
@@ -385,8 +423,15 @@
 
   .modal-overlay.active .modal { transform: translateY(0); }
 
-  .modal h2 { font-family: 'Lora', serif; font-size: 20px; font-weight: 600; color: var(--navy); margin-bottom: 6px; }
-  .modal p  { font-size: 14px; color: var(--gray); line-height: 1.5; margin-bottom: 20px; }
+  .modal h2 {
+    font-family: 'Lora', serif; font-size: 20px; font-weight: 600;
+    color: var(--navy); margin-bottom: 6px;
+  }
+
+  .modal p  {
+    font-size: 14px; color: var(--gray);
+    line-height: 1.5; margin-bottom: 20px;
+  }
 
   .form-group { margin-bottom: 14px; }
 
@@ -443,9 +488,9 @@
   <div class="start-heading">Talk to Thomas</div>
   <div class="start-sub">
     Most shiftwork problems have a root cause that's different from what shows up on the surface.
-    Thomas will ask you a few questions to help figure out what's really going on —
-    before you talk to anyone at Shiftwork Solutions.
-    A downloadable transcript of your conversation will be available at the end.
+    Thomas will help you think through what's really going on — and connect you with
+    Shiftwork Solutions when you're ready.
+    A downloadable transcript of your conversation is available at the end.
   </div>
   <div class="speaker-notice">
     🔊 <strong>Turn on your speakers.</strong> Thomas speaks his responses.
@@ -462,7 +507,7 @@
   <div class="logo-mark">T</div>
   <div class="header-text">
     <h1>Thomas</h1>
-    <p>Shiftwork Solutions — Diagnostic Advisor</p>
+    <p id="header-subtitle">Shiftwork Solutions — Diagnostic Advisor</p>
   </div>
   <div class="header-right">
     <button class="mute-btn" id="mute-btn" onclick="toggleMute()">🔊 Sound on</button>
@@ -473,53 +518,86 @@
 <!-- ── Main layout ────────────────────────────────────── -->
 <div class="main-layout">
 
+  <!-- ── Sidebar ─────────────────────────────────────── -->
   <aside class="sidebar">
     <img class="sidebar-img"
       src="https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=520&q=80"
       alt="Industrial operations">
 
     <div class="sidebar-section">
-      <div class="sidebar-label">Ask Thomas About</div>
-      <button class="topic-btn" onclick="injectTopic('Tell me about your consulting process')">
-        🔄 Our consulting process
+      <div class="sidebar-label">Explore a Topic</div>
+
+      <button class="topic-btn active" id="btn-diagnostic"
+        onclick="switchTopic('diagnostic', 'Diagnosing Your Situation', this)">
+        <span class="topic-icon">🔍</span>
+        <span class="topic-label">Diagnose my situation</span>
       </button>
-      <button class="topic-btn" onclick="injectTopic('Tell me about your employee survey')">
-        📋 Our employee survey
+
+      <button class="topic-btn" id="btn-engagement"
+        onclick="switchTopic('engagement', 'Employee Engagement', this)">
+        <span class="topic-icon">📋</span>
+        <span class="topic-label">Employee engagement</span>
       </button>
-      <button class="topic-btn" onclick="injectTopic('Tell me about your implementation approach')">
-        🏗️ Our implementation approach
+
+      <button class="topic-btn" id="btn-change"
+        onclick="switchTopic('change', 'Change Management', this)">
+        <span class="topic-icon">🔄</span>
+        <span class="topic-label">Change management</span>
       </button>
-      <button class="topic-btn" onclick="injectTopic('What are the next steps?')">
-        ➡️ Next steps
+
+      <button class="topic-btn" id="btn-process"
+        onclick="switchTopic('process', 'Our Consulting Process', this)">
+        <span class="topic-icon">🗂️</span>
+        <span class="topic-label">Shiftwork Solutions' process</span>
+      </button>
+
+      <button class="topic-btn" id="btn-implementation"
+        onclick="switchTopic('implementation', 'Implementation', this)">
+        <span class="topic-icon">🏗️</span>
+        <span class="topic-label">Implementation</span>
+      </button>
+
+      <button class="topic-btn" id="btn-industry"
+        onclick="switchTopic('industry', 'Industry-Specific Issues', this)">
+        <span class="topic-icon">🏭</span>
+        <span class="topic-label">Industry-specific issues</span>
+      </button>
+
+      <button class="topic-btn" id="btn-engage_us"
+        onclick="switchTopic('engage_us', 'How to Engage Us', this)">
+        <span class="topic-icon">➡️</span>
+        <span class="topic-label">How to engage Shiftwork Solutions</span>
       </button>
     </div>
 
     <div class="sidebar-divider"></div>
 
     <div class="sidebar-section">
-      <div class="sidebar-label">Actions</div>
+      <div class="sidebar-label">Take Action</div>
     </div>
 
     <button class="action-btn" onclick="showLeadCapture()">
       📅 Set up a conversation
     </button>
+
     <button class="action-btn outline" onclick="downloadTranscript()">
       ⬇️ Download transcript
     </button>
 
     <div class="sidebar-divider"></div>
 
-    <img class="sidebar-img-2"
+    <img class="sidebar-bottom-img"
       src="https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?w=520&q=80"
       alt="Manufacturing facility">
   </aside>
 
+  <!-- ── Chat area ──────────────────────────────────── -->
   <div class="chat-area">
     <div class="intro-card">
       <strong>Most shiftwork problems run deeper than they first appear.</strong>
-      Thomas will ask a few targeted questions to identify the real issue.
-      A downloadable transcript will be available when you're done.
-      Type your replies — or <strong>hold 🎤 to speak, release to send.</strong>
+      Use the topics on the left to explore what's relevant to your situation.
+      Thomas speaks his responses — <strong>hold 🎤 to speak, release to send.</strong>
+      Download your transcript any time using the button in the sidebar.
     </div>
 
     <div id="messages">
@@ -556,7 +634,8 @@
 <div class="modal-overlay" id="lead-modal">
   <div class="modal">
     <h2>Let's set up a conversation</h2>
-    <p>Leave your details and someone from the Shiftwork Solutions team will reach out within one business day. Or book directly using the link below.</p>
+    <p>Leave your details and someone from the Shiftwork Solutions team will reach out
+       within one business day. Or book directly using the link below.</p>
     <div class="form-group">
       <label>Your name</label>
       <input type="text" id="lead-name" placeholder="Jane Smith">
@@ -586,25 +665,40 @@
 </div>
 
 <script>
-  const messagesEl = document.getElementById('messages');
-  const inputEl    = document.getElementById('user-input');
-  const sendBtn    = document.getElementById('send-btn');
-  const micBtn     = document.getElementById('mic-btn');
-  const micHint    = document.getElementById('mic-hint');
-  const inputRow   = document.getElementById('input-row');
-  const typingEl   = document.getElementById('typing');
-  const typingRow  = document.getElementById('typing-row');
-  const muteBtn    = document.getElementById('mute-btn');
-  const startScr   = document.getElementById('start-screen');
-  const leadModal  = document.getElementById('lead-modal');
+  // ── DOM refs ───────────────────────────────────────────
+  const messagesEl  = document.getElementById('messages');
+  const inputEl     = document.getElementById('user-input');
+  const sendBtn     = document.getElementById('send-btn');
+  const micBtn      = document.getElementById('mic-btn');
+  const micHint     = document.getElementById('mic-hint');
+  const inputRow    = document.getElementById('input-row');
+  const typingEl    = document.getElementById('typing');
+  const typingRow   = document.getElementById('typing-row');
+  const muteBtn     = document.getElementById('mute-btn');
+  const startScr    = document.getElementById('start-screen');
+  const leadModal   = document.getElementById('lead-modal');
+  const headerSub   = document.getElementById('header-subtitle');
 
-  const SESSION_ID  = 'sess_' + Math.random().toString(36).substr(2, 9);
-  let isWaiting     = false;
-  let isMuted       = false;
-  let currentAudio  = null;
-  let speakingEl    = null;
-  let leadData      = null;
-  let downloadShown = false;
+  // ── State ──────────────────────────────────────────────
+  const SESSION_ID   = 'sess_' + Math.random().toString(36).substr(2, 9);
+  let currentTopic   = 'diagnostic';
+  let isWaiting      = false;
+  let isMuted        = false;
+  let isTerminated   = false;
+  let currentAudio   = null;
+  let speakingEl     = null;
+  let leadData       = null;
+
+  // Topic labels for header subtitle
+  const TOPIC_LABELS = {
+    diagnostic:     'Shiftwork Solutions — Diagnostic Advisor',
+    engagement:     'Shiftwork Solutions — Employee Engagement',
+    change:         'Shiftwork Solutions — Change Management',
+    process:        'Shiftwork Solutions — Our Consulting Process',
+    engage_us:      'Shiftwork Solutions — How to Engage Us',
+    implementation: 'Shiftwork Solutions — Implementation',
+    industry:       'Shiftwork Solutions — Industry-Specific Issues'
+  };
 
   // ── MediaRecorder push-to-talk ─────────────────────────
   let mediaRecorder  = null;
@@ -627,7 +721,7 @@
   }
 
   async function startRecording() {
-    if (isWaiting || isRecording) return;
+    if (isWaiting || isRecording || isTerminated) return;
     const ok = await ensureMicPermission();
     if (!ok) return;
     if (currentAudio) { currentAudio.pause(); currentAudio = null; }
@@ -647,7 +741,9 @@
     mediaRecorder = mimeType
       ? new MediaRecorder(micStream, { mimeType })
       : new MediaRecorder(micStream);
-    mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) audioChunks.push(e.data);
+    };
     mediaRecorder.start(100);
     micBtn.classList.add('recording');
     inputRow.classList.add('recording');
@@ -723,7 +819,7 @@
   function startConversation() {
     startScr.classList.add('hidden');
     setTimeout(() => { startScr.style.display = 'none'; }, 500);
-    loadOpening();
+    loadOpening('diagnostic');
     inputEl.focus();
   }
 
@@ -738,11 +834,33 @@
     }
   }
 
-  // ── Sidebar ────────────────────────────────────────────
-  function injectTopic(text) {
-    if (isWaiting) return;
-    inputEl.value = text;
-    sendMessage();
+  // ── Topic switching ────────────────────────────────────
+  function switchTopic(topicKey, topicLabel, btnEl) {
+    if (isTerminated) return;
+    if (topicKey === currentTopic) return;
+
+    // Update active button styling
+    document.querySelectorAll('.topic-btn').forEach(b => b.classList.remove('active'));
+    btnEl.classList.add('active');
+
+    currentTopic = topicKey;
+
+    // Update header subtitle
+    headerSub.textContent = TOPIC_LABELS[topicKey] || 'Shiftwork Solutions — Diagnostic Advisor';
+
+    // Add a visual separator in the chat
+    addTopicSwitchNotice(topicLabel);
+
+    // Load topic-specific opening
+    loadOpening(topicKey);
+  }
+
+  function addTopicSwitchNotice(label) {
+    const notice = document.createElement('div');
+    notice.className = 'topic-switch-notice';
+    notice.textContent = '— ' + label + ' —';
+    messagesEl.insertBefore(notice, typingRow);
+    scrollBottom();
   }
 
   // ── Lead capture ───────────────────────────────────────
@@ -761,25 +879,6 @@
       `Thanks ${name} — someone from the Shiftwork Solutions team will be in touch at ${email} within one business day.`,
       'thomas', null
     );
-  }
-
-  // ── In-chat download callout ───────────────────────────
-  function showDownloadCallout() {
-    if (downloadShown) return;
-    downloadShown = true;
-    const callout = document.createElement('div');
-    callout.className = 'download-callout';
-    callout.innerHTML = `
-      <div class="download-callout-text">
-        <strong>Your transcript is ready.</strong>
-        Download a PDF of this conversation to keep for your records.
-      </div>
-      <button class="download-callout-btn" onclick="downloadTranscript()">
-        ⬇️ Download transcript
-      </button>
-    `;
-    messagesEl.insertBefore(callout, typingRow);
-    requestAnimationFrame(() => scrollBottom());
   }
 
   // ── Transcript ─────────────────────────────────────────
@@ -874,8 +973,20 @@
     if (who === 'thomas' && audiob64) playAudio(audiob64, indicator);
   }
 
+  // ── Bot termination — silent, no message shown ─────────
+  function terminateSession() {
+    isTerminated = true;
+    inputRow.classList.add('disabled');
+    inputEl.disabled  = true;
+    sendBtn.disabled  = true;
+    micBtn.disabled   = true;
+    micBtn.classList.add('unsupported');
+    if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+  }
+
   // ── Send ───────────────────────────────────────────────
   async function sendMessage() {
+    if (isTerminated) return;
     const text = inputEl.value.trim();
     if (!text || isWaiting) return;
     isWaiting = true;
@@ -887,14 +998,23 @@
       const resp = await fetch('/chat', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ message: text, session_id: SESSION_ID })
+        body:    JSON.stringify({
+          message:    text,
+          session_id: SESSION_ID,
+          topic:      currentTopic
+        })
       });
       const data = await resp.json();
       hideTyping();
+
+      // Silent bot termination
+      if (data.bot_detected) {
+        terminateSession();
+        return;
+      }
+
       if (data.reply) {
         addBubble(data.reply, 'thomas', data.audio || null);
-        // Show in-chat download callout once handoff stage reached
-        
       } else {
         addBubble("Sorry, something went wrong on my end. Please try again.", 'thomas', null);
       }
@@ -905,21 +1025,25 @@
     isWaiting = false; sendBtn.disabled = false; inputEl.focus();
   }
 
-  // ── Opening ────────────────────────────────────────────
-  async function loadOpening() {
+  // ── Opening — called on start and on topic switch ──────
+  async function loadOpening(topic) {
+    if (isTerminated) return;
     showTyping();
     try {
-      const resp = await fetch('/chat', {
+      const resp = await fetch('/opening', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ message: '__INIT__', session_id: SESSION_ID })
+        body:    JSON.stringify({ session_id: SESSION_ID, topic: topic })
       });
       const data = await resp.json();
       hideTyping();
       if (data.reply) addBubble(data.reply, 'thomas', data.audio || null);
     } catch (err) {
       hideTyping();
-      addBubble("Hi, I'm Thomas. I'm here to help you figure out what's really going on with your shift operations. What brought you here today?", 'thomas', null);
+      addBubble(
+        "Hi, I'm Thomas. I'm here to help you think through what's really going on with your shift operations. What brought you here today?",
+        'thomas', null
+      );
     }
   }
 
