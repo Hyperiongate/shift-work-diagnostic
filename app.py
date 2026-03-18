@@ -48,6 +48,15 @@
 #                Removed 'change' topic key entirely.
 #                Topic keys now: diagnostic, engagement, process,
 #                engage_us, implementation, industry (6 total).
+#   2026-03-18 — Layer 1 Swarm integration: read-only normative
+#                database lookup via Swarm's /api/survey/norm/search
+#                endpoint. query_swarm_norms() and get_swarm_context()
+#                inject live benchmark teasers into system prompt
+#                when conversation has context and topic warrants it.
+#                3-second timeout, fully graceful fallback.
+#                SWARM_ENABLED env var toggles without redeploy.
+#                Layer 2 (learning loop write-back) deferred until
+#                dialogue quality validated.
 #
 # ROUTES:
 #   GET  /              — Serves Thomas chat UI
@@ -99,6 +108,105 @@ ELEVENLABS_TTS_URL  = f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_
 ELEVENLABS_STT_URL  = "https://api.elevenlabs.io/v1/speech-to-text"
 
 TEAMS_BOOKING_LINK  = "https://outlook.office365.com/book/ShiftworkSolutionsLLC2@shift-work.com/?ismsaljsauthenabled=true"
+
+# =============================================================
+# LAYER 1: SWARM INTEGRATION — READ-ONLY NORMATIVE LOOKUP
+#
+# Thomas calls the AI Swarm's normative database to fetch real
+# benchmark data as conversation teasers. Read-only, one endpoint.
+# Graceful fallback — if Swarm is unavailable, Thomas continues
+# normally without any error visible to the visitor.
+#
+# Layer 2 (conversation learning write-back) is not yet connected.
+# Connect after dialogue quality is validated.
+#
+# Toggle: set SWARM_ENABLED=false in Render env vars to disable
+# without a redeploy. Defaults to enabled.
+#
+# Added: 2026-03-18
+# =============================================================
+
+SWARM_BASE_URL  = "https://ai-swarm-orchestrator.onrender.com"
+SWARM_ENABLED   = os.environ.get("SWARM_ENABLED", "true").lower() == "true"
+SWARM_TIMEOUT   = 3  # seconds — never slow Thomas down waiting for Swarm
+
+# Maps topic keys to the search terms most likely to return
+# useful normative data for that topic's conversation context.
+SWARM_TOPIC_QUERIES = {
+    "diagnostic":     "schedule satisfaction overtime coverage",
+    "engagement":     "employee survey satisfaction schedule preferences",
+    "process":        "schedule change implementation workforce",
+    "implementation": "implementation schedule change resistance",
+    "industry":       "industry shift schedule preferences",
+    "engage_us":      None,   # No norm lookup needed for this topic
+}
+
+
+def query_swarm_norms(query_term):
+    """
+    Call the Swarm normative database search endpoint.
+    Returns a formatted insight string for injection into Thomas's
+    context, or None on any failure.
+
+    Endpoint: GET /api/survey/norm/search?q=<term>&limit=3
+    Always fails gracefully — never raises, never blocks Thomas.
+    """
+    if not SWARM_ENABLED or not query_term:
+        return None
+    try:
+        url      = f"{SWARM_BASE_URL}/api/survey/norm/search"
+        params   = {"q": query_term, "limit": 3}
+        response = requests.get(url, params=params, timeout=SWARM_TIMEOUT)
+        if response.status_code != 200:
+            print(f"Swarm norm search returned {response.status_code}")
+            return None
+        data    = response.json()
+        results = data.get("results", []) or data.get("questions", [])
+        if not results:
+            return None
+        # Format as a concise context block for Thomas
+        lines = ["NORMATIVE DATABASE — LIVE BENCHMARKS (use as teasers only):"]
+        for r in results[:3]:
+            question = r.get("question", "")
+            avg      = r.get("average") or r.get("norm_average")
+            section  = r.get("section", "")
+            if question and avg is not None:
+                lines.append(f"- {section}: \"{question[:80]}\" — norm avg: {round(float(avg), 1)}")
+        if len(lines) == 1:
+            return None  # No usable data rows
+        return "\n".join(lines)
+    except requests.exceptions.Timeout:
+        print("Swarm norm search timed out — continuing without norm data")
+        return None
+    except Exception as e:
+        print(f"Swarm norm search error (non-fatal): {e}")
+        return None
+
+
+def get_swarm_context(topic, messages):
+    """
+    Decide whether a Swarm norm lookup is warranted for this
+    conversation turn. Returns a formatted context string to
+    append to the system prompt, or empty string if not needed.
+
+    Only queries the Swarm if:
+    - SWARM_ENABLED is true
+    - Topic has a mapped query term
+    - Conversation has at least 2 exchanges (avoid querying on
+      the very first message before any context exists)
+    """
+    if not SWARM_ENABLED:
+        return ""
+    if len(messages) < 2:
+        return ""
+    query_term = SWARM_TOPIC_QUERIES.get(topic)
+    if not query_term:
+        return ""
+    norm_context = query_swarm_norms(query_term)
+    if not norm_context:
+        return ""
+    return f"\n\n{norm_context}\n"
+
 
 # =============================================================
 # MASTER SYSTEM PROMPT
@@ -864,6 +972,12 @@ def chat():
             conversation_histories[session_id][-40:]
 
     system_prompt = build_system_prompt(topic)
+
+    # Layer 1: Append live normative context from Swarm if available.
+    # Graceful — adds nothing if Swarm is down or topic has no query.
+    swarm_context = get_swarm_context(topic, conversation_histories[session_id])
+    if swarm_context:
+        system_prompt = system_prompt + swarm_context
 
     try:
         response = anthropic_client.messages.create(
