@@ -28,6 +28,14 @@
                  without listing them. Diagnostic opening message
                  updated to mention a few example topics and
                  reference the sidebar.
+    2026-03-18 — Start screen rebuilt: autoplay intro video
+                 placeholder + 6 topic buttons replace old logo/
+                 sub/speaker/start-btn layout. Clicking a topic
+                 button starts conversation in that topic directly
+                 — no separate 'get started' click needed.
+                 startConversation() now accepts topic parameter
+                 and syncs sidebar active state. Video placeholder
+                 has clear instructions for dropping in HeyGen URL.
 
   I did no harm and this file is not truncated
 -->
@@ -73,55 +81,92 @@
     background: var(--navy);
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
-    gap: 28px; z-index: 200;
+    gap: 24px; z-index: 200;
+    padding: 28px 20px;
+    overflow-y: auto;
     transition: opacity 0.5s ease;
   }
 
   #start-screen.hidden { opacity: 0; pointer-events: none; }
 
-  .start-logo {
-    width: 72px; height: 72px;
-    background: var(--gold); border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-family: 'Lora', serif; font-size: 34px; font-weight: 600;
-    color: var(--navy);
+  /* ── Intro video player ───────────────────────────── */
+  .intro-video-wrap {
+    width: 100%; max-width: 480px;
+    border-radius: 14px; overflow: hidden;
+    background: #0d1a30;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.45);
+    flex-shrink: 0; position: relative;
   }
 
-  .start-heading {
-    font-family: 'Lora', serif; font-size: 26px; font-weight: 600;
-    color: var(--white); text-align: center;
+  .intro-video-wrap video {
+    width: 100%; display: block;
+    border-radius: 14px;
   }
 
-  .start-sub {
-    font-size: 15px; color: rgba(255,255,255,0.60);
-    text-align: center; max-width: 400px; line-height: 1.65;
+  /* Placeholder shown until real video is dropped in */
+  .video-placeholder {
+    width: 100%; aspect-ratio: 16/9;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 12px; background: #0d1a30;
+    border-radius: 14px;
+    border: 2px dashed rgba(200,149,42,0.40);
   }
 
-  .speaker-notice {
-    background: rgba(200,149,42,0.15);
-    border: 1px solid rgba(200,149,42,0.40);
-    border-radius: 10px; padding: 12px 20px;
-    font-size: 13px; color: var(--gold-lt);
-    text-align: center; max-width: 400px; line-height: 1.5;
+  .video-placeholder-icon {
+    width: 56px; height: 56px; background: var(--gold);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
   }
 
-  .speaker-notice strong { color: var(--gold-lt); }
+  .video-placeholder-icon svg { width: 24px; height: 24px; fill: var(--navy); }
 
-  #start-btn {
-    background: var(--gold); color: var(--navy);
-    border: none; border-radius: 30px;
+  .video-placeholder p {
+    font-size: 13px; color: rgba(255,255,255,0.45);
+    text-align: center; line-height: 1.5; max-width: 260px;
+  }
+
+  .video-placeholder strong { color: var(--gold-lt); display: block; margin-bottom: 4px; }
+
+  /* ── Topic grid on start screen ──────────────────── */
+  .start-topic-label {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.10em;
+    text-transform: uppercase; color: rgba(255,255,255,0.40);
+    text-align: center;
+  }
+
+  .start-topic-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    width: 100%; max-width: 480px;
+  }
+
+  .start-topic-btn {
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(255,255,255,0.06);
+    border: 1.5px solid rgba(255,255,255,0.12);
+    border-radius: 12px; padding: 12px 14px;
     font-family: 'Source Sans 3', sans-serif;
-    font-size: 16px; font-weight: 600;
-    padding: 16px 44px; cursor: pointer;
-    transition: background 0.2s, transform 0.1s;
-    letter-spacing: 0.02em;
+    font-size: 13px; color: rgba(255,255,255,0.85);
+    cursor: pointer; text-align: left;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    line-height: 1.35;
   }
 
-  #start-btn:hover  { background: var(--gold-lt); }
-  #start-btn:active { transform: scale(0.97); }
+  .start-topic-btn:hover {
+    background: rgba(200,149,42,0.18);
+    border-color: var(--gold);
+    color: var(--white);
+  }
+
+  .start-topic-btn:active { transform: scale(0.97); }
+
+  .start-topic-btn .btn-icon {
+    font-size: 18px; flex-shrink: 0;
+  }
 
   .start-footer {
-    font-size: 12px; color: rgba(255,255,255,0.30); text-align: center;
+    font-size: 12px; color: rgba(255,255,255,0.25); text-align: center;
   }
 
   /* ── Header ───────────────────────────────────────── */
@@ -490,20 +535,64 @@
 
 <!-- ── Start screen ──────────────────────────────────── -->
 <div id="start-screen">
-  <div class="start-logo">T</div>
-  <div class="start-heading">Talk to Thomas</div>
-  <div class="start-sub">
-    Most shiftwork problems have a root cause that's different from what shows up on the surface.
-    Thomas will help you think through what's really going on — and you can explore multiple
-    topics using the sidebar. A downloadable transcript of your conversation is available at the end.
+
+  <!-- Intro video — replace src with HeyGen video URL when ready -->
+  <div class="intro-video-wrap">
+    <!--
+      TO ACTIVATE: replace the placeholder div below with:
+      <video id="intro-video" autoplay playsinline muted="false"
+             src="YOUR_HEYGEN_VIDEO_URL_HERE"
+             style="width:100%;border-radius:14px;">
+      </video>
+      Then remove the video-placeholder div entirely.
+    -->
+    <div class="video-placeholder">
+      <div class="video-placeholder-icon">
+        <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      </div>
+      <p>
+        <strong>Thomas Intro Video</strong>
+        HeyGen avatar video goes here.<br>
+        Drop in the video URL when ready.
+      </p>
+    </div>
   </div>
-  <div class="speaker-notice">
-    🔊 <strong>Turn on your speakers.</strong> Thomas speaks his responses.
-    Type your reply — or hold the 🎤 button to speak, release to send.
+
+  <div class="start-topic-label">Choose a topic to get started</div>
+
+  <div class="start-topic-grid">
+    <button class="start-topic-btn"
+      onclick="startConversation('diagnostic')">
+      <span class="btn-icon">🔍</span>
+      Diagnose my situation
+    </button>
+    <button class="start-topic-btn"
+      onclick="startConversation('engagement')">
+      <span class="btn-icon">📋</span>
+      Employee engagement &amp; change management
+    </button>
+    <button class="start-topic-btn"
+      onclick="startConversation('process')">
+      <span class="btn-icon">🗂️</span>
+      Shiftwork Solutions' process
+    </button>
+    <button class="start-topic-btn"
+      onclick="startConversation('implementation')">
+      <span class="btn-icon">🏗️</span>
+      Implementation
+    </button>
+    <button class="start-topic-btn"
+      onclick="startConversation('industry')">
+      <span class="btn-icon">🏭</span>
+      Industry-specific issues
+    </button>
+    <button class="start-topic-btn"
+      onclick="startConversation('engage_us')">
+      <span class="btn-icon">➡️</span>
+      How to engage Shiftwork Solutions
+    </button>
   </div>
-  <button id="start-btn" onclick="startConversation()">
-    Click here and let's get started
-  </button>
+
   <div class="start-footer">No sales pitch. No obligation. Just an honest conversation.</div>
 </div>
 
@@ -815,10 +904,24 @@
   micBtn.addEventListener('touchcancel', (e) => { if (isRecording) stopRecording(); },     { passive: false });
 
   // ── Start ──────────────────────────────────────────────
-  function startConversation() {
+  // Called from start screen topic buttons — topic is selected
+  // at the moment the visitor clicks, no second interaction needed.
+  // Syncs the sidebar active button to match the chosen topic.
+  function startConversation(topic) {
+    topic = topic || 'diagnostic';
     startScr.classList.add('hidden');
     setTimeout(() => { startScr.style.display = 'none'; }, 500);
-    loadOpening('diagnostic');
+
+    // Sync sidebar active state to match chosen topic
+    currentTopic = topic;
+    document.querySelectorAll('.topic-btn').forEach(b => b.classList.remove('active'));
+    const sidebarBtn = document.getElementById('btn-' + topic);
+    if (sidebarBtn) sidebarBtn.classList.add('active');
+
+    // Update header subtitle
+    headerSub.textContent = TOPIC_LABELS[topic] || 'Shiftwork Solutions — Diagnostic Advisor';
+
+    loadOpening(topic);
     inputEl.focus();
   }
 
