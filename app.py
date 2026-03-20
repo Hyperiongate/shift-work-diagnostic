@@ -103,7 +103,7 @@ CORS(app)
 anthropic_client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
 ELEVENLABS_API_KEY  = os.environ.get("ELEVENLABS_API_KEY")
-ELEVENLABS_VOICE_ID = "L0Dsvb3SLTyegXwtm47J"
+ELEVENLABS_VOICE_ID = "wlYn0WR34HSxQRSZWvKE"  # Jim Dillingham cloned voice — added 2026-03-18
 ELEVENLABS_TTS_URL  = f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}"
 ELEVENLABS_STT_URL  = "https://api.elevenlabs.io/v1/speech-to-text"
 
