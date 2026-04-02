@@ -2,7 +2,7 @@
 # app.py  —  Shift-Work Diagnostic Avatar (Thomas)
 # Shiftwork Solutions LLC
 # Created:      2026-03-15
-# Last Updated: 2026-03-18
+# Last Updated: 2026-04-02
 #
 # PURPOSE:
 #   Flask backend for Thomas, an AI diagnostic facilitator that
@@ -57,6 +57,8 @@
 #                SWARM_ENABLED env var toggles without redeploy.
 #                Layer 2 (learning loop write-back) deferred until
 #                dialogue quality validated.
+#   2026-04-02 — Updated ElevenLabs voice ID to sB7vwSCyX0tQmU24cW2C
+#                (new Thomas voice selection).
 #
 # ROUTES:
 #   GET  /              — Serves Thomas chat UI
@@ -103,7 +105,7 @@ CORS(app)
 anthropic_client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
 ELEVENLABS_API_KEY  = os.environ.get("ELEVENLABS_API_KEY")
-ELEVENLABS_VOICE_ID = "wlYn0WR34HSxQRSZWvKE"  # Jim Dillingham cloned voice — added 2026-03-18
+ELEVENLABS_VOICE_ID = "sB7vwSCyX0tQmU24cW2C"  # Thomas voice — updated 2026-04-02
 ELEVENLABS_TTS_URL  = f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}"
 ELEVENLABS_STT_URL  = "https://api.elevenlabs.io/v1/speech-to-text"
 
