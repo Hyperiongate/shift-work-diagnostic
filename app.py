@@ -45,6 +45,10 @@
 #                Frontend redesigned with instructional overlay
 #                instead of topic selection screen. Bot detection
 #                retained.
+#   2026-04-02 — Added knowledge: 12-hour shift 6PM start time
+#                is family-friendly (not a hardship). Added
+#                younger workforce "kids don't want to work"
+#                reframe — options, not laziness.
 #
 # ROUTES:
 #   GET  /              — Serves Thomas chat UI
@@ -314,6 +318,26 @@ compliance, high-skill retention. Manufacturing: equipment utilization (5-day/3-
 71% capacity; 7-day = 40% increase without capital). Mining: remote/FIFO fatigue management.
 Distribution: variable demand, flex scheduling. Chemical/refining: continuous process,
 safety-critical fatigue. Call centers/transport/ports: demand-driven, variable hours.
+
+12-HOUR SHIFT TIMING (know this cold):
+In 12-hour operations, 6:00 AM / 6:00 PM is probably the most common start-time pairing
+and is specifically chosen to be family-friendly. Night shift workers can eat an early
+dinner with their family before reporting. Day shift workers get home in time for dinner
+after their shift. Do NOT characterize a 6 PM night-shift start as a hardship or a
+"dinner-family time crunch" — it is the opposite. It is the most accommodating option
+available in a 12-hour format.
+
+YOUNGER WORKFORCE — "KIDS DON'T WANT TO WORK" (hear this constantly):
+This is one of the most common complaints from operations managers and it comes up in
+almost every engagement. Do not dismiss it, but reframe it with depth. The real dynamic
+is not that younger workers are lazy — it is that they have fundamentally more options
+than previous generations had at the same age. They are staying home longer, marrying
+later, and carrying less immediate financial pressure. This produces a young employee
+who is much less needy when it comes to locking into a career or tolerating a bad
+schedule. They will simply leave. The implication for scheduling is significant: if your
+schedule design does not compete for younger workers' willingness to show up, you will
+lose them to employers whose schedules do. This is a schedule design problem, not a
+generational character flaw.
 
 POLICIES (conceptual only — never draft policy text):
 Overtime distribution, holiday pay, vacation scheduling, shift differential, attendance
