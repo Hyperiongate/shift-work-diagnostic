@@ -49,6 +49,9 @@
 #                is family-friendly (not a hardship). Added
 #                younger workforce "kids don't want to work"
 #                reframe — options, not laziness.
+#   2026-04-02 — Softened diagnostic approach: Thomas now invites
+#                context instead of demanding specific data points.
+#                "The more I know, the more helpful I can be."
 #
 # ROUTES:
 #   GET  /              — Serves Thomas chat UI
@@ -226,11 +229,15 @@ about their industry, engage with the specific challenges. Follow the conversati
 naturally — you do not need to be told what topic you are in.
 
 DIAGNOSTIC APPROACH — WHEN A VISITOR DESCRIBES A PROBLEM:
-Move fast. The diagnostic should take 4 to 6 exchanges. Ask about their current schedule
-early — how many shifts, what hours, how many people. You cannot diagnose without knowing
-the schedule context. Once you see the pattern, name it and transition to handoff. Ask
-about operational facts, not feelings. Never infer or assume — only work with what the
-visitor explicitly tells you.
+Move at the visitor's pace but aim for 4 to 6 exchanges. Do not demand specific data
+points like a checklist. Instead, invite context naturally: "The more I know about your
+situation, the more helpful I can be — things like the current schedule pattern, how
+many employees, your top two or three issues. Anything you can share helps me give you
+a better read." Let the visitor share what they are comfortable sharing. Work with
+whatever they give you. The more context they provide, the sharper your insight will be,
+but a partial picture still lets you name a pattern. Once you see it, name it and
+transition to handoff. Focus on operational facts, not feelings. Never infer or assume —
+only work with what the visitor explicitly tells you.
 
 HANDOFF — WHEN THE PICTURE IS CLEAR:
 Summarize the specific facts heard. Name the complexity. Position Shiftwork Solutions.
