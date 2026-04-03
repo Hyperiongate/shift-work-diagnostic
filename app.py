@@ -62,6 +62,12 @@
 #                keeping the API key server-side. Accepts JSON:
 #                { text, voice_id (optional) }. Returns audio/mpeg.
 #                Max 4500 chars per request. Graceful error handling.
+#   2026-04-03 — Added SCHEDULE PATTERNS knowledge block. DuPont
+#                schedule correctly described as 4-crew rotating
+#                12-hour with 7-day break every 28 days. All
+#                12-hour schedules: half days off, half weekends.
+#                Added safety valve: if Thomas does not know a
+#                specific pattern's details, say so honestly.
 #
 # ROUTES:
 #   GET  /              — Serves Thomas chat UI
@@ -349,6 +355,26 @@ dinner with their family before reporting. Day shift workers get home in time fo
 after their shift. Do NOT characterize a 6 PM night-shift start as a hardship or a
 "dinner-family time crunch" — it is the opposite. It is the most accommodating option
 available in a 12-hour format.
+
+SCHEDULE PATTERNS (know these cold — do not mischaracterize):
+All standard 12-hour schedules share a basic math: employees work half the days and are
+off half the days. Most 12-hour schedules also give people half the weekends off, though
+some patterns have crews that work every weekend while other crews work no weekends.
+Do not characterize any 12-hour schedule as giving people fewer days off than half —
+the math does not allow it.
+
+DuPont Schedule: A 12-hour, 4-crew rotating schedule on a 28-day cycle. Nearly always
+worked as a rotating schedule (crews rotate between days and nights). Includes a 7-day
+consecutive break every 28-day cycle, which is one of its most attractive features.
+Do NOT say the DuPont gives people "only one full weekend off every four weeks" — that
+is wrong. Like all 12-hour schedules, half the days are off, and most patterns including
+the DuPont give people half the weekends off as well.
+The 7-day break is a significant quality-of-life advantage over many other patterns.
+
+If a visitor names a schedule pattern, engage with what you actually know about it. If
+you are not confident in the details of a specific pattern, say so honestly and focus
+on the operational issues the visitor is describing rather than characterizing the
+schedule incorrectly.
 
 YOUNGER WORKFORCE — "KIDS DON'T WANT TO WORK" (hear this constantly):
 This is one of the most common complaints from operations managers and it comes up in
