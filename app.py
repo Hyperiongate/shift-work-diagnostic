@@ -2,7 +2,7 @@
 # app.py  —  Shift-Work Diagnostic Avatar (Thomas)
 # Shiftwork Solutions LLC
 # Created:      2026-03-15
-# Last Updated: 2026-04-02
+# Last Updated: 2026-04-03
 #
 # PURPOSE:
 #   Flask backend for Thomas, an AI advisor that helps
@@ -57,6 +57,11 @@
 #                prompts preferred over data-point demands.
 #                Relaxed 3-sentence rule from "hard limit" to
 #                guidance. Added approachable personality note.
+#   2026-04-03 — Added /api/tts proxy route. Pillar pages now
+#                call this endpoint instead of ElevenLabs directly,
+#                keeping the API key server-side. Accepts JSON:
+#                { text, voice_id (optional) }. Returns audio/mpeg.
+#                Max 4500 chars per request. Graceful error handling.
 #
 # ROUTES:
 #   GET  /              — Serves Thomas chat UI
@@ -64,6 +69,7 @@
 #   POST /opening       — Opening message + audio
 #   POST /transcribe    — Audio blob -> text via ElevenLabs STT
 #   POST /transcript    — Download PDF transcript
+#   POST /api/tts       — TTS proxy for pillar pages (key stays server-side)
 #   GET  /health        — Render health check
 #
 # ENVIRONMENT VARIABLES (set in Render):
@@ -81,7 +87,7 @@ import base64
 import requests
 import io
 from datetime import datetime
-from flask import Flask, request, jsonify, render_template_string, send_file
+from flask import Flask, request, jsonify, render_template_string, send_file, Response
 from flask_cors import CORS
 import anthropic
 from reportlab.lib.pagesizes import letter
@@ -711,6 +717,83 @@ def download_transcript():
     except Exception as e:
         print(f"Transcript PDF error: {e}")
         return jsonify({"error": f"PDF generation failed: {str(e)}"}), 500
+
+
+@app.route("/api/tts", methods=["POST"])
+def tts_proxy():
+    """
+    TTS proxy for pillar pages on the Shiftwork Solutions website.
+
+    Pillar pages call this endpoint instead of ElevenLabs directly,
+    keeping ELEVENLABS_API_KEY server-side and out of browser code.
+
+    Accepts JSON: { "text": "...", "voice_id": "..." (optional) }
+    Returns: audio/mpeg stream directly (not base64)
+    Max text: 4500 characters per request (ElevenLabs limit per call)
+
+    Added: 2026-04-03
+    """
+    if not ELEVENLABS_API_KEY:
+        return jsonify({"error": "TTS not configured"}), 503
+
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    text = data.get("text", "").strip()
+    if not text:
+        return jsonify({"error": "No text provided"}), 400
+
+    if len(text) > 4500:
+        return jsonify({"error": "Text exceeds 4500 character limit per request"}), 400
+
+    # Use provided voice_id or fall back to the default Thomas voice
+    voice_id = data.get("voice_id", ELEVENLABS_VOICE_ID).strip() or ELEVENLABS_VOICE_ID
+    tts_url  = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+
+    try:
+        headers = {
+            "xi-api-key":   ELEVENLABS_API_KEY,
+            "Content-Type": "application/json",
+            "Accept":       "audio/mpeg"
+        }
+        payload = {
+            "text":       text,
+            "model_id":   "eleven_turbo_v2",
+            "voice_settings": {
+                "stability":        0.5,
+                "similarity_boost": 0.75,
+                "style":            0.0,
+                "use_speaker_boost": True
+            }
+        }
+
+        el_response = requests.post(tts_url, headers=headers,
+                                    json=payload, timeout=30)
+
+        if el_response.status_code == 200:
+            return Response(
+                el_response.content,
+                status=200,
+                mimetype="audio/mpeg",
+                headers={
+                    "Cache-Control": "no-store",
+                    "Content-Length": str(len(el_response.content))
+                }
+            )
+
+        # Forward the error status from ElevenLabs
+        print(f"ElevenLabs TTS proxy error {el_response.status_code}: {el_response.text[:200]}")
+        return jsonify({
+            "error": f"ElevenLabs error {el_response.status_code}"
+        }), el_response.status_code
+
+    except requests.exceptions.Timeout:
+        print("ElevenLabs TTS proxy timeout")
+        return jsonify({"error": "TTS request timed out"}), 504
+    except Exception as e:
+        print(f"ElevenLabs TTS proxy exception: {e}")
+        return jsonify({"error": f"TTS proxy error: {str(e)}"}), 500
 
 
 @app.route("/booking-link")
