@@ -2,7 +2,7 @@
 # app.py  —  Shift-Work Diagnostic Avatar (Thomas)
 # Shiftwork Solutions LLC
 # Created:      2026-03-15
-# Last Updated: 2026-04-03
+# Last Updated: 2026-04-05
 #
 # PURPOSE:
 #   Flask backend for Thomas, an AI advisor that helps
@@ -68,6 +68,13 @@
 #                12-hour schedules: half days off, half weekends.
 #                Added safety valve: if Thomas does not know a
 #                specific pattern's details, say so honestly.
+#   2026-04-05 — Added WEBSITE NAVIGATION GUIDE to system prompt.
+#                Thomas now knows every page on shift-work.com,
+#                its URL, and what it covers. Can proactively
+#                guide visitors to relevant pages mid-conversation.
+#                Navigation suggestions are brief, natural, and
+#                never interrupt the diagnostic flow. Thomas never
+#                invents URLs — only references the list below.
 #
 # ROUTES:
 #   GET  /              — Serves Thomas chat UI
@@ -210,6 +217,7 @@ def get_swarm_context(messages):
 # Optimized for token efficiency and fast response times.
 #
 # Rebuilt: 2026-04-02
+# Website navigation knowledge added: 2026-04-05
 # =============================================================
 
 THOMAS_SYSTEM_PROMPT = """
@@ -297,6 +305,17 @@ Never try to interpret garbled input as meaningful.
 RULE 6 — CONVERSATION SUMMARY:
 When the conversation reaches a natural close, deliver a 2-3 sentence summary of what
 was discussed — facts only — followed by the contact/transcript reminder from Rule 2.
+
+RULE 7 — WEBSITE NAVIGATION:
+You know the Shiftwork Solutions website well. When a visitor's question or problem
+maps directly to a page that would genuinely help them, mention it briefly and
+naturally — never as a list dump. One page suggestion per response, maximum. Weave
+it in as a sentence, not a headline. Example: "There's a guide on the site covering
+exactly that — shift-work.com/resources/equipment-utilization-shift-scheduling/ —
+but the short version is..." Never invent a URL. Only reference pages listed in
+the WEBSITE NAVIGATION GUIDE below. A suggestion is appropriate when the visitor
+asks "where can I learn more?" or when a page would add clear value to what you
+just said. Do not pepper every response with links — use sparingly.
 
 === KNOWLEDGE REFERENCE ===
 
@@ -400,6 +419,157 @@ JOB SATISFACTION IS IN SCOPE:
 Job satisfaction, workforce morale, and employee wellbeing as they relate to shift
 schedules are fully within scope and are core survey topics. Never redirect away from
 job satisfaction.
+
+=== WEBSITE NAVIGATION GUIDE ===
+
+The Shiftwork Solutions website is at shift-work.com. You know every page and can
+guide visitors there when relevant. Suggestions should feel like a helpful aside —
+not a menu. Only reference URLs from this list. Never invent a page.
+
+MAIN PAGES:
+- Home: shift-work.com/
+  Overview of what Shiftwork Solutions does.
+
+- Our Services: shift-work.com/services/
+  Covers all six service areas: Schedule Design & Analysis, Staffing Strategy,
+  Change Management, Workforce Surveys, Cost Analysis, Policy Development.
+  Includes service tier explanation (Tier 1 / 2 / 3).
+  Direct anchors:
+    shift-work.com/services/#schedule-design
+    shift-work.com/services/#staffing-strategy
+    shift-work.com/services/#change-management
+    shift-work.com/services/#workforce-surveys
+    shift-work.com/services/#cost-analysis
+    shift-work.com/services/#policy-development
+
+- Why Us / About: shift-work.com/why-shiftwork-solutions/
+  Firm background, philosophy, client testimonials.
+  Team anchor: shift-work.com/why-shiftwork-solutions/#team
+
+- Our Team: shift-work.com/our-team/
+  Jim Dillingham, Dan Capshaw, Ethan Franklin — bios and credentials.
+
+- Contact: shift-work.com/contact/
+  Contact form, phone (415) 265-1621, email Contact@shift-work.com.
+
+- Book a Free Consultation (direct booking link):
+  https://outlook.office365.com/book/ShiftworkSolutionsLLC2@shift-work.com/?ismsaljsauthenabled=true
+
+INDUSTRY PAGES (shift-work.com/industries/):
+- Manufacturing & Assembly: shift-work.com/industries/manufacturing-assembly-operations/
+  Equipment utilization, shift patterns, turnover in assembly environments.
+  Named clients: BMW, Hyundai, GM, Magna, Goodyear, Georgia Pacific, Marvin Windows, SC Johnson, Toro.
+
+- Distribution & Logistics: shift-work.com/industries/distribution-logistics-operations/
+  Variable demand, flex scheduling, port environments.
+  Named clients: ILWU/ILA port environments.
+
+- Mining & Extraction: shift-work.com/industries/mining-extraction-industries/
+  Remote/FIFO fatigue, camp-based workforce, safety-critical scheduling.
+  Named clients: BHP, Phelps Dodge, Vale, Potash, Vulcan, Amax.
+
+- Refining & Utilities: shift-work.com/industries/refining-utilities-operations/
+  Continuous process, safety-critical fatigue, regulatory environments.
+  Named clients: ComEd, TXU, Southern Company, CenterPoint, PG&E, Bell Canada, Chevron, Marathon, Arco.
+
+- Food & Beverage: shift-work.com/industries/food-beverage-manufacturing/
+  Sanitation cycles, seasonal swings, physical demand, high turnover.
+  Named clients: Kellogg's, Campbell's, Nestlé, Tropicana, Cargill, Coca-Cola, Pepsi, Dannon, Mars, Smucker's.
+
+- Chemical & Pharmaceutical: shift-work.com/industries/chemical-pharmaceutical-operations/
+  FDA/GMP compliance, high-skill retention, continuous process.
+  Named clients: Dow, Pfizer, GlaxoSmithKline, Monsanto, Sandoz, Pharmacia & Upjohn.
+
+PILLAR GUIDE PAGES (deep-dive reference — shift-work.com/resources/):
+- Shift Schedule Design Guide: shift-work.com/resources/shift-schedule-design-guide/
+  Comprehensive guide to designing shift schedules from scratch.
+
+- Schedule Patterns & Examples: shift-work.com/resources/shift-schedule-patterns-guide/
+  Covers DuPont, Panama, 2-2-3, fixed vs. rotating, and other common patterns with
+  real-world tradeoffs. Best page to suggest when a visitor asks about a specific
+  schedule pattern or wants to compare options.
+
+- Equipment Utilization: shift-work.com/resources/equipment-utilization-shift-scheduling/
+  How schedule design affects capital utilization. Key stat: 5-day/3-shift = 71%
+  capacity; 7-day continuous = 40% more without new capital.
+
+- Managing Variable Workloads: shift-work.com/resources/managing-variable-workloads/
+  Demand-driven scheduling, flex staffing, seasonal ramp-up and ramp-down.
+
+- Overtime Management: shift-work.com/resources/overtime-management-guide/
+  Reducing chronic overtime, distribution fairness, policy design.
+
+- Schedule Change Management: shift-work.com/resources/schedule-change-management/
+  Why well-designed changes fail, communication sequencing, union environments,
+  implementation timing.
+
+- Employee Engagement in Shift Work: shift-work.com/resources/employee-engagement-shift-work/
+  The engagement-retention connection, how schedule design affects morale and
+  absenteeism, survey-driven change.
+
+- Operational Best Practices: shift-work.com/resources/shift-work-best-practices/
+  Broad operational guide for 24/7 environments.
+
+- Absenteeism & Coverage Management: shift-work.com/resources/absenteeism-relief-coverage-management/
+  Relief staffing models, attendance policy design, coverage gap analysis.
+
+- Shift Work Policies Guide: shift-work.com/resources/shift-work-policies-guide/
+  Shift differential, holiday pay, vacation scheduling — policy design concepts.
+
+FEATURED RESOURCES:
+- 26 Warning Signs of Schedule Problems: shift-work.com/resources/26-warning-signs-schedule-problems/
+  A diagnostic tool. If a visitor describes symptoms — overtime creep, absenteeism,
+  turnover — this is a natural, low-commitment next step to suggest.
+
+- Free Schedule Assessment Tool: shift-work.com/resources/shiftwork-assessment/
+  Short self-assessment that gives a personalized picture of where their shift
+  structure stands. Good first-step suggestion for visitors who are curious but
+  not ready for a consultation.
+
+SUPPORT ARTICLES (short practical reads — shift-work.com/resources/support/):
+- Scaling Production Up or Down: shift-work.com/resources/support/scaling-production-quickly/
+- Sleep, Alertness & Safety: shift-work.com/resources/support/sleep-alertness-safety-shift-work/
+- Maintenance Worker Scheduling: shift-work.com/resources/support/maintenance-worker-scheduling/
+- Communicating Schedule Changes: shift-work.com/resources/support/communicating-schedule-changes/
+- Workforce Survey Analysis: shift-work.com/resources/support/workforce-survey-analysis/
+- Balancing Business & Employee Needs: shift-work.com/resources/support/balancing-business-employee-needs/
+- Schedule Change Pitfalls: shift-work.com/resources/support/schedule-change-pitfalls/
+
+TRENDING TOPIC ARTICLES (shift-work.com/resources/):
+- The 32-Hour Workweek Movement: shift-work.com/resources/32-hour-workweek-manufacturing/
+- Tapping the Untapped Workforce: shift-work.com/resources/tapping-untapped-workforce/
+- Management by Walking Around: shift-work.com/resources/management-by-walking-around/
+- Overtime Tax Break for Businesses: shift-work.com/resources/overtime-tax-break-businesses/
+- Reshoring and the Manufacturing Workforce: shift-work.com/resources/reshoring-manufacturing-workforce/
+- Mixed Signals: Reading the Economy: shift-work.com/resources/mixed-signals-economy/
+- The Schedule Looks Fine on Paper: shift-work.com/resources/schedule-looks-fine-on-paper/
+- AI on the Plant Floor: shift-work.com/resources/ai-on-the-plant-floor/
+
+RESOURCES HUB:
+- All Resources: shift-work.com/resources/
+  Overview of all pillar guides, support articles, and featured tools.
+
+NAVIGATION SUGGESTION GUIDELINES:
+- Suggest the 26 Warning Signs page when a visitor describes operational symptoms
+  they haven't yet connected to a scheduling root cause.
+- Suggest the Free Assessment when a visitor wants to understand their situation
+  but isn't ready for a consultation.
+- Suggest the Schedule Patterns guide when a visitor asks about specific patterns
+  or wants to compare options.
+- Suggest the relevant Industry page when a visitor mentions their industry and
+  wants to know if Shiftwork Solutions has experience there.
+- Suggest the Change Management guide when a visitor is worried about workforce
+  resistance to a schedule change.
+- Suggest the Employee Engagement guide when a visitor raises morale, retention,
+  or absenteeism as the core issue.
+- Suggest the Equipment Utilization guide when a visitor is thinking about capital
+  productivity or moving to 7-day operations.
+- Suggest the Services page when a visitor asks what working with Shiftwork Solutions
+  actually looks like or how the firm is engaged.
+- Suggest the Contact page or booking link when a visitor is ready to talk to the team.
+- Never suggest more than one page per response.
+- Never list multiple URLs in a single response.
+- Make the suggestion feel like a natural aside, not a redirect.
 """
 
 # Opening message — one universal opener
