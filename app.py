@@ -75,6 +75,11 @@
 #                options: book consultation, team reaches out, or
 #                visit shift-work.com. Word count relaxed further
 #                when inviting context — warm > short.
+#   2026-04-05 — Added WEBSITE DIRECTORY to system prompt.
+#                Thomas now knows all pages on shift-work.com
+#                and can provide direct links: 10 guides, 7
+#                support articles, 6 industry pages, main pages.
+#                Topic-to-page mapping included.
 #
 # ROUTES:
 #   GET  /              — Serves Thomas chat UI
@@ -436,6 +441,61 @@ JOB SATISFACTION IS IN SCOPE:
 Job satisfaction, workforce morale, and employee wellbeing as they relate to shift
 schedules are fully within scope and are core survey topics. Never redirect away from
 job satisfaction.
+
+=== WEBSITE DIRECTORY — shift-work.com ===
+When a visitor asks about a topic covered on the website, provide the direct link.
+Use the full URL format: https://shift-work.com/path/
+
+MAIN PAGES:
+- Homepage: https://shift-work.com/
+- Our Services: https://shift-work.com/services/
+- Resources Hub: https://shift-work.com/resources/
+- Contact Us: https://shift-work.com/contact/
+- Newsletter Signup: https://shift-work.com/newsletter/
+
+10 GUIDES (deep-dive reference content):
+- Shift Schedule Design: https://shift-work.com/resources/shift-schedule-design-guide/
+- Shift Schedule Patterns: https://shift-work.com/resources/shift-schedule-patterns-guide/
+- Equipment Utilization & Scheduling: https://shift-work.com/resources/equipment-utilization-shift-scheduling/
+- Managing Variable Workloads: https://shift-work.com/resources/managing-variable-workloads/
+- Overtime Management: https://shift-work.com/resources/overtime-management-guide/
+- Schedule Change Management: https://shift-work.com/resources/schedule-change-management/
+- Employee Engagement in Shift Work: https://shift-work.com/resources/employee-engagement-shift-work/
+- Operational Best Practices: https://shift-work.com/resources/shift-work-best-practices/
+- Staffing Strategy for 24/7 Operations: https://shift-work.com/resources/staffing-strategy-guide/
+- Shift Work Health, Safety & Compliance: https://shift-work.com/resources/shift-work-health-safety-compliance/
+
+7 SUPPORT ARTICLES (targeted how-to content):
+- Scaling Production Up or Down: https://shift-work.com/resources/support/scaling-production-quickly/
+- Sleep, Alertness & Safety: https://shift-work.com/resources/support/sleep-alertness-safety-shift-work/
+- Maintenance Worker Scheduling: https://shift-work.com/resources/support/maintenance-worker-scheduling/
+- Communicating Schedule Changes: https://shift-work.com/resources/support/communicating-schedule-changes/
+- Workforce Survey Analysis: https://shift-work.com/resources/support/workforce-survey-analysis/
+- Balancing Business & Employee Needs: https://shift-work.com/resources/support/balancing-business-employee-needs/
+- Schedule Change Pitfalls: https://shift-work.com/resources/support/schedule-change-pitfalls/
+
+6 INDUSTRY PAGES:
+- Manufacturing & Assembly: https://shift-work.com/industries/manufacturing-assembly-operations/
+- Distribution & Logistics: https://shift-work.com/industries/distribution-logistics-operations/
+- Mining & Extraction: https://shift-work.com/industries/mining-extraction-industries/
+- Refining & Utilities: https://shift-work.com/industries/refining-utilities-operations/
+- Food & Beverage: https://shift-work.com/industries/food-beverage-manufacturing/
+- Chemical & Pharmaceutical: https://shift-work.com/industries/chemical-pharmaceutical-operations/
+
+TOPIC-TO-PAGE MAPPING (use these when a visitor asks about a topic):
+- Overtime problems → Overtime Management guide + shift-work.com/resources/overtime-management-guide/
+- Schedule patterns / DuPont / rotating → Schedule Patterns guide
+- Employee engagement / surveys / morale → Employee Engagement guide
+- Implementation / change management → Schedule Change Management guide
+- Variable demand / seasonal → Managing Variable Workloads guide
+- Equipment utilization / capacity → Equipment Utilization guide
+- Staffing / hiring / retention → Staffing Strategy guide
+- Health / safety / fatigue → Health, Safety & Compliance guide
+- Best practices / general advice → Operational Best Practices guide
+- Schedule design / shift lengths → Shift Schedule Design guide
+- Industry-specific → Link to the matching industry page
+- "How do you work" / process → Services page
+- "How do I contact you" → Contact page or booking link in sidebar
 """
 
 # Opening message — one universal opener
