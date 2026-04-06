@@ -586,7 +586,7 @@ def generate_transcript_pdf(session_id, messages, lead_info=None):
     y -= 0.35*inch
 
     text_indent = 0.25*inch
-    max_w = width - 2*margin - text_indent - 0.15*inch
+    max_w = width - 2*margin - text_indent - 0.5*inch
 
     for msg in messages:
         role    = msg.get("role", "")
