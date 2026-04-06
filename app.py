@@ -2,7 +2,7 @@
 # app.py  —  Shift-Work Diagnostic Avatar (Thomas)
 # Shiftwork Solutions LLC
 # Created:      2026-03-15
-# Last Updated: 2026-04-03
+# Last Updated: 2026-04-06
 #
 # PURPOSE:
 #   Flask backend for Thomas, an AI advisor that helps
@@ -80,6 +80,17 @@
 #                and can provide direct links: 10 guides, 7
 #                support articles, 6 industry pages, main pages.
 #                Topic-to-page mapping included.
+#   2026-04-06 — KNOWLEDGE EXPANSION:
+#                Added 8 trending article pages to Website Directory.
+#                Expanded topic-to-page mapping for trending topics.
+#                Added INSIGHTS FROM SITE CONTENT knowledge block
+#                with condensed FAQ-derived knowledge covering:
+#                maintenance worker retention risk, 70/70 perception
+#                gap, four pillars of workforce acceptance, EOWO
+#                night shift problem, 5% rule, schedule change
+#                pitfalls, 12-hour shift sleep data, adverse cost
+#                concept, and communication gap in 24/7 operations.
+#                All routes, Swarm, TTS, PDF generation unchanged.
 #
 # ROUTES:
 #   GET  /              — Serves Thomas chat UI
@@ -222,6 +233,7 @@ def get_swarm_context(messages):
 # Optimized for token efficiency and fast response times.
 #
 # Rebuilt: 2026-04-02
+# Knowledge expanded: 2026-04-06
 # =============================================================
 
 THOMAS_SYSTEM_PROMPT = """
@@ -429,6 +441,89 @@ schedule design does not compete for younger workers' willingness to show up, yo
 lose them to employers whose schedules do. This is a schedule design problem, not a
 generational character flaw.
 
+INSIGHTS FROM SITE CONTENT (use when relevant to the conversation):
+
+The 70/70 Perception Gap: Approximately 70% of managers say they communicate well with
+their shift workers. Approximately 70% of shift workers say their managers do not
+communicate well with them. This is a systematic gap — managers are making workforce
+decisions based on assumptions that are frequently wrong. Closing it through structured
+survey analysis is a prerequisite for effective schedule changes.
+
+The Four Pillars of Workforce Acceptance: Income security, time off quality,
+predictability, and flexibility. Income security means employees build financial lives
+around expected earnings including overtime — changes that threaten income encounter
+fierce resistance. Time off quality means consecutive days off outperform thinly
+distributed single days even when the annual total is identical. Predictability means
+employees need to know their schedule weeks in advance. Flexibility means accommodating
+swaps and short-notice personal days.
+
+The EOWO Night Shift Problem: The Every Other Weekend Off pattern works well for day
+shift but creates chronic sleep disruption for night shift workers who flip between
+nighttime work and daytime living on days off every two to three days. The fix is using
+a different, more stable pattern for the night shift rather than applying the same
+schedule to both day and night crews.
+
+Sleep and 12-Hour Shifts: Workers on 12-hour shifts get less sleep on work days but
+more total sleep over a four-week period than workers on 8-hour shifts, because 12-hour
+schedules provide significantly more days off. The per-shift comparison is misleading —
+the cumulative picture tells a different story. Safety comparisons across thousands of
+workers suggest 12-hour shifts are at least as safe as 8-hour shifts.
+
+Maintenance Worker Retention Risk: Maintenance workers have 43% longer tenure than
+other shift workers (8.6 years vs 6.0), 88% prefer fixed shifts, and nearly 25% say
+they would quit rather than accept an unacceptable schedule change. Their skills are
+highly portable across employers — a dissatisfied maintenance worker can have a new job
+before getting home. They also occupy a unique position in the facility's informal
+communication network, so their satisfaction or dissatisfaction with a schedule change
+spreads across the entire operation.
+
+The Overtime Paradox in Maintenance: Most maintenance overtime falls on weekends when
+equipment is available for preventive work. Workers incorporate that income into their
+lifestyles, then complain about working weekends — and complain equally when management
+tries to reduce the overtime. Understanding this dynamic before changing schedules
+prevents surprises.
+
+The 5% Rule: Approximately 5% of any workforce will express dissatisfaction regardless
+of what options are offered. They should be heard, but should not be allowed to paralyze
+decisions that benefit the other 95%. Survey data makes this distinction visible.
+
+Schedule Change Pitfalls — The Eight That Repeat: Keeping the workforce in the dark
+until the decision is made. Assuming you know what employees want. Presenting only one
+option. Ignoring policy implications (vacation accrual, holiday pay, overtime triggers).
+Providing inadequate notice (minimum four weeks, six to eight is better). Failing to
+close the feedback loop after collecting input. Underestimating ripple effects across
+departments. Declaring victory too early — most changes need three to six months to
+reach genuine steady state.
+
+Communication in 24/7 Operations: Management is present for roughly 40% of the hours
+a 24/7 operation runs. For the remaining 60%, shift workers operate without direct
+management visibility. Official communication competes with the grapevine — and the
+grapevine almost always wins. Supervisors are the most influential communication channel;
+investing in making them genuinely informed before they carry the message is one of the
+highest-leverage investments available.
+
+Adverse Cost: The additional expense from not being perfectly staffed — on either side.
+Understaffing generates overtime premiums. Overstaffing generates full wages for idle
+labor. Overstaffing typically costs more per hour but gets less attention because idle
+time does not appear on overtime reports. In port terminals and variable-demand
+environments, the financially optimal staffing level often involves accepting overtime
+levels that would raise flags in manufacturing — because a lean core crew working
+overtime during active windows costs less than a larger roster waiting together.
+
+The 32-Hour Workweek Question: The concept is gaining political attention but is
+impractical for most 24/7 manufacturing operations. Coverage math makes it nearly
+impossible — a 32-hour week at 168 hours of coverage requires 5.25 crews per position,
+a 31% increase in headcount that few operations can absorb. It works better where
+output is measured by results rather than coverage hours.
+
+AI and Automation on the Plant Floor: Automation changes the cognitive demand profile
+of shift work before it changes headcount. Workers shift from physical repetition to
+monitoring, exception handling, and decision-making under uncertainty. Cognitive fatigue
+accumulates differently — optimal shift duration for sustained attentional work may be
+shorter. The training window problem is real: a 4-crew 24/7 schedule has almost no
+structural slack for upskilling. Operations serious about automation transitions need
+to build training capacity into the schedule architecture.
+
 POLICIES (conceptual only — never draft policy text):
 Overtime distribution, holiday pay, vacation scheduling, shift differential, attendance
 systems — discuss concepts only.
@@ -465,6 +560,16 @@ MAIN PAGES:
 - Staffing Strategy for 24/7 Operations: https://shift-work.com/resources/staffing-strategy-guide/
 - Shift Work Health, Safety & Compliance: https://shift-work.com/resources/shift-work-health-safety-compliance/
 
+8 TRENDING ARTICLES (current topics):
+- The 32-Hour Workweek in Manufacturing: https://shift-work.com/resources/32-hour-workweek-manufacturing/
+- Tapping the Untapped Workforce: https://shift-work.com/resources/tapping-untapped-workforce/
+- Management by Walking Around: https://shift-work.com/resources/management-by-walking-around/
+- The Overtime Tax Break for Businesses: https://shift-work.com/resources/overtime-tax-break-businesses/
+- Reshoring Manufacturing Workforce: https://shift-work.com/resources/reshoring-manufacturing-workforce/
+- Mixed Signals Economy: https://shift-work.com/resources/mixed-signals-economy/
+- When Your Schedule Looks Fine on Paper: https://shift-work.com/resources/schedule-looks-fine-on-paper/
+- AI on the Plant Floor: https://shift-work.com/resources/ai-on-the-plant-floor/
+
 7 SUPPORT ARTICLES (targeted how-to content):
 - Scaling Production Up or Down: https://shift-work.com/resources/support/scaling-production-quickly/
 - Sleep, Alertness & Safety: https://shift-work.com/resources/support/sleep-alertness-safety-shift-work/
@@ -483,19 +588,33 @@ MAIN PAGES:
 - Chemical & Pharmaceutical: https://shift-work.com/industries/chemical-pharmaceutical-operations/
 
 TOPIC-TO-PAGE MAPPING (use these when a visitor asks about a topic):
-- Overtime problems → Overtime Management guide + shift-work.com/resources/overtime-management-guide/
+- Overtime problems → Overtime Management guide + overtime-management-guide/
 - Schedule patterns / DuPont / rotating → Schedule Patterns guide
 - Employee engagement / surveys / morale → Employee Engagement guide
 - Implementation / change management → Schedule Change Management guide
 - Variable demand / seasonal → Managing Variable Workloads guide
 - Equipment utilization / capacity → Equipment Utilization guide
 - Staffing / hiring / retention → Staffing Strategy guide
-- Health / safety / fatigue → Health, Safety & Compliance guide
+- Health / safety / fatigue / sleep → Health, Safety & Compliance guide + sleep-alertness-safety-shift-work/
 - Best practices / general advice → Operational Best Practices guide
 - Schedule design / shift lengths → Shift Schedule Design guide
 - Industry-specific → Link to the matching industry page
 - "How do you work" / process → Services page
 - "How do I contact you" → Contact page or booking link in sidebar
+- 32-hour workweek / shorter work week → 32-hour-workweek-manufacturing/
+- Younger workers / recruiting / labor shortage → tapping-untapped-workforce/
+- MBWA / management visibility / walking around → management-by-walking-around/
+- Overtime tax / tax policy → overtime-tax-break-businesses/
+- Reshoring / greenfield / new facility → reshoring-manufacturing-workforce/
+- Economy / mixed signals / demand uncertainty → mixed-signals-economy/
+- Schedule looks fine but problems persist → schedule-looks-fine-on-paper/
+- AI / automation / plant floor technology → ai-on-the-plant-floor/
+- Scaling production / ramp up or down → scaling-production-quickly/
+- Maintenance worker scheduling / retention → maintenance-worker-scheduling/
+- Communicating changes / employee communication → communicating-schedule-changes/
+- Workforce surveys / employee preferences → workforce-survey-analysis/
+- Balancing business and employee needs → balancing-business-employee-needs/
+- Schedule change mistakes / pitfalls → schedule-change-pitfalls/
 """
 
 # Opening message — one universal opener
