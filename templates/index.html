@@ -16,37 +16,22 @@
     2026-03-18 — Merged engagement/change topics, start screen
                  rebuilt with topic grid and video placeholder
     2026-04-02 — MAJOR REBUILD: Eliminated topic menu architecture.
-                 Start screen replaced with instructional overlay
-                 that shows the live chat UI underneath with
-                 annotated callout arrows pointing to microphone,
-                 text input, transcript download, and speaker toggle.
-                 Prominent "Let's get started" button dismisses
-                 overlay and begins conversation.
-                 Sidebar simplified to actions only (book consultation,
-                 download transcript) — no topic buttons.
+                 Start screen replaced with instructional overlay.
+                 Sidebar simplified to actions only.
                  All topic routing removed from frontend JS.
-                 Thomas handles all topics organically via backend.
     2026-04-05 — VISUAL RESTYLE: Updated to match shift-work.com
-                 design system. Replaced Lora/Source Sans 3 with
-                 Playfair Display/DM Sans. Replaced custom navy/gold
-                 palette with site palette: #1F4E79 navy, #E8610A
-                 orange, #0D1F3C navy-dark, #EEF3F8 light blue.
-                 Updated logo to match site logo image. All
-                 JavaScript, route calls, and functional logic
-                 are identical to 2026-04-02 version — zero
-                 functional changes.
+                 design system. Playfair Display/DM Sans fonts.
+                 Site palette: #1F4E79 navy, #E8610A orange.
+    2026-04-05 — URLs in Thomas's responses are now rendered as
+                 clickable hyperlinks. addBubble() uses linkifyText()
+                 to detect URLs and wrap them in <a> tags while
+                 keeping all other text safely escaped. Added
+                 .bubble a CSS for link styling.
 
   JAVASCRIPT NOTE:
-    All JS is preserved exactly from 2026-04-02. Do not touch:
-    - SESSION_ID generation
-    - sendMessage(), loadOpening(), dismissOverlay()
-    - startRecording(), stopRecording(), resetMicUI()
-    - playAudio(), addBubble(), showTyping(), hideTyping()
-    - terminateSession(), is_bot_response handling
-    - showLeadCapture(), closeLeadCapture(), submitLead()
-    - downloadTranscript()
-    - toggleMute()
-    - All fetch() calls to /chat, /opening, /transcribe, /transcript
+    All JS is preserved exactly from 2026-04-05 except:
+    - addBubble() now calls linkifyText() instead of textContent
+    - New helper: linkifyText() converts URLs to <a> tags
 
   I did no harm and this file is not truncated
 -->
@@ -153,7 +138,6 @@
     margin-top: -4px;
   }
 
-  /* Callout cards */
   .callout-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -199,7 +183,6 @@
     line-height: 1.5;
   }
 
-  /* Start button */
   .start-btn {
     background: var(--orange);
     color: var(--white);
@@ -326,7 +309,6 @@
     overflow-y: auto;
   }
 
-  /* Sidebar header band */
   .sidebar-header {
     background: var(--navy);
     padding: 18px 16px 16px;
@@ -379,7 +361,6 @@
 
   .sidebar-divider { height: 1px; background: var(--border); margin: 12px 0; }
 
-  /* Action buttons */
   .action-btn {
     display: block;
     width: 100%;
@@ -446,7 +427,6 @@
     overflow: hidden;
   }
 
-  /* Intro bar — matches site's light-blue breadcrumb style */
   .intro-card {
     background: var(--light-blue);
     border-bottom: 1px solid #c6d9ed;
@@ -511,6 +491,22 @@
     border-bottom-right-radius: 4px;
   }
 
+  /* ── Links inside chat bubbles ────────────────────── */
+  .bubble a {
+    color: var(--orange);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    word-break: break-all;
+  }
+
+  .bubble a:hover {
+    color: #d4550a;
+  }
+
+  .bubble-row.user .bubble a {
+    color: var(--orange-lt);
+  }
+
   /* Speaking waveform indicator */
   .speaking-indicator {
     display: inline-flex;
@@ -542,7 +538,6 @@
     50%{transform:scaleY(1.0);opacity:1.0}
   }
 
-  /* Typing dots */
   .typing-indicator {
     display: none;
     align-items: center;
@@ -627,7 +622,6 @@
 
   #user-input::placeholder { color: var(--gray-lt); }
 
-  /* Mic button */
   #mic-btn {
     width: 38px;
     height: 38px;
@@ -669,7 +663,6 @@
     50%{box-shadow:0 0 0 8px rgba(220,38,38,0.08)}
   }
 
-  /* Send button */
   #send-btn {
     width: 38px;
     height: 38px;
@@ -821,7 +814,6 @@
 
   .teams-link:hover { text-decoration: underline; }
 
-  /* ── Responsive ───────────────────────────────────── */
   @media (max-width: 680px) {
     .sidebar { display: none; }
     .bubble  { max-width: 90%; }
@@ -1246,6 +1238,37 @@
     } catch (err) { console.warn('Audio error:', err); }
   }
 
+  // ── URL linkification ──────────────────────────────────
+  // Converts plain text containing URLs into HTML with clickable
+  // <a> tags. All non-URL text is escaped to prevent XSS.
+  function linkifyText(text) {
+    const urlRegex = /(https?:\/\/[^\s,;)"""'<>]+)/gi;
+    const parts = text.split(urlRegex);
+    let html = '';
+    for (let i = 0; i < parts.length; i++) {
+      if (urlRegex.test(parts[i])) {
+        // Strip trailing punctuation that got captured
+        let url = parts[i];
+        let trailing = '';
+        while (url.length > 0 && /[.,;:!?)}\]"']$/.test(url)) {
+          trailing = url.slice(-1) + trailing;
+          url = url.slice(0, -1);
+        }
+        const safeUrl = url.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+        const display = url.replace(/^https?:\/\//, '');
+        const safeDisplay = display.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const safeTrailing = trailing.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        html += '<a href="' + safeUrl + '" target="_blank" rel="noopener">' + safeDisplay + '</a>' + safeTrailing;
+      } else {
+        // Escape non-URL text to prevent XSS
+        html += parts[i].replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      }
+      // Reset regex lastIndex since we use test() in a loop
+      urlRegex.lastIndex = 0;
+    }
+    return html;
+  }
+
   // ── Bubbles ────────────────────────────────────────────
   function scrollBottom() {
     requestAnimationFrame(() => { messagesEl.scrollTop = messagesEl.scrollHeight; });
@@ -1271,7 +1294,13 @@
       row.appendChild(av);
     }
     const bub = document.createElement('div');
-    bub.className = 'bubble'; bub.textContent = text;
+    bub.className = 'bubble';
+    // Use innerHTML with linkification for Thomas, plain textContent for user
+    if (who === 'thomas') {
+      bub.innerHTML = linkifyText(text);
+    } else {
+      bub.textContent = text;
+    }
     let indicator = null;
     if (who === 'thomas') {
       indicator = document.createElement('span');
@@ -1318,7 +1347,6 @@
       const data = await resp.json();
       hideTyping();
 
-      // Silent bot termination
       if (data.bot_detected) {
         terminateSession();
         return;
