@@ -1255,10 +1255,8 @@
           url = url.slice(0, -1);
         }
         const safeUrl = url.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
-        const display = url.replace(/^https?:\/\//, '');
-        const safeDisplay = display.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         const safeTrailing = trailing.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        html += '<a href="' + safeUrl + '" target="_blank" rel="noopener">' + safeDisplay + '</a>' + safeTrailing;
+        html += '<a href="' + safeUrl + '" target="_blank" rel="noopener">link</a>' + safeTrailing;
       } else {
         // Escape non-URL text to prevent XSS
         html += parts[i].replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
