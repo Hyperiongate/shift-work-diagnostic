@@ -192,6 +192,7 @@ from flask import Flask, request, jsonify, render_template_string, send_file, Re
 from flask_cors import CORS
 from flask_limiter import Limiter
 import anthropic
+import resend
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
 from reportlab.lib.colors import HexColor
@@ -362,6 +363,7 @@ ELEVENLABS_API_KEY  = os.environ.get("ELEVENLABS_API_KEY")
 ELEVENLABS_VOICE_ID = "sB7vwSCyX0tQmU24cW2C"  # Thomas voice -- updated 2026-04-02
 ELEVENLABS_TTS_URL  = f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}"
 ELEVENLABS_STT_URL  = "https://api.elevenlabs.io/v1/speech-to-text"
+resend.api_key = os.environ.get("RESEND_API_KEY")
 
 TEAMS_BOOKING_LINK  = "https://outlook.office365.com/book/ShiftworkSolutionsLLC2@shift-work.com/?ismsaljsauthenabled=true"
 
@@ -1212,9 +1214,28 @@ def download_transcript():
     try:
         pdf_buffer = generate_transcript_pdf(session_id, messages, lead_info)
         filename   = f"Shiftwork-Diagnostic-{datetime.now().strftime('%Y-%m-%d')}.pdf"
-        return send_file(pdf_buffer, mimetype="application/pdf",
-                         as_attachment=True, download_name=filename)
-    except Exception as e:
+        # Email a copy to Jim (non-fatal if it fails)
+        try:
+            pdf_bytes = pdf_buffer.read()
+            pdf_buffer.seek(0)  # reset so send_file still works
+            email_body = "<p>A visitor just downloaded a Thomas transcript.</p>"
+            if lead_info:
+                lines = "".join(
+                    f"<li><strong>{k}:</strong> {v}</li>"
+                    for k, v in lead_info.items() if v
+                )
+                email_body += f"<p><strong>Lead info:</strong></p><ul>{lines}</ul>"
+            resend.Emails.send({
+                "from": "thomas@shift-work.com",
+                "to":   "jim@shift-work.com",
+                "subject": f"Thomas Transcript — {datetime.now().strftime('%B %d, %Y %I:%M %p')}",
+                "html": email_body,
+                "attachments": [{"filename": filename, "content": list(pdf_bytes)}]
+            })
+        except Exception as e:
+            print(f"Resend email error (non-fatal): {e}")
+
+        except Exception as e:
         print(f"Transcript PDF error: {e}")
         return jsonify({"error": f"PDF generation failed: {str(e)}"}), 500
 
