@@ -157,6 +157,14 @@
 #                - Opening message content
 #                - Conversation history truncation at 40 messages
 #
+#   2026-04-17 -- Added Resend email notification on transcript
+#                download. jim@shift-work.com receives a copy of
+#                the PDF with lead info when a visitor downloads.
+#                Non-fatal -- visitor download unaffected if email
+#                fails. Requires RESEND_API_KEY env var in Render.
+#                Fixed IndentationError in /transcript route caused
+#                by malformed nested try/except blocks.
+#
 # ROUTES:
 #   GET  /              -- Serves Thomas chat UI
 #   POST /chat          -- Thomas response + audio
@@ -170,6 +178,7 @@
 # ENVIRONMENT VARIABLES (set in Render):
 #   ANTHROPIC_API_KEY    -- Claude API key
 #   ELEVENLABS_API_KEY   -- ElevenLabs API key
+#   RESEND_API_KEY       -- Resend API key for transcript notifications
 #   SWARM_ENABLED        -- Toggle Swarm norm lookup (default: true)
 #   DAILY_TOKEN_BUDGET   -- Max Claude tokens per UTC day (default: 2,000,000)
 #
@@ -203,70 +212,40 @@ from reportlab.pdfgen import canvas as pdf_canvas
 # SECURITY CONFIGURATION
 # =============================================================
 
-# Allowed origins for CORS. Any other origin gets a CORS-blocked
-# response from the browser. Not bulletproof (server-to-server
-# attackers can bypass browser CORS), but eliminates casual abuse
-# from random websites trying to call Thomas from visitor browsers.
 ALLOWED_ORIGINS = [
     "https://shift-work.com",
     "https://shift-work-diagnostic.onrender.com",
 ]
 
-# Message size limits
-MAX_MESSAGE_CHARS   = 2000  # /chat user_message
-MAX_TTS_CHARS       = 2000  # /api/tts text (tightened from 4500)
+MAX_MESSAGE_CHARS   = 2000
+MAX_TTS_CHARS       = 2000
 
-# Session limits
-SESSION_MAX_MESSAGES = 25   # per session
-SESSION_IDLE_SECS    = 30 * 60  # 30 minutes
+SESSION_MAX_MESSAGES = 25
+SESSION_IDLE_SECS    = 30 * 60
 
-# Daily token budget (circuit breaker)
-# Default: 2,000,000 tokens/day (~$6 Sonnet 4 worst-case).
-# Tune without redeploy by setting env var DAILY_TOKEN_BUDGET.
 DAILY_TOKEN_BUDGET = int(os.environ.get("DAILY_TOKEN_BUDGET", 2_000_000))
 
 
 # =============================================================
 # THREAD-SAFE SHARED STATE
-#
-# gunicorn may run multiple worker threads per process. All mutable
-# state below must be guarded by _state_lock. Read-then-write
-# operations (e.g. increment counters) MUST hold the lock.
-#
-# NOTE: This is in-memory state. If Render spins up multiple
-# instances, state is per-instance. That's acceptable for this
-# app because per-session data does not need to survive across
-# process restarts, and per-IP rate limiting is still effective
-# per-instance. The token budget is also per-instance, which
-# means the real global budget could theoretically be N * BUDGET
-# if N instances are running -- acceptable tradeoff given Render
-# free tier typically runs 1 instance.
 # =============================================================
 
 _state_lock = threading.Lock()
 
-conversation_histories  = {}   # session_id -> list of {role, content}
-session_created_at      = {}   # session_id -> last-activity timestamp
-session_message_counts  = {}   # session_id -> int (user-message count)
-issued_session_ids      = set()  # valid server-issued IDs
+conversation_histories  = {}
+session_created_at      = {}
+session_message_counts  = {}
+issued_session_ids      = set()
 
-# Daily token budget tracker. Stored as (utc_date_string, count).
-# Reset when the day rolls over.
 _token_usage = {"day": "", "tokens": 0}
-# Tracks the last logged threshold so we don't spam logs.
 _token_usage_log_threshold = {"pct": 0}
 
 
 def _utc_today_str():
-    """ISO date string for current UTC day. Used as reset key."""
     return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 
 def check_token_budget():
-    """
-    Return True if budget allows another Claude call, False if exhausted.
-    Auto-resets at midnight UTC. Caller must hold _state_lock.
-    """
     today = _utc_today_str()
     if _token_usage["day"] != today:
         _token_usage["day"] = today
@@ -277,10 +256,6 @@ def check_token_budget():
 
 
 def record_token_usage(input_tokens, output_tokens):
-    """
-    Add this call's token count to the daily total. Logs at 50/75/90/100%.
-    Caller must hold _state_lock.
-    """
     total = int(input_tokens or 0) + int(output_tokens or 0)
     _token_usage["tokens"] += total
     used = _token_usage["tokens"]
@@ -293,7 +268,6 @@ def record_token_usage(input_tokens, output_tokens):
 
 
 def issue_session_id():
-    """Generate a crypto-random session ID and register it as valid."""
     sid = "sess_" + secrets.token_urlsafe(16)
     with _state_lock:
         issued_session_ids.add(sid)
@@ -303,16 +277,10 @@ def issue_session_id():
 
 
 def is_valid_session(session_id):
-    """Caller must hold _state_lock."""
     return session_id in issued_session_ids
 
 
 def cleanup_expired_sessions():
-    """
-    Remove sessions idle for longer than SESSION_IDLE_SECS.
-    Called lazily from /chat so we don't need a background thread.
-    Caller must hold _state_lock.
-    """
     now = time.time()
     expired = [sid for sid, ts in session_created_at.items()
                if now - ts > SESSION_IDLE_SECS]
@@ -331,20 +299,12 @@ def cleanup_expired_sessions():
 
 app = Flask(__name__)
 
-# CORS: explicit allow-list (was wide open)
 CORS(app, origins=ALLOWED_ORIGINS, supports_credentials=False)
 
 
 def real_ip_key():
-    """
-    Rate-limiter key function that respects proxy headers.
-    Render sits behind a load balancer that sets X-Forwarded-For.
-    If we used just request.remote_addr, every request would look
-    like it came from the proxy, collapsing all IPs to one.
-    """
     fwd = request.headers.get("X-Forwarded-For", "")
     if fwd:
-        # First IP in the chain is the client.
         return fwd.split(",")[0].strip()
     return request.remote_addr or "unknown"
 
@@ -352,7 +312,7 @@ def real_ip_key():
 limiter = Limiter(
     app=app,
     key_func=real_ip_key,
-    default_limits=[],   # no default; each route opts in explicitly
+    default_limits=[],
     storage_uri="memory://",
     strategy="fixed-window",
 )
@@ -360,7 +320,7 @@ limiter = Limiter(
 anthropic_client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
 ELEVENLABS_API_KEY  = os.environ.get("ELEVENLABS_API_KEY")
-ELEVENLABS_VOICE_ID = "sB7vwSCyX0tQmU24cW2C"  # Thomas voice -- updated 2026-04-02
+ELEVENLABS_VOICE_ID = "sB7vwSCyX0tQmU24cW2C"
 ELEVENLABS_TTS_URL  = f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}"
 ELEVENLABS_STT_URL  = "https://api.elevenlabs.io/v1/speech-to-text"
 resend.api_key = os.environ.get("RESEND_API_KEY")
@@ -368,9 +328,6 @@ resend.api_key = os.environ.get("RESEND_API_KEY")
 TEAMS_BOOKING_LINK  = "https://outlook.office365.com/book/ShiftworkSolutionsLLC2@shift-work.com/?ismsaljsauthenabled=true"
 
 
-# Friendly 429 response when a rate limit is hit. Flask-Limiter
-# accepts a JSON body and a 429 status code. Frontend recognizes
-# the status code and displays a gentle "taking a breather" message.
 @app.errorhandler(429)
 def ratelimit_handler(e):
     return jsonify({
@@ -380,38 +337,15 @@ def ratelimit_handler(e):
 
 
 # =============================================================
-# LAYER 1: SWARM INTEGRATION -- READ-ONLY NORMATIVE LOOKUP
-#
-# Thomas calls the AI Swarm's normative database to fetch real
-# benchmark data as conversation teasers. Read-only, one endpoint.
-# Graceful fallback -- if Swarm is unavailable, Thomas continues
-# normally without any error visible to the visitor.
-#
-# Simplified from topic-mapped queries to a single general query
-# since Thomas now handles all topics in one conversation.
-#
-# Layer 2 (conversation learning write-back) is not yet connected.
-#
-# Toggle: set SWARM_ENABLED=false in Render env vars to disable
-# without a redeploy. Defaults to enabled.
-#
-# Added: 2026-03-18 | Simplified: 2026-04-02
+# LAYER 1: SWARM INTEGRATION
 # =============================================================
 
 SWARM_BASE_URL  = "https://ai-swarm-orchestrator.onrender.com"
 SWARM_ENABLED   = os.environ.get("SWARM_ENABLED", "true").lower() == "true"
-SWARM_TIMEOUT   = 3  # seconds -- never slow Thomas down waiting for Swarm
+SWARM_TIMEOUT   = 3
 
 
 def query_swarm_norms(query_term):
-    """
-    Call the Swarm normative database search endpoint.
-    Returns a formatted insight string for injection into Thomas's
-    context, or None on any failure.
-
-    Endpoint: GET /api/survey/norm/search?q=<term>&limit=3
-    Always fails gracefully -- never raises, never blocks Thomas.
-    """
     if not SWARM_ENABLED or not query_term:
         return None
     try:
@@ -450,14 +384,6 @@ def query_swarm_norms(query_term):
 
 
 def get_swarm_context(messages):
-    """
-    Decide whether a Swarm norm lookup is warranted for this
-    conversation turn. Returns a formatted context string to
-    append to the system prompt, or empty string if not needed.
-
-    Only queries after at least 2 exchanges so Thomas has context.
-    Uses a single general query covering the most common topics.
-    """
     if not SWARM_ENABLED:
         return ""
     if len(messages) < 2:
@@ -469,13 +395,7 @@ def get_swarm_context(messages):
 
 
 # =============================================================
-# SYSTEM PROMPT -- SINGLE UNIFIED PROMPT
-#
-# All topic knowledge merged into one condensed reference.
-# Thomas routes organically based on conversation, not menus.
-# Optimized for token efficiency and fast response times.
-#
-# Rebuilt: 2026-04-02
+# SYSTEM PROMPT
 # =============================================================
 
 THOMAS_SYSTEM_PROMPT = """
@@ -711,7 +631,7 @@ generational character flaw.
 
 POLICIES (conceptual only — never draft policy text):
 Overtime distribution, holiday pay, vacation scheduling, shift differential, attendance
-systems — discuss concepts only.
+systems -- discuss concepts only.
 
 OUT OF SCOPE:
 Wage rates, union contract specifics, individual HR cases, anything unrelated to shift
@@ -778,7 +698,7 @@ TOPIC-TO-PAGE MAPPING (use these when a visitor asks about a topic):
 - "How do I contact you" → Contact page or booking link in sidebar
 """
 
-# Opening message -- one universal opener
+# Opening message
 THOMAS_OPENING = (
     "Hi, I'm Thomas — an AI advisor for Shiftwork Solutions. I help operations "
     "managers think through what's going on with their shift operations. I can also "
@@ -786,8 +706,6 @@ THOMAS_OPENING = (
     "background on a topic. What's on your mind?"
 )
 
-# Static message shown when a session exceeds SESSION_MAX_MESSAGES.
-# Does NOT call Claude. This is a graceful cap, not an error.
 SESSION_LIMIT_HANDOFF = (
     "We've covered a lot of ground in this session. The next best step is probably "
     "a direct conversation with the team — you can book a free meeting here: "
@@ -797,12 +715,10 @@ SESSION_LIMIT_HANDOFF = (
 
 
 def is_bot_response(reply):
-    """Check if Claude returned the bot detection signal."""
     return reply.strip() == "BOT_DETECTED"
 
 
 def generate_speech(text):
-    """Call ElevenLabs TTS, return base64 MP3. Returns None on failure."""
     if not ELEVENLABS_API_KEY:
         return None
     try:
@@ -833,7 +749,6 @@ def generate_speech(text):
 
 
 def generate_transcript_pdf(session_id, messages, lead_info=None):
-    """Generate branded PDF transcript. Returns BytesIO buffer."""
     buffer = io.BytesIO()
     c = pdf_canvas.Canvas(buffer, pagesize=letter)
     width, height = letter
@@ -856,8 +771,7 @@ def generate_transcript_pdf(session_id, messages, lead_info=None):
     c.drawString(margin, height - 0.65*inch, "Shiftwork Solutions LLC")
     c.setFillColorRGB(1, 1, 1)
     c.setFont("Helvetica", 11)
-    c.drawRightString(width - margin, height - 0.55*inch,
-                      "Conversation Transcript")
+    c.drawRightString(width - margin, height - 0.55*inch, "Conversation Transcript")
     c.drawRightString(width - margin, height - 0.85*inch,
                       datetime.now().strftime("%B %d, %Y"))
 
@@ -941,10 +855,6 @@ def generate_transcript_pdf(session_id, messages, lead_info=None):
 @app.route("/health")
 @limiter.exempt
 def health():
-    """
-    Render polls this for health checks. Unlimited on purpose --
-    Render may poll every few seconds and we never want to 429 it.
-    """
     return jsonify({
         "status":      "ok",
         "service":     "shift-work-diagnostic",
@@ -953,7 +863,7 @@ def health():
 
 
 @app.route("/")
-@limiter.limit("60/minute")  # generous; loading the UI itself
+@limiter.limit("60/minute")
 def index():
     return render_template_string(open("templates/index.html").read())
 
@@ -961,24 +871,12 @@ def index():
 @app.route("/opening", methods=["POST"])
 @limiter.limit("5/minute;20/hour")
 def opening():
-    """
-    Return the opening message, audio, and a SERVER-generated
-    session_id. Called when the visitor dismisses the instructional
-    overlay. The frontend must use the returned session_id for
-    all subsequent /chat calls -- any other session_id will be
-    rejected by /chat with 403.
-
-    Behavior change 2026-04-17: session ID is now server-generated.
-    """
-    # Generate a fresh, cryptographically random session ID.
     session_id = issue_session_id()
-
     with _state_lock:
         conversation_histories[session_id] = [{
             "role":    "assistant",
             "content": THOMAS_OPENING
         }]
-
     audio_b64 = generate_speech(THOMAS_OPENING)
     return jsonify({
         "reply":      THOMAS_OPENING,
@@ -990,15 +888,6 @@ def opening():
 @app.route("/transcribe", methods=["POST"])
 @limiter.limit("20/hour")
 def transcribe():
-    """
-    Receive audio blob from frontend, send to ElevenLabs STT,
-    return transcribed text.
-
-    Handles all browser audio formats:
-    - Chrome/Edge: audio/webm;codecs=opus  -> audio.webm
-    - Firefox:     audio/ogg;codecs=opus   -> audio.ogg
-    - Safari:      audio/mp4               -> audio.mp4
-    """
     if not ELEVENLABS_API_KEY:
         return jsonify({"error": "STT not configured"}), 503
 
@@ -1058,22 +947,6 @@ def transcribe():
 @app.route("/chat", methods=["POST"])
 @limiter.limit("10/minute;30/hour")
 def chat():
-    """
-    Main conversation route.
-    Accepts: { message, session_id }
-    No topic parameter -- Thomas handles all topics organically.
-
-    Security checks (in order, all BEFORE any paid API call):
-      1. Request has JSON body
-      2. message and session_id are both present and non-empty
-      3. message is <= MAX_MESSAGE_CHARS
-      4. session_id is in issued_session_ids (server-issued)
-      5. session has not already hit SESSION_MAX_MESSAGES
-      6. daily token budget is not exhausted
-
-    Returns bot_detected:true if bot signal received -- frontend
-    silently ends the session without displaying any message.
-    """
     data = request.get_json()
     if not data:
         return jsonify({"error": "No data provided"}), 400
@@ -1084,7 +957,6 @@ def chat():
     if not user_message:
         return jsonify({"error": "No message provided"}), 400
 
-    # (3) Message length check -- reject before any state mutation
     if len(user_message) > MAX_MESSAGE_CHARS:
         return jsonify({
             "error": "message_too_long",
@@ -1092,17 +964,14 @@ def chat():
         }), 400
 
     with _state_lock:
-        # Opportunistic cleanup of expired sessions (keeps memory bounded)
         cleanup_expired_sessions()
 
-        # (4) Validate session_id was issued by us
         if not session_id or not is_valid_session(session_id):
             return jsonify({
                 "error": "invalid_session",
                 "message": "Your session has expired or is invalid. Please refresh the page."
             }), 403
 
-        # (5) Per-session message cap
         count = session_message_counts.get(session_id, 0)
         if count >= SESSION_MAX_MESSAGES:
             return jsonify({
@@ -1112,7 +981,6 @@ def chat():
                 "session_ended": True
             }), 200
 
-        # (6) Daily token budget check
         if not check_token_budget():
             print(f"[TOKEN_BUDGET] Rejected /chat -- daily budget exhausted")
             return jsonify({
@@ -1121,7 +989,6 @@ def chat():
                             "reach the team directly at (415) 265-1621 or shift-work.com.")
             }), 503
 
-        # Append user message to history
         if session_id not in conversation_histories:
             conversation_histories[session_id] = []
 
@@ -1129,23 +996,17 @@ def chat():
             "role": "user", "content": user_message
         })
 
-        # Keep last 40 messages to manage context window
         if len(conversation_histories[session_id]) > 40:
             conversation_histories[session_id] = \
                 conversation_histories[session_id][-40:]
 
-        # Bump session activity + message count
         session_created_at[session_id] = time.time()
         session_message_counts[session_id] = count + 1
 
-        # Snapshot history for the API call (so we don't hold the lock
-        # during the network I/O)
         messages_snapshot = list(conversation_histories[session_id])
 
-    # ---- Outside the lock: network calls ----
     system_prompt = THOMAS_SYSTEM_PROMPT
 
-    # Layer 1: Append live normative context from Swarm if available
     swarm_context = get_swarm_context(messages_snapshot)
     if swarm_context:
         system_prompt = system_prompt + swarm_context
@@ -1159,7 +1020,6 @@ def chat():
         )
         thomas_reply = response.content[0].text
 
-        # Record token usage for the daily budget (under lock)
         usage = getattr(response, "usage", None)
         if usage:
             with _state_lock:
@@ -1168,7 +1028,6 @@ def chat():
                     getattr(usage, "output_tokens", 0)
                 )
 
-        # Bot detection -- silent termination
         if is_bot_response(thomas_reply):
             with _state_lock:
                 conversation_histories.pop(session_id, None)
@@ -1178,7 +1037,6 @@ def chat():
             return jsonify({"bot_detected": True}), 200
 
         with _state_lock:
-            # Re-check session exists (could have expired during API call)
             if session_id in conversation_histories:
                 conversation_histories[session_id].append({
                     "role": "assistant", "content": thomas_reply
@@ -1211,9 +1069,11 @@ def download_transcript():
 
     if not messages:
         return jsonify({"error": "No conversation found for this session"}), 404
+
     try:
         pdf_buffer = generate_transcript_pdf(session_id, messages, lead_info)
         filename   = f"Shiftwork-Diagnostic-{datetime.now().strftime('%Y-%m-%d')}.pdf"
+
         # Email a copy to Jim (non-fatal if it fails)
         try:
             pdf_bytes = pdf_buffer.read()
@@ -1235,7 +1095,10 @@ def download_transcript():
         except Exception as e:
             print(f"Resend email error (non-fatal): {e}")
 
-        except Exception as e:
+        return send_file(pdf_buffer, mimetype="application/pdf",
+                         as_attachment=True, download_name=filename)
+
+    except Exception as e:
         print(f"Transcript PDF error: {e}")
         return jsonify({"error": f"PDF generation failed: {str(e)}"}), 500
 
@@ -1243,19 +1106,6 @@ def download_transcript():
 @app.route("/api/tts", methods=["POST"])
 @limiter.limit("10/hour")
 def tts_proxy():
-    """
-    TTS proxy for pillar pages on the Shiftwork Solutions website.
-
-    Pillar pages call this endpoint instead of ElevenLabs directly,
-    keeping ELEVENLABS_API_KEY server-side and out of browser code.
-
-    Accepts JSON: { "text": "...", "voice_id": "..." (optional) }
-    Returns: audio/mpeg stream directly (not base64)
-    Max text: MAX_TTS_CHARS characters per request (tightened from
-    4500 to 2000 on 2026-04-17 to prevent TTS cost amplification).
-
-    Added: 2026-04-03 | Hardened: 2026-04-17
-    """
     if not ELEVENLABS_API_KEY:
         return jsonify({"error": "TTS not configured"}), 503
 
@@ -1272,7 +1122,6 @@ def tts_proxy():
             "error": f"Text exceeds {MAX_TTS_CHARS} character limit per request"
         }), 400
 
-    # Use provided voice_id or fall back to the default Thomas voice
     voice_id = data.get("voice_id", ELEVENLABS_VOICE_ID).strip() or ELEVENLABS_VOICE_ID
     tts_url  = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
 
@@ -1307,7 +1156,6 @@ def tts_proxy():
                 }
             )
 
-        # Forward the error status from ElevenLabs
         print(f"ElevenLabs TTS proxy error {el_response.status_code}: {el_response.text[:200]}")
         return jsonify({
             "error": f"ElevenLabs error {el_response.status_code}"
@@ -1324,7 +1172,6 @@ def tts_proxy():
 @app.route("/booking-link")
 @limiter.exempt
 def booking_link():
-    """Static URL response -- no rate limit needed."""
     return jsonify({"url": TEAMS_BOOKING_LINK}), 200
 
 
