@@ -1,20 +1,32 @@
 # =============================================================
-# requirements.txt  —  Shift-Work Diagnostic Avatar (Fred)
+# requirements.txt  -  Shift-Work Diagnostic Avatar (Thomas)
 # Shiftwork Solutions LLC
 # Created:      2026-03-15
-# Last Updated: 2026-03-16
+# Last Updated: 2026-04-17
+#
+# CHANGE LOG:
+#   2026-03-15 -- Initial build
+#   2026-03-16 -- requests + reportlab (Phase 2 + Phase 3)
+#   2026-04-17 -- Added Flask-Limiter>=3.5.0 for IP rate limiting
+#                 (part of Thomas security hardening release).
+#                 Flask-Limiter pulls in 'limits' automatically.
 #
 # PINNED FOR PYTHON 3.11 COMPATIBILITY ON RENDER
-# requests    — ElevenLabs TTS API calls (Phase 2)
-# reportlab   — PDF transcript generation
+# flask          -- web framework
+# flask-cors     -- CORS (now with explicit allow-list in app.py)
+# flask-limiter  -- IP rate limiting (NEW 2026-04-17)
+# anthropic      -- Claude API SDK
+# requests       -- ElevenLabs TTS/STT API calls
+# python-dotenv  -- local dev env loading
+# gunicorn       -- production WSGI server on Render
+# reportlab      -- PDF transcript generation
 # =============================================================
-
 flask==3.0.3
 flask-cors==4.0.1
+Flask-Limiter>=3.5.0
 anthropic>=0.40.0
 requests==2.31.0
 python-dotenv==1.0.1
 gunicorn==22.0.0
 reportlab==4.2.2
-
 # I did no harm and this file is not truncated
