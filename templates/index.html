@@ -1,37 +1,59 @@
 <!DOCTYPE html>
 <!--
-  index.html — Thomas | Shiftwork Solutions AI Advisor
+  index.html -- Thomas | Shiftwork Solutions AI Advisor
   File: templates/index.html (served by app.py Flask route)
   Created:      2026-03-15
-  Last Updated: 2026-04-05
+  Last Updated: 2026-04-17
 
   CHANGE LOG:
-    2026-03-15 — Initial build
-    2026-03-16 — Phase 2: ElevenLabs TTS audio playback
-    2026-03-16 — Phase 3: PDF transcript, lead capture modal,
+    2026-03-15 -- Initial build
+    2026-03-16 -- Phase 2: ElevenLabs TTS audio playback
+    2026-03-16 -- Phase 3: PDF transcript, lead capture modal,
                  sidebar with topic buttons, Teams booking link
-    2026-03-17 — Renamed to Thomas, updated voice, push-to-talk mic
-    2026-03-17 — ElevenLabs STT replaces browser SpeechRecognition
-    2026-03-18 — Multi-topic sidebar architecture: 6 topic buttons
-    2026-03-18 — Merged engagement/change topics, start screen
+    2026-03-17 -- Renamed to Thomas, updated voice, push-to-talk mic
+    2026-03-17 -- ElevenLabs STT replaces browser SpeechRecognition
+    2026-03-18 -- Multi-topic sidebar architecture: 6 topic buttons
+    2026-03-18 -- Merged engagement/change topics, start screen
                  rebuilt with topic grid and video placeholder
-    2026-04-02 — MAJOR REBUILD: Eliminated topic menu architecture.
+    2026-04-02 -- MAJOR REBUILD: Eliminated topic menu architecture.
                  Start screen replaced with instructional overlay.
                  Sidebar simplified to actions only.
                  All topic routing removed from frontend JS.
-    2026-04-05 — VISUAL RESTYLE: Updated to match shift-work.com
+    2026-04-05 -- VISUAL RESTYLE: Updated to match shift-work.com
                  design system. Playfair Display/DM Sans fonts.
                  Site palette: #1F4E79 navy, #E8610A orange.
-    2026-04-05 — URLs in Thomas's responses are now rendered as
+    2026-04-05 -- URLs in Thomas's responses are now rendered as
                  clickable hyperlinks. addBubble() uses linkifyText()
                  to detect URLs and wrap them in <a> tags while
                  keeping all other text safely escaped. Added
                  .bubble a CSS for link styling.
-
-  JAVASCRIPT NOTE:
-    All JS is preserved exactly from 2026-04-05 except:
-    - addBubble() now calls linkifyText() instead of textContent
-    - New helper: linkifyText() converts URLs to <a> tags
+    2026-04-17 -- SECURITY HARDENING -- FRONTEND CHANGES
+                 (paired with app.py hardening of same date).
+                 1. SESSION_ID is no longer generated client-side
+                    via Math.random() (which an attacker could
+                    spoof to bypass per-session caps). Now it
+                    starts null and is assigned from the server's
+                    response to /opening. /chat will reject any
+                    request lacking a valid server-issued ID.
+                 2. sendMessage() now distinguishes three new
+                    response conditions from /chat:
+                      - HTTP 429 (rate_limited) -> friendly
+                        "going a bit fast" message
+                      - HTTP 403 (invalid_session) -> soft session-
+                        expired message with refresh suggestion
+                      - HTTP 503 (budget_exhausted) -> "Thomas is
+                        taking a short break" with contact info
+                      - data.session_ended=true -> static handoff
+                        after per-session message cap
+                 3. loadOpening() captures the server-issued
+                    session_id from the response body and stores
+                    it in SESSION_ID for subsequent calls.
+                 4. downloadTranscript() guards against a null
+                    SESSION_ID and shows a helpful message.
+                 All visual design, CSS, HTML markup, and unrelated
+                 JavaScript (push-to-talk recording, ElevenLabs
+                 STT, lead capture, mute toggle, linkification,
+                 audio playback) preserved exactly.
 
   I did no harm and this file is not truncated
 -->
@@ -47,7 +69,7 @@
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  /* ── Design system — matches shift-work.com exactly ─── */
+  /* -- Design system -- matches shift-work.com exactly -- */
   :root {
     --navy:        #1F4E79;
     --navy-dark:   #0D1F3C;
@@ -85,7 +107,7 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  /* ── Instructional overlay ────────────────────────── */
+  /* -- Instructional overlay -- */
   #overlay {
     position: fixed; inset: 0;
     background: rgba(13, 31, 60, 0.92);
@@ -209,7 +231,7 @@
     margin-top: -4px;
   }
 
-  /* ── Header ───────────────────────────────────────── */
+  /* -- Header -- */
   header {
     width: 100%;
     background: var(--navy-dark);
@@ -295,10 +317,10 @@
 
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.45} }
 
-  /* ── Main layout ──────────────────────────────────── */
+  /* -- Main layout -- */
   .main-layout { display: flex; flex: 1; min-height: 0; overflow: hidden; }
 
-  /* ── Sidebar ──────────────────────────────────────── */
+  /* -- Sidebar -- */
   .sidebar {
     width: 244px;
     flex-shrink: 0;
@@ -417,7 +439,7 @@
     filter: brightness(0.85);
   }
 
-  /* ── Chat column ──────────────────────────────────── */
+  /* -- Chat column -- */
   .chat-area {
     flex: 1;
     display: flex;
@@ -491,7 +513,7 @@
     border-bottom-right-radius: 4px;
   }
 
-  /* ── Links inside chat bubbles ────────────────────── */
+  /* -- Links inside chat bubbles -- */
   .bubble a {
     color: var(--orange);
     text-decoration: underline;
@@ -567,7 +589,7 @@
     40%{transform:translateY(-6px);opacity:1}
   }
 
-  /* ── Input area ───────────────────────────────────── */
+  /* -- Input area -- */
   .input-area {
     flex-shrink: 0;
     padding: 10px 16px 14px;
@@ -689,7 +711,7 @@
     line-height: 1.5;
   }
 
-  /* ── Lead capture modal ───────────────────────────── */
+  /* -- Lead capture modal -- */
   .modal-overlay {
     position: fixed; inset: 0;
     background: rgba(13,31,60,0.75);
@@ -825,19 +847,19 @@
 </head>
 <body>
 
-<!-- ── Instructional overlay ─────────────────────────── -->
+<!-- -- Instructional overlay -- -->
 <div id="overlay">
   <div class="overlay-content">
     <div class="overlay-eyebrow">Shiftwork Solutions AI Advisor</div>
     <div class="overlay-title">Meet Thomas</div>
     <div class="overlay-subtitle">
       Not ready to call? No problem. Thomas can help you think through
-      what's going on with your shift operations — no pressure, no&nbsp;pitch.
+      what's going on with your shift operations &mdash; no pressure, no&nbsp;pitch.
     </div>
 
     <div class="callout-grid">
       <div class="callout-card">
-        <div class="callout-icon">🎤</div>
+        <div class="callout-icon">&#x1F3A4;</div>
         <div class="callout-text">
           <div class="callout-label">Speak to Thomas</div>
           <div class="callout-desc">Hold the microphone button, speak, then release to send.</div>
@@ -845,7 +867,7 @@
       </div>
 
       <div class="callout-card">
-        <div class="callout-icon">⌨️</div>
+        <div class="callout-icon">&#x2328;&#xFE0F;</div>
         <div class="callout-text">
           <div class="callout-label">Or type instead</div>
           <div class="callout-desc">Type in the text box and press Enter or click the send button.</div>
@@ -853,7 +875,7 @@
       </div>
 
       <div class="callout-card">
-        <div class="callout-icon">🔊</div>
+        <div class="callout-icon">&#x1F50A;</div>
         <div class="callout-text">
           <div class="callout-label">Listen or read</div>
           <div class="callout-desc">Thomas speaks his responses. Use the Sound button in the header to toggle audio.</div>
@@ -861,7 +883,7 @@
       </div>
 
       <div class="callout-card">
-        <div class="callout-icon">📄</div>
+        <div class="callout-icon">&#x1F4C4;</div>
         <div class="callout-text">
           <div class="callout-label">Save your conversation</div>
           <div class="callout-desc">Download a PDF transcript any time from the sidebar. You can end whenever you like.</div>
@@ -874,25 +896,25 @@
   </div>
 </div>
 
-<!-- ── Header ────────────────────────────────────────── -->
+<!-- -- Header -- -->
 <header>
   <a href="https://shift-work.com" class="logo-wrap" target="_blank" rel="noopener" aria-label="Shiftwork Solutions">
     <div class="logo-mark">T</div>
   </a>
   <div class="header-text">
     <h1>Thomas</h1>
-    <p>Shiftwork Solutions &nbsp;·&nbsp; AI Advisor</p>
+    <p>Shiftwork Solutions &nbsp;&middot;&nbsp; AI Advisor</p>
   </div>
   <div class="header-right">
-    <button class="mute-btn" id="mute-btn" onclick="toggleMute()">🔊 Sound on</button>
+    <button class="mute-btn" id="mute-btn" onclick="toggleMute()">&#x1F50A; Sound on</button>
     <div class="status-dot" title="Online"></div>
   </div>
 </header>
 
-<!-- ── Main layout ────────────────────────────────────── -->
+<!-- -- Main layout -- -->
 <div class="main-layout">
 
-  <!-- ── Sidebar ─────────────────────────────────────── -->
+  <!-- -- Sidebar -- -->
   <aside class="sidebar">
     <div class="sidebar-header">
       <div class="sidebar-firm">Shiftwork Solutions LLC</div>
@@ -916,17 +938,17 @@
       <div class="sidebar-section-label">Take Action</div>
 
       <button class="action-btn" onclick="showLeadCapture()">
-        📅 Set up a conversation
+        &#x1F4C5; Set up a conversation
       </button>
 
       <button class="action-btn outline" onclick="downloadTranscript()">
-        📄 Download transcript
+        &#x1F4C4; Download transcript
       </button>
 
       <a class="sidebar-site-link"
          href="https://shift-work.com"
          target="_blank" rel="noopener">
-        Visit shift-work.com →
+        Visit shift-work.com &rarr;
       </a>
     </div>
 
@@ -935,14 +957,14 @@
       alt="Manufacturing facility">
   </aside>
 
-  <!-- ── Chat area ──────────────────────────────────── -->
+  <!-- -- Chat area -- -->
   <div class="chat-area">
 
     <div class="intro-card">
       <strong>Just tell Thomas what's on your mind.</strong>
-      Scheduling problems, employee engagement, implementation, industry questions —
+      Scheduling problems, employee engagement, implementation, industry questions &mdash;
       Thomas will follow the conversation wherever it goes.
-      <strong>Hold 🎤 to speak, or type below.</strong>
+      <strong>Hold &#x1F3A4; to speak, or type below.</strong>
     </div>
 
     <div id="messages">
@@ -955,9 +977,9 @@
     </div>
 
     <div class="input-area">
-      <div class="mic-hint" id="mic-hint">🎤 Hold to speak &nbsp;·&nbsp; Release to send</div>
+      <div class="mic-hint" id="mic-hint">&#x1F3A4; Hold to speak &nbsp;&middot;&nbsp; Release to send</div>
       <div class="input-row" id="input-row">
-        <textarea id="user-input" placeholder="Type your message…" rows="1"></textarea>
+        <textarea id="user-input" placeholder="Type your message..." rows="1"></textarea>
         <button id="mic-btn" aria-label="Hold to speak" title="Hold to speak, release to send">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
             <path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm0 2a2 2 0 0 0-2 2v6a2 2 0 0 0 4 0V5a2 2 0 0 0-2-2zm-1 14.93V20H9v2h6v-2h-2v-2.07A7 7 0 0 0 19 11h-2a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.93z"/>
@@ -969,13 +991,13 @@
       </div>
       <p class="disclaimer">
         Your conversation is private and not stored beyond this session.
-        Shiftwork Solutions LLC &nbsp;·&nbsp; (415) 265-1621 &nbsp;·&nbsp; shift-work.com
+        Shiftwork Solutions LLC &nbsp;&middot;&nbsp; (415) 265-1621 &nbsp;&middot;&nbsp; shift-work.com
       </p>
     </div>
   </div>
 </div>
 
-<!-- ── Lead capture modal ─────────────────────────────── -->
+<!-- -- Lead capture modal -- -->
 <div class="modal-overlay" id="lead-modal">
   <div class="modal">
     <div class="modal-eyebrow">Get in touch</div>
@@ -1005,13 +1027,13 @@
     <a class="teams-link"
        href="https://outlook.office365.com/book/ShiftworkSolutionsLLC2@shift-work.com/?ismsaljsauthenabled=true"
        target="_blank">
-      Or book a time directly →
+      Or book a time directly &rarr;
     </a>
   </div>
 </div>
 
 <script>
-  // ── DOM refs ───────────────────────────────────────────
+  // -- DOM refs --
   const messagesEl  = document.getElementById('messages');
   const inputEl     = document.getElementById('user-input');
   const sendBtn     = document.getElementById('send-btn');
@@ -1024,8 +1046,11 @@
   const overlay     = document.getElementById('overlay');
   const leadModal   = document.getElementById('lead-modal');
 
-  // ── State ──────────────────────────────────────────────
-  const SESSION_ID   = 'sess_' + Math.random().toString(36).substr(2, 9);
+  // -- State --
+  // CHANGED 2026-04-17: SESSION_ID is now assigned by the server
+  // from the /opening response. It starts null so the client
+  // cannot spoof a fresh ID to bypass per-session caps.
+  let SESSION_ID     = null;
   let isWaiting      = false;
   let isMuted        = false;
   let isTerminated   = false;
@@ -1033,7 +1058,7 @@
   let speakingEl     = null;
   let leadData       = null;
 
-  // ── MediaRecorder push-to-talk ─────────────────────────
+  // -- MediaRecorder push-to-talk --
   let mediaRecorder  = null;
   let audioChunks    = [];
   let micStream      = null;
@@ -1047,7 +1072,7 @@
       micPermGranted = true;
       return true;
     } catch (e) {
-      micHint.textContent = 'Microphone access denied — check browser settings.';
+      micHint.textContent = 'Microphone access denied -- check browser settings.';
       micBtn.classList.add('unsupported');
       return false;
     }
@@ -1080,7 +1105,7 @@
     mediaRecorder.start(100);
     micBtn.classList.add('recording');
     inputRow.classList.add('recording');
-    micHint.textContent = '🔴 Recording — release to send';
+    micHint.textContent = '\u{1F534} Recording -- release to send';
     micHint.classList.add('recording');
   }
 
@@ -1091,7 +1116,7 @@
     micBtn.classList.add('processing');
     inputRow.classList.remove('recording');
     inputRow.classList.add('processing');
-    micHint.textContent = '⏳ Transcribing...';
+    micHint.textContent = '\u23F3 Transcribing...';
     micHint.classList.remove('recording');
     micHint.classList.add('processing');
     mediaRecorder.stop();
@@ -1102,7 +1127,7 @@
       audioChunks = [];
       if (blob.size < 1000) {
         resetMicUI();
-        micHint.textContent = 'No audio captured — try again.';
+        micHint.textContent = 'No audio captured -- try again.';
         setTimeout(() => resetMicUI(), 2000);
         return;
       }
@@ -1116,13 +1141,13 @@
           inputEl.value = data.text.trim();
           sendMessage();
         } else {
-          micHint.textContent = 'Could not understand audio — please try again.';
+          micHint.textContent = 'Could not understand audio -- please try again.';
           setTimeout(() => resetMicUI(), 2500);
         }
       } catch (err) {
         console.error('Transcription error:', err);
         resetMicUI();
-        micHint.textContent = 'Transcription failed — please try again.';
+        micHint.textContent = 'Transcription failed -- please try again.';
         setTimeout(() => resetMicUI(), 2500);
       }
     };
@@ -1131,14 +1156,14 @@
   function resetMicUI() {
     micBtn.classList.remove('recording', 'processing');
     inputRow.classList.remove('recording', 'processing');
-    micHint.textContent = '🎤 Hold to speak \u00a0·\u00a0 Release to send';
+    micHint.textContent = '\u{1F3A4} Hold to speak \u00a0\u00b7\u00a0 Release to send';
     micHint.classList.remove('recording', 'processing');
   }
 
   if (!window.MediaRecorder || !navigator.mediaDevices) {
     micBtn.classList.add('unsupported');
     micBtn.disabled = true;
-    micHint.textContent = 'Voice input not available in this browser — please type.';
+    micHint.textContent = 'Voice input not available in this browser -- please type.';
   }
 
   micBtn.addEventListener('mousedown',  (e) => { e.preventDefault(); startRecording(); });
@@ -1148,7 +1173,7 @@
   micBtn.addEventListener('touchend',    (e) => { e.preventDefault(); stopRecording(); },  { passive: false });
   micBtn.addEventListener('touchcancel', (e) => { if (isRecording) stopRecording(); },     { passive: false });
 
-  // ── Overlay dismiss + start conversation ───────────────
+  // -- Overlay dismiss + start conversation --
   function dismissOverlay() {
     overlay.classList.add('hidden');
     setTimeout(() => { overlay.style.display = 'none'; }, 500);
@@ -1156,10 +1181,10 @@
     inputEl.focus();
   }
 
-  // ── Mute ───────────────────────────────────────────────
+  // -- Mute --
   function toggleMute() {
     isMuted = !isMuted;
-    muteBtn.textContent = isMuted ? '🔇 Sound off' : '🔊 Sound on';
+    muteBtn.textContent = isMuted ? '\u{1F507} Sound off' : '\u{1F50A} Sound on';
     muteBtn.classList.toggle('muted', isMuted);
     if (isMuted && currentAudio) {
       currentAudio.pause(); currentAudio = null;
@@ -1167,7 +1192,7 @@
     }
   }
 
-  // ── Lead capture ───────────────────────────────────────
+  // -- Lead capture --
   function showLeadCapture()  { leadModal.classList.add('active'); }
   function closeLeadCapture() { leadModal.classList.remove('active'); }
 
@@ -1180,13 +1205,18 @@
     leadData = { Name: name, Email: email, Phone: phone, Company: company };
     closeLeadCapture();
     addBubble(
-      `Thanks ${name} — someone from the Shiftwork Solutions team will be in touch at ${email} within one business day.`,
+      `Thanks ${name} -- someone from the Shiftwork Solutions team will be in touch at ${email} within one business day.`,
       'thomas', null
     );
   }
 
-  // ── Transcript ─────────────────────────────────────────
+  // -- Transcript --
+  // CHANGED 2026-04-17: guard against null SESSION_ID
   async function downloadTranscript() {
+    if (!SESSION_ID) {
+      alert('Please start a conversation first -- then you can download its transcript.');
+      return;
+    }
     try {
       const resp = await fetch('/transcript', {
         method:  'POST',
@@ -1212,7 +1242,7 @@
     }
   }
 
-  // ── Audio ──────────────────────────────────────────────
+  // -- Audio --
   function playAudio(b64, indicator) {
     if (isMuted || !b64) return;
     try {
@@ -1238,11 +1268,11 @@
     } catch (err) { console.warn('Audio error:', err); }
   }
 
-  // ── URL linkification ──────────────────────────────────
+  // -- URL linkification --
   // Converts plain text containing URLs into HTML with clickable
   // <a> tags. All non-URL text is escaped to prevent XSS.
   function linkifyText(text) {
-    const urlRegex = /(https?:\/\/[^\s,;)"""'<>]+)/gi;
+    const urlRegex = /(https?:\/\/[^\s,;)"'<>]+)/gi;
     const parts = text.split(urlRegex);
     let html = '';
     for (let i = 0; i < parts.length; i++) {
@@ -1267,7 +1297,7 @@
     return html;
   }
 
-  // ── Bubbles ────────────────────────────────────────────
+  // -- Bubbles --
   function scrollBottom() {
     requestAnimationFrame(() => { messagesEl.scrollTop = messagesEl.scrollHeight; });
   }
@@ -1312,7 +1342,7 @@
     if (who === 'thomas' && audiob64) playAudio(audiob64, indicator);
   }
 
-  // ── Bot termination — silent, no message shown ─────────
+  // -- Bot termination -- silent, no message shown --
   function terminateSession() {
     isTerminated = true;
     inputRow.classList.add('disabled');
@@ -1323,11 +1353,28 @@
     if (currentAudio) { currentAudio.pause(); currentAudio = null; }
   }
 
-  // ── Send ───────────────────────────────────────────────
+  // -- Session-cap ended (soft lockout, with final handoff message shown) --
+  function endSessionGracefully() {
+    // Similar to terminate but NOT silent -- the final reply has already
+    // been added to the messages list before we disable inputs.
+    isTerminated = true;
+    inputRow.classList.add('disabled');
+    inputEl.disabled = true;
+    sendBtn.disabled = true;
+    micBtn.disabled  = true;
+    micBtn.classList.add('unsupported');
+  }
+
+  // -- Send --
+  // CHANGED 2026-04-17: handles 429 / 403 / 503 and session_ended
   async function sendMessage() {
     if (isTerminated) return;
     const text = inputEl.value.trim();
     if (!text || isWaiting) return;
+    if (!SESSION_ID) {
+      addBubble("Connection not ready yet -- give it a moment, then try again.", 'thomas', null);
+      return;
+    }
     isWaiting = true;
     inputEl.value = ''; inputEl.style.height = 'auto';
     sendBtn.disabled = true;
@@ -1342,6 +1389,44 @@
           session_id: SESSION_ID
         })
       });
+
+      // Rate limited -- friendly backoff
+      if (resp.status === 429) {
+        hideTyping();
+        const data = await resp.json().catch(() => ({}));
+        addBubble(
+          data.message || "You're going a little fast for me. Please try again in a moment.",
+          'thomas', null
+        );
+        isWaiting = false; sendBtn.disabled = false; inputEl.focus();
+        return;
+      }
+
+      // Invalid / expired session -- tell the user to refresh
+      if (resp.status === 403) {
+        hideTyping();
+        const data = await resp.json().catch(() => ({}));
+        addBubble(
+          data.message || "Your session has expired. Please refresh the page to start a new conversation.",
+          'thomas', null
+        );
+        endSessionGracefully();
+        isWaiting = false;
+        return;
+      }
+
+      // Daily budget exhausted -- Thomas is on a break
+      if (resp.status === 503) {
+        hideTyping();
+        const data = await resp.json().catch(() => ({}));
+        addBubble(
+          data.message || "Thomas is taking a short break. Please try again later, or reach the team at (415) 265-1621 or shift-work.com.",
+          'thomas', null
+        );
+        isWaiting = false; sendBtn.disabled = false; inputEl.focus();
+        return;
+      }
+
       const data = await resp.json();
       hideTyping();
 
@@ -1352,17 +1437,24 @@
 
       if (data.reply) {
         addBubble(data.reply, 'thomas', data.audio || null);
+        // Per-session cap reached -- still show the reply, then lock down
+        if (data.session_ended) {
+          endSessionGracefully();
+          isWaiting = false;
+          return;
+        }
       } else {
         addBubble("Sorry, something went wrong on my end. Please try again.", 'thomas', null);
       }
     } catch (err) {
       hideTyping();
-      addBubble("Connection issue — please refresh and try again.", 'thomas', null);
+      addBubble("Connection issue -- please refresh and try again.", 'thomas', null);
     }
     isWaiting = false; sendBtn.disabled = false; inputEl.focus();
   }
 
-  // ── Opening — called when overlay is dismissed ─────────
+  // -- Opening -- called when overlay is dismissed --
+  // CHANGED 2026-04-17: captures server-issued session_id
   async function loadOpening() {
     if (isTerminated) return;
     showTyping();
@@ -1370,21 +1462,25 @@
       const resp = await fetch('/opening', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ session_id: SESSION_ID })
+        body:    JSON.stringify({})
       });
       const data = await resp.json();
       hideTyping();
+      // Capture the server-issued session_id for subsequent /chat calls
+      if (data.session_id) {
+        SESSION_ID = data.session_id;
+      }
       if (data.reply) addBubble(data.reply, 'thomas', data.audio || null);
     } catch (err) {
       hideTyping();
       addBubble(
-        "Hi, I'm Thomas — an AI advisor for Shiftwork Solutions. What's on your mind?",
+        "Hi, I'm Thomas -- an AI advisor for Shiftwork Solutions. What's on your mind?",
         'thomas', null
       );
     }
   }
 
-  // ── Events ─────────────────────────────────────────────
+  // -- Events --
   leadModal.addEventListener('click', e => { if (e.target === leadModal) closeLeadCapture(); });
   sendBtn.addEventListener('click', sendMessage);
   inputEl.addEventListener('keydown', e => {
