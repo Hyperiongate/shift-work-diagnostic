@@ -3,7 +3,7 @@
   index.html -- Thomas | Shiftwork Solutions AI Advisor
   File: templates/index.html (served by app.py Flask route)
   Created:      2026-03-15
-  Last Updated: 2026-04-17
+  Last Updated: 2026-04-18
 
   CHANGE LOG:
     2026-03-15 -- Initial build
@@ -59,6 +59,10 @@
                  have a visual sense of who they are talking to.
                  Only src and alt attributes changed on .sidebar-img.
                  All other HTML, CSS, and JS unchanged.
+    2026-04-18 -- SIDEBAR BOTTOM IMAGE: Removed sidebar-bottom-img
+                 (Unsplash welding photo) from sidebar entirely.
+                 Removed associated .sidebar-bottom-img CSS rule.
+                 No other changes.
 
   I did no harm and this file is not truncated
 -->
@@ -435,15 +439,6 @@
 
   .sidebar-site-link:hover { text-decoration: underline; }
 
-  .sidebar-bottom-img {
-    width: 100%;
-    height: 100px;
-    object-fit: cover;
-    display: block;
-    margin-top: auto;
-    filter: brightness(0.85);
-  }
-
   /* -- Chat column -- */
   .chat-area {
     flex: 1;
@@ -526,13 +521,9 @@
     word-break: break-all;
   }
 
-  .bubble a:hover {
-    color: #d4550a;
-  }
+  .bubble a:hover { color: #d4550a; }
 
-  .bubble-row.user .bubble a {
-    color: var(--orange-lt);
-  }
+  .bubble-row.user .bubble a { color: var(--orange-lt); }
 
   /* Speaking waveform indicator */
   .speaking-indicator {
@@ -956,10 +947,6 @@
         Visit shift-work.com &rarr;
       </a>
     </div>
-
-    <img class="sidebar-bottom-img"
-      src="https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?w=520&q=80"
-      alt="Manufacturing facility">
   </aside>
 
   <!-- -- Chat area -- -->
@@ -1052,9 +1039,9 @@
   const leadModal   = document.getElementById('lead-modal');
 
   // -- State --
-  // CHANGED 2026-04-17: SESSION_ID is now assigned by the server
-  // from the /opening response. It starts null so the client
-  // cannot spoof a fresh ID to bypass per-session caps.
+  // SESSION_ID is assigned by the server from the /opening response.
+  // It starts null so the client cannot spoof a fresh ID to bypass
+  // per-session caps.
   let SESSION_ID     = null;
   let isWaiting      = false;
   let isMuted        = false;
@@ -1216,7 +1203,6 @@
   }
 
   // -- Transcript --
-  // CHANGED 2026-04-17: guard against null SESSION_ID
   async function downloadTranscript() {
     if (!SESSION_ID) {
       alert('Please start a conversation first -- then you can download its transcript.');
@@ -1274,15 +1260,12 @@
   }
 
   // -- URL linkification --
-  // Converts plain text containing URLs into HTML with clickable
-  // <a> tags. All non-URL text is escaped to prevent XSS.
   function linkifyText(text) {
     const urlRegex = /(https?:\/\/[^\s,;)"'<>]+)/gi;
     const parts = text.split(urlRegex);
     let html = '';
     for (let i = 0; i < parts.length; i++) {
       if (urlRegex.test(parts[i])) {
-        // Strip trailing punctuation that got captured
         let url = parts[i];
         let trailing = '';
         while (url.length > 0 && /[.,;:!?)}\]"']$/.test(url)) {
@@ -1293,10 +1276,8 @@
         const safeTrailing = trailing.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         html += '<a href="' + safeUrl + '" target="_blank" rel="noopener">link</a>' + safeTrailing;
       } else {
-        // Escape non-URL text to prevent XSS
         html += parts[i].replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       }
-      // Reset regex lastIndex since we use test() in a loop
       urlRegex.lastIndex = 0;
     }
     return html;
@@ -1328,7 +1309,6 @@
     }
     const bub = document.createElement('div');
     bub.className = 'bubble';
-    // Use innerHTML with linkification for Thomas, plain textContent for user
     if (who === 'thomas') {
       bub.innerHTML = linkifyText(text);
     } else {
@@ -1358,10 +1338,8 @@
     if (currentAudio) { currentAudio.pause(); currentAudio = null; }
   }
 
-  // -- Session-cap ended (soft lockout, with final handoff message shown) --
+  // -- Session-cap ended (soft lockout, final reply already shown) --
   function endSessionGracefully() {
-    // Similar to terminate but NOT silent -- the final reply has already
-    // been added to the messages list before we disable inputs.
     isTerminated = true;
     inputRow.classList.add('disabled');
     inputEl.disabled = true;
@@ -1371,7 +1349,6 @@
   }
 
   // -- Send --
-  // CHANGED 2026-04-17: handles 429 / 403 / 503 and session_ended
   async function sendMessage() {
     if (isTerminated) return;
     const text = inputEl.value.trim();
@@ -1389,13 +1366,9 @@
       const resp = await fetch('/chat', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          message:    text,
-          session_id: SESSION_ID
-        })
+        body:    JSON.stringify({ message: text, session_id: SESSION_ID })
       });
 
-      // Rate limited -- friendly backoff
       if (resp.status === 429) {
         hideTyping();
         const data = await resp.json().catch(() => ({}));
@@ -1407,7 +1380,6 @@
         return;
       }
 
-      // Invalid / expired session -- tell the user to refresh
       if (resp.status === 403) {
         hideTyping();
         const data = await resp.json().catch(() => ({}));
@@ -1420,7 +1392,6 @@
         return;
       }
 
-      // Daily budget exhausted -- Thomas is on a break
       if (resp.status === 503) {
         hideTyping();
         const data = await resp.json().catch(() => ({}));
@@ -1442,7 +1413,6 @@
 
       if (data.reply) {
         addBubble(data.reply, 'thomas', data.audio || null);
-        // Per-session cap reached -- still show the reply, then lock down
         if (data.session_ended) {
           endSessionGracefully();
           isWaiting = false;
@@ -1459,7 +1429,6 @@
   }
 
   // -- Opening -- called when overlay is dismissed --
-  // CHANGED 2026-04-17: captures server-issued session_id
   async function loadOpening() {
     if (isTerminated) return;
     showTyping();
@@ -1471,10 +1440,7 @@
       });
       const data = await resp.json();
       hideTyping();
-      // Capture the server-issued session_id for subsequent /chat calls
-      if (data.session_id) {
-        SESSION_ID = data.session_id;
-      }
+      if (data.session_id) SESSION_ID = data.session_id;
       if (data.reply) addBubble(data.reply, 'thomas', data.audio || null);
     } catch (err) {
       hideTyping();
