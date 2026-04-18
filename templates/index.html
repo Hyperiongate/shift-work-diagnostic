@@ -25,28 +25,25 @@
     2026-04-05 -- URLs in Thomas's responses are now rendered as
                  clickable hyperlinks. addBubble() uses linkifyText()
                  to detect URLs and wrap them in <a> tags while
-                 keeping all other text safely escaped. Added
-                 .bubble a CSS for link styling.
-    2026-04-17 -- SECURITY HARDENING -- FRONTEND CHANGES
-                 (paired with app.py hardening of same date).
-                 1. SESSION_ID is no longer generated client-side.
-                 2. sendMessage() handles 429 / 403 / 503 and
-                    session_ended.
-                 3. loadOpening() captures server-issued session_id.
-                 4. downloadTranscript() guards against null SESSION_ID.
-    2026-04-17 -- SIDEBAR IMAGE: Replaced Unsplash industrial photo
-                 with /static/thomas.jpg (robot avatar).
-    2026-04-18 -- SIDEBAR BOTTOM IMAGE: Removed sidebar-bottom-img
-                 (Unsplash welding photo) and its CSS rule.
-    2026-04-18 -- MIC HINT: Three improvements:
-                 1. Font size increased 12.5px -> 15px, weight 600->700
-                 2. Replaced 🎤 emoji with inline SVG matching the
-                    actual mic button icon exactly
-                 3. Right-aligned and padded to sit near the mic button
-                    (text-align: right; padding-right: 56px)
-                 JS textContent calls converted to innerHTML to support
-                 SVG markup in Recording/Transcribing states.
-                 resetMicUI() also updated to innerHTML.
+                 keeping all other text safely escaped.
+    2026-04-17 -- SECURITY HARDENING -- FRONTEND CHANGES:
+                 Server-issued SESSION_ID, 429/403/503 handling,
+                 session_ended support, null SESSION_ID guard.
+    2026-04-17 -- SIDEBAR IMAGE: /static/thomas.jpg robot avatar.
+    2026-04-18 -- SIDEBAR BOTTOM IMAGE: Removed welding photo + CSS.
+    2026-04-18 -- MIC HINT: Larger (15px/700), right-aligned near
+                 mic, SVG icon matching actual mic button, all
+                 JS states use innerHTML.
+    2026-04-18 -- FOOTER: Added dark-navy .thomas-footer bar below
+                 the disclaimer. Three columns:
+                 1. Book a Free Consultation (orange button)
+                 2. Phone (415) 265-1621 + Contact Us (orange button)
+                 3. Newsletter email input + Subscribe button
+                 Matches shift-work.com footer design language.
+                 Newsletter posts to Swarm API with source tag
+                 "thomas-footer". New JS function thomasFooterSubmit()
+                 with IDs thomasFooterEmail/Btn/Msg to avoid conflict
+                 with lead-modal form IDs.
 
   I did no harm and this file is not truncated
 -->
@@ -62,7 +59,6 @@
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  /* -- Design system -- matches shift-work.com exactly -- */
   :root {
     --navy:        #1F4E79;
     --navy-dark:   #0D1F3C;
@@ -497,7 +493,6 @@
     border-bottom-right-radius: 4px;
   }
 
-  /* -- Links inside chat bubbles -- */
   .bubble a {
     color: var(--orange);
     text-decoration: underline;
@@ -506,7 +501,6 @@
   }
 
   .bubble a:hover { color: #d4550a; }
-
   .bubble-row.user .bubble a { color: var(--orange-lt); }
 
   /* Speaking waveform indicator */
@@ -572,7 +566,7 @@
   /* -- Input area -- */
   .input-area {
     flex-shrink: 0;
-    padding: 10px 16px 14px;
+    padding: 10px 16px 10px;
     background: var(--white);
     border-top: 1px solid var(--border);
     z-index: 5;
@@ -697,6 +691,114 @@
     margin-top: 8px;
     line-height: 1.5;
   }
+
+  /* ── THOMAS FOOTER ── */
+  .thomas-footer {
+    background: var(--navy-dark);
+    border-top: 1px solid rgba(255,255,255,0.08);
+    flex-shrink: 0;
+    padding: 14px 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0;
+  }
+
+  .tf-col {
+    padding: 0 18px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .tf-col:first-child { padding-left: 0; border-right: 1px solid rgba(255,255,255,0.08); }
+  .tf-col:last-child  { padding-right: 0; border-left: 1px solid rgba(255,255,255,0.08); }
+
+  .tf-label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--mid-blue);
+    line-height: 1;
+  }
+
+  .tf-btn {
+    display: inline-block;
+    padding: 8px 16px;
+    background: var(--orange);
+    color: var(--white);
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+    align-self: flex-start;
+  }
+
+  .tf-btn:hover { background: #c4510a; }
+
+  .tf-phone {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--white);
+    text-decoration: none;
+    letter-spacing: 0.01em;
+  }
+
+  .tf-phone:hover { color: var(--mid-blue); }
+
+  .tf-nl-row {
+    display: flex;
+    gap: 6px;
+  }
+
+  .tf-nl-input {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1.5px solid rgba(255,255,255,0.18);
+    border-radius: 4px;
+    background: rgba(255,255,255,0.07);
+    color: var(--white);
+    font-family: var(--font-body);
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .tf-nl-input::placeholder { color: rgba(255,255,255,0.35); }
+  .tf-nl-input:focus { border-color: var(--mid-blue); }
+
+  .tf-nl-btn {
+    padding: 8px 14px;
+    background: var(--orange);
+    color: var(--white);
+    border: none;
+    border-radius: 4px;
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+
+  .tf-nl-btn:hover { background: #c4510a; }
+  .tf-nl-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .tf-nl-msg {
+    font-size: 11px;
+    min-height: 14px;
+    line-height: 1;
+  }
+
+  .tf-nl-msg.ok  { color: #6ee7b7; }
+  .tf-nl-msg.err { color: #fca5a5; }
 
   /* -- Lead capture modal -- */
   .modal-overlay {
@@ -830,6 +932,8 @@
     .overlay-title { font-size: 24px; }
     header { padding: 0 16px; }
     .mic-hint { padding-right: 10px; }
+    .thomas-footer { grid-template-columns: 1fr; gap: 12px; padding: 14px 16px; }
+    .tf-col { padding: 0; border: none !important; }
   }
 </style>
 </head>
@@ -853,7 +957,6 @@
           <div class="callout-desc">Hold the microphone button, speak, then release to send.</div>
         </div>
       </div>
-
       <div class="callout-card">
         <div class="callout-icon">&#x2328;&#xFE0F;</div>
         <div class="callout-text">
@@ -861,7 +964,6 @@
           <div class="callout-desc">Type in the text box and press Enter or click the send button.</div>
         </div>
       </div>
-
       <div class="callout-card">
         <div class="callout-icon">&#x1F50A;</div>
         <div class="callout-text">
@@ -869,12 +971,11 @@
           <div class="callout-desc">Thomas speaks his responses. Use the Sound button in the header to toggle audio.</div>
         </div>
       </div>
-
       <div class="callout-card">
         <div class="callout-icon">&#x1F4C4;</div>
         <div class="callout-text">
           <div class="callout-label">Save your conversation</div>
-          <div class="callout-desc">Download a PDF transcript any time from the sidebar. You can end whenever you like.</div>
+          <div class="callout-desc">Download a PDF transcript any time from the sidebar.</div>
         </div>
       </div>
     </div>
@@ -961,7 +1062,6 @@
     </div>
 
     <div class="input-area">
-      <!-- mic hint: SVG icon + text, right-aligned near mic button -->
       <div class="mic-hint" id="mic-hint">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
           <path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm0 2a2 2 0 0 0-2 2v6a2 2 0 0 0 4 0V5a2 2 0 0 0-2-2zm-1 14.93V20H9v2h6v-2h-2v-2.07A7 7 0 0 0 19 11h-2a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.93z"/>
@@ -984,8 +1084,42 @@
         Shiftwork Solutions LLC &nbsp;&middot;&nbsp; (415) 265-1621 &nbsp;&middot;&nbsp; shift-work.com
       </p>
     </div>
-  </div>
-</div>
+
+    <!-- ── THOMAS FOOTER ── -->
+    <div class="thomas-footer">
+      <!-- Col 1: Book a Free Consultation -->
+      <div class="tf-col">
+        <div class="tf-label">Free Consultation</div>
+        <a href="https://outlook.office365.com/book/ShiftworkSolutionsLLC2@shift-work.com/?ismsaljsauthenabled=true"
+           class="tf-btn" target="_blank" rel="noopener">
+          Book a Free Meeting &rarr;
+        </a>
+      </div>
+
+      <!-- Col 2: Phone + Contact page -->
+      <div class="tf-col" style="align-items:center;text-align:center;">
+        <div class="tf-label">Talk to Us Directly</div>
+        <a href="tel:+14152651621" class="tf-phone">(415) 265-1621</a>
+        <a href="https://shift-work.com/contact/" class="tf-btn" target="_blank" rel="noopener">
+          Contact Us &rarr;
+        </a>
+      </div>
+
+      <!-- Col 3: Newsletter -->
+      <div class="tf-col">
+        <div class="tf-label">Newsletter</div>
+        <div class="tf-nl-row">
+          <input type="email" class="tf-nl-input" id="thomasFooterEmail"
+                 placeholder="your@company.com" autocomplete="email">
+          <button class="tf-nl-btn" id="thomasFooterBtn"
+                  onclick="thomasFooterSubmit()">Subscribe &rarr;</button>
+        </div>
+        <div class="tf-nl-msg" id="thomasFooterMsg"></div>
+      </div>
+    </div>
+
+  </div><!-- /.chat-area -->
+</div><!-- /.main-layout -->
 
 <!-- -- Lead capture modal -- -->
 <div class="modal-overlay" id="lead-modal">
@@ -1036,11 +1170,10 @@
   const overlay     = document.getElementById('overlay');
   const leadModal   = document.getElementById('lead-modal');
 
-  // -- Shared mic SVG used in hint states --
+  // -- Shared mic SVG for hint states --
   const MIC_SVG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm0 2a2 2 0 0 0-2 2v6a2 2 0 0 0 4 0V5a2 2 0 0 0-2-2zm-1 14.93V20H9v2h6v-2h-2v-2.07A7 7 0 0 0 19 11h-2a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.93z"/></svg>';
 
   // -- State --
-  // SESSION_ID is assigned by the server from the /opening response.
   let SESSION_ID     = null;
   let isWaiting      = false;
   let isMuted        = false;
@@ -1164,7 +1297,7 @@
   micBtn.addEventListener('touchend',    (e) => { e.preventDefault(); stopRecording(); },  { passive: false });
   micBtn.addEventListener('touchcancel', (e) => { if (isRecording) stopRecording(); },     { passive: false });
 
-  // -- Overlay dismiss + start conversation --
+  // -- Overlay dismiss --
   function dismissOverlay() {
     overlay.classList.add('hidden');
     setTimeout(() => { overlay.style.display = 'none'; }, 500);
@@ -1229,6 +1362,37 @@
       URL.revokeObjectURL(url);
     } catch (err) {
       alert('Transcript download failed. Please try again.');
+    }
+  }
+
+  // -- Footer newsletter subscribe --
+  async function thomasFooterSubmit() {
+    const SWARM = 'https://ai-swarm-orchestrator.onrender.com/api/newsletter/subscribe';
+    const btn   = document.getElementById('thomasFooterBtn');
+    const msg   = document.getElementById('thomasFooterMsg');
+    const email = document.getElementById('thomasFooterEmail').value.trim();
+    if (!email) return;
+    btn.disabled = true; btn.textContent = 'Subscribing...';
+    try {
+      const r = await fetch(SWARM, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email, source: 'thomas-footer' })
+      });
+      const d = await r.json();
+      if (d.success) {
+        msg.className = 'tf-nl-msg ok';
+        msg.textContent = '\u2713 Subscribed. Thank you.';
+        document.getElementById('thomasFooterEmail').value = '';
+        btn.textContent = 'Subscribed \u2713';
+      } else { throw new Error(d.error || 'Failed'); }
+    } catch (err) {
+      msg.className = 'tf-nl-msg err';
+      msg.textContent = err.message === 'This email is already subscribed.'
+        ? 'Already subscribed \u2014 thank you!'
+        : 'Something went wrong. Try again.';
+      btn.disabled = false;
+      btn.textContent = 'Subscribe \u2192';
     }
   }
 
@@ -1326,7 +1490,6 @@
     if (who === 'thomas' && audiob64) playAudio(audiob64, indicator);
   }
 
-  // -- Bot termination -- silent, no message shown --
   function terminateSession() {
     isTerminated = true;
     inputRow.classList.add('disabled');
@@ -1337,7 +1500,6 @@
     if (currentAudio) { currentAudio.pause(); currentAudio = null; }
   }
 
-  // -- Session-cap ended (soft lockout, final reply already shown) --
   function endSessionGracefully() {
     isTerminated = true;
     inputRow.classList.add('disabled');
@@ -1371,10 +1533,7 @@
       if (resp.status === 429) {
         hideTyping();
         const data = await resp.json().catch(() => ({}));
-        addBubble(
-          data.message || "You're going a little fast for me. Please try again in a moment.",
-          'thomas', null
-        );
+        addBubble(data.message || "You're going a little fast for me. Please try again in a moment.", 'thomas', null);
         isWaiting = false; sendBtn.disabled = false; inputEl.focus();
         return;
       }
@@ -1382,10 +1541,7 @@
       if (resp.status === 403) {
         hideTyping();
         const data = await resp.json().catch(() => ({}));
-        addBubble(
-          data.message || "Your session has expired. Please refresh the page to start a new conversation.",
-          'thomas', null
-        );
+        addBubble(data.message || "Your session has expired. Please refresh the page to start a new conversation.", 'thomas', null);
         endSessionGracefully();
         isWaiting = false;
         return;
@@ -1394,10 +1550,7 @@
       if (resp.status === 503) {
         hideTyping();
         const data = await resp.json().catch(() => ({}));
-        addBubble(
-          data.message || "Thomas is taking a short break. Please try again later, or reach the team at (415) 265-1621 or shift-work.com.",
-          'thomas', null
-        );
+        addBubble(data.message || "Thomas is taking a short break. Please try again later, or reach the team at (415) 265-1621 or shift-work.com.", 'thomas', null);
         isWaiting = false; sendBtn.disabled = false; inputEl.focus();
         return;
       }
@@ -1405,18 +1558,11 @@
       const data = await resp.json();
       hideTyping();
 
-      if (data.bot_detected) {
-        terminateSession();
-        return;
-      }
+      if (data.bot_detected) { terminateSession(); return; }
 
       if (data.reply) {
         addBubble(data.reply, 'thomas', data.audio || null);
-        if (data.session_ended) {
-          endSessionGracefully();
-          isWaiting = false;
-          return;
-        }
+        if (data.session_ended) { endSessionGracefully(); isWaiting = false; return; }
       } else {
         addBubble("Sorry, something went wrong on my end. Please try again.", 'thomas', null);
       }
@@ -1427,7 +1573,7 @@
     isWaiting = false; sendBtn.disabled = false; inputEl.focus();
   }
 
-  // -- Opening -- called when overlay is dismissed --
+  // -- Opening --
   async function loadOpening() {
     if (isTerminated) return;
     showTyping();
@@ -1443,10 +1589,7 @@
       if (data.reply) addBubble(data.reply, 'thomas', data.audio || null);
     } catch (err) {
       hideTyping();
-      addBubble(
-        "Hi, I'm Thomas -- an AI advisor for Shiftwork Solutions. What's on your mind?",
-        'thomas', null
-      );
+      addBubble("Hi, I'm Thomas -- an AI advisor for Shiftwork Solutions. What's on your mind?", 'thomas', null);
     }
   }
 
@@ -1459,6 +1602,11 @@
   inputEl.addEventListener('input', () => {
     inputEl.style.height = 'auto';
     inputEl.style.height = Math.min(inputEl.scrollHeight, 100) + 'px';
+  });
+
+  // Allow Enter key in footer newsletter field
+  document.getElementById('thomasFooterEmail').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); thomasFooterSubmit(); }
   });
 </script>
 
