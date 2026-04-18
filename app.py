@@ -36,28 +36,10 @@
 #                database lookup via Swarm's /api/survey/norm/search.
 #   2026-04-02 -- Updated ElevenLabs voice ID to sB7vwSCyX0tQmU24cW2C.
 #   2026-04-02 -- MAJOR REBUILD: Eliminated topic menu architecture.
-#                Thomas now handles all topics organically in a
-#                single conversation. Six separate topic modules
-#                merged into one condensed knowledge reference
-#                for faster response times and lower token usage.
-#                Removed topic routing from /chat and /opening.
-#                Simplified Swarm integration to single query.
-#                Frontend redesigned with instructional overlay
-#                instead of topic selection screen. Bot detection
-#                retained.
-#   2026-04-02 -- Added knowledge: 12-hour shift 6PM start time
-#                is family-friendly (not a hardship). Added
-#                younger workforce "kids don't want to work"
-#                reframe -- options, not laziness.
-#   2026-04-02 -- Softened diagnostic approach: Thomas now invites
-#                context instead of demanding specific data points.
 #   2026-04-03 -- Added /api/tts proxy route.
 #   2026-04-03 -- Added SCHEDULE PATTERNS knowledge block.
-#   2026-04-05 -- Overhauled diagnostic approach: Thomas now names
-#                the problem but NEVER prescribes solutions.
-#                Handoff faster (2-4 exchanges). Three handoff
-#                options added.
-#   2026-04-05 -- Added WEBSITE DIRECTORY to system prompt.
+#   2026-04-05 -- Overhauled diagnostic approach. Added WEBSITE
+#                DIRECTORY to system prompt.
 #   2026-04-17 -- MAJOR SECURITY HARDENING:
 #                (A) IP rate limiting via Flask-Limiter
 #                (B) Daily token budget circuit breaker
@@ -72,28 +54,25 @@
 #   2026-04-17 -- RESPONSE LENGTH: 3-4 sentence hard ceiling.
 #                max_tokens reduced from 600 to 400.
 #   2026-04-18 -- SATURDAY OVERTIME KNOWLEDGE: Added SATURDAY
-#                OVERTIME knowledge block. Thomas was incorrectly
-#                treating Saturday OT as implying 7-day coverage.
+#                OVERTIME knowledge block.
 #   2026-04-18 -- TTS PRONUNCIATION FIXES: Added normalize_tts().
 #                "overtime" -> "over-time",
 #                "24/7" -> "twenty-four seven", etc.
-#   2026-04-18 -- CONVERSATION FLOW REWRITE: Replaced the
-#                multi-exchange diagnostic loop with a faster
-#                listen-reflect-ask-act model:
-#                1. Let visitor describe their situation fully.
-#                2. Reflect back in one sentence to show
-#                   understanding.
-#                3. ONE consolidating question asking for any
-#                   remaining context (industry, team size,
-#                   schedule type) -- not a series of probes.
-#                4. In the VERY NEXT response after that, move
-#                   to value: relevant site link + booking
-#                   option + transcript reminder. Do not keep
-#                   asking questions.
-#                Removed the "2-4 exchanges before handoff" rule
-#                which was causing Thomas to loop. Replaced
-#                DIAGNOSTIC APPROACH and HANDOFF sections in
-#                full. All other prompt content unchanged.
+#   2026-04-18 -- CONVERSATION FLOW REWRITE: listen-reflect-ask-act
+#                model. Two turns max before offering value.
+#   2026-04-18 -- TTS URL STRIPPING: normalize_tts() now strips all
+#                URLs before sending to ElevenLabs. URLs are replaced
+#                with the word "link" — matching what the visitor
+#                sees in the chat interface. Previously Thomas was
+#                reading out full URLs aloud. No change to chat
+#                display or transcript (original text preserved).
+#   2026-04-18 -- SIDEBAR BOOKING REFERENCE REMOVED: System prompt
+#                updated to direct visitors to the footer (not the
+#                sidebar) for booking and contact. The sidebar
+#                "Set up a conversation" button has been removed
+#                from the frontend. Transcript download remains in
+#                sidebar. All sidebar references in prompt replaced
+#                with footer references for booking/contact.
 #
 # ROUTES:
 #   GET  /              -- Serves Thomas chat UI
@@ -232,6 +211,10 @@ def cleanup_expired_sessions():
 # =============================================================
 
 def normalize_tts(text):
+    # Strip URLs — replace with "link" to match what the visitor sees in the UI.
+    # Must run BEFORE other substitutions so slash-patterns in URLs don't get
+    # double-processed by the 24/7 etc. rules.
+    text = re.sub(r'https?://[^\s,;)"\'<>]+', 'link', text)
     # "24/7", "24/6", "24/5" -- slash notation read as fractions
     text = re.sub(r'\b24/7\b', 'twenty-four seven', text)
     text = re.sub(r'\b24/6\b', 'twenty-four six', text)
@@ -392,9 +375,9 @@ After their very next reply — whether they add more context or not — stop as
 questions and deliver value in a single response:
   a) Name the pattern or problem in one sentence.
   b) Offer the most relevant link from shift-work.com for background reading.
-  c) Offer to connect them with the team: "The best next step is probably a conversation
-     with someone who has seen this hundreds of times — you can book a free meeting
-     directly at [booking link], or I can have someone reach out to you."
+  c) Offer to connect them with the team: "The best next step is a conversation with
+     someone who has seen this hundreds of times — you can book a free meeting using
+     the button at the bottom of this page, or call us directly at (415) 265-1621."
   d) Mention the transcript: "You can also download a transcript of our conversation
      from the sidebar to share or reference later."
 
@@ -406,9 +389,19 @@ If the visitor continues the conversation after Step 2, engage naturally. Answer
 questions, share relevant knowledge, offer more links. But do not restart the diagnostic
 loop. You have already moved to value — stay there.
 
+PAGE LAYOUT — WHAT THE VISITOR SEES:
+The chat interface has a footer bar at the bottom with three options always visible:
+  - "Book a Free Meeting" button (left)
+  - Phone number (415) 265-1621 and "Contact Us" button (center)
+  - Newsletter subscribe form (right)
+There is also a sidebar with a "Download transcript" button and a link to shift-work.com.
+When directing visitors to take action, refer to "the button at the bottom of this page"
+for booking, and "the sidebar" only for downloading the transcript.
+
 PROACTIVE SITE LINKING:
 Be quick to offer relevant links. When sharing a link, describe what the visitor will
-find and include the full URL. The interface turns URLs into clickable "link" text.
+find and include the full URL. The interface turns URLs into clickable "link" text that
+opens in a new tab. The visitor will hear the word "link" when Thomas speaks.
 Example: "We have a detailed guide on overtime management here:
 https://shift-work.com/resources/overtime-management-guide/"
 One or two links per response maximum. Never a list of links.
@@ -647,7 +640,7 @@ TOPIC-TO-PAGE MAPPING (use these when a visitor asks about a topic):
 - Schedule design / shift lengths → Shift Schedule Design guide
 - Industry-specific → Link to the matching industry page
 - "How do you work" / process → Services page
-- "How do I contact you" → Contact page or booking link in sidebar
+- "How do I contact you" → Contact page or booking button at the bottom of the page
 """
 
 # Opening message
@@ -660,9 +653,9 @@ THOMAS_OPENING = (
 
 SESSION_LIMIT_HANDOFF = (
     "We've covered a lot of ground in this session. The next best step is probably "
-    "a direct conversation with the team — you can book a free meeting here: "
-    + TEAMS_BOOKING_LINK + " You can also download the transcript from the sidebar "
-    "before you go, or reach us at (415) 265-1621 or shift-work.com."
+    "a direct conversation with the team — you can book a free meeting using the "
+    "button at the bottom of this page, or call us at (415) 265-1621. You can also "
+    "download the transcript from the sidebar before you go."
 )
 
 
@@ -1026,10 +1019,9 @@ def download_transcript():
         pdf_buffer = generate_transcript_pdf(session_id, messages, lead_info)
         filename   = f"Shiftwork-Diagnostic-{datetime.now().strftime('%Y-%m-%d')}.pdf"
 
-        # Email a copy to Jim (non-fatal if it fails)
         try:
             pdf_bytes = pdf_buffer.read()
-            pdf_buffer.seek(0)  # reset so send_file still works
+            pdf_buffer.seek(0)
             email_body = "<p>A visitor just downloaded a Thomas transcript.</p>"
             if lead_info:
                 lines = "".join(
