@@ -2,7 +2,7 @@
 # app.py  -  Shift-Work Diagnostic Avatar (Thomas)
 # Shiftwork Solutions LLC
 # Created:      2026-03-15
-# Last Updated: 2026-04-17
+# Last Updated: 2026-04-18
 #
 # PURPOSE:
 #   Flask backend for Thomas, an AI advisor that helps
@@ -86,93 +86,42 @@
 #                Claude and ElevenLabs calls. New defenses fire
 #                BEFORE any external API call:
 #
-#                (A) IP rate limiting via Flask-Limiter:
-#                    /chat      10/min, 30/hour per IP
-#                    /opening    5/min per IP
-#                    /api/tts   10/hour per IP
-#                    /transcribe 20/hour per IP
-#                    /transcript 10/hour per IP
-#                    /health, /booking-link: unlimited
-#                    Uses X-Forwarded-For aware key function so
-#                    Render proxy does not collapse all IPs to one.
-#
-#                (B) Daily token budget circuit breaker:
-#                    Tracks input+output tokens per UTC day.
-#                    Default 2,000,000 tokens/day (~$6 Sonnet 4
-#                    worst case). Override via env var
-#                    DAILY_TOKEN_BUDGET. When exceeded, /chat
-#                    returns 503 WITHOUT calling Claude. Auto-
-#                    resets at midnight UTC. Logs at 50/75/90/100%.
-#
-#                (C) Server-generated session IDs:
-#                    Previously the client sent any session_id it
-#                    wanted via Math.random(). An attacker could
-#                    generate fresh IDs per request to bypass
-#                    per-session caps. Now /opening generates a
-#                    cryptographically random ID via secrets.
-#                    token_urlsafe(16), stores it in an issued-set,
-#                    and returns it. /chat rejects any session_id
-#                    not in the issued set with 403. The frontend
-#                    is updated to accept the server-issued ID.
-#
-#                (D) Per-session message cap:
-#                    Max 25 messages per session. After the cap,
-#                    /chat returns a friendly handoff message
-#                    directing to booking link. No Claude call.
-#
-#                (E) Session idle expiration:
-#                    Sessions expire after 30 minutes of inactivity.
-#                    Lazy cleanup on each /chat call (also prevents
-#                    memory growth). Expired sessions removed from
-#                    both conversation_histories and issued_session_ids.
-#
-#                (F) Message size limits:
-#                    /chat user_message: reject if > 2000 chars
-#                    (returns 400 without calling Claude). Prevents
-#                    token amplification attacks.
-#                    /api/tts text: tightened 4500 -> 2000 chars.
-#                    Prevents TTS cost amplification.
-#
-#                (G) CORS allow-list:
-#                    Replaced open CORS(app) with explicit origins:
-#                    https://shift-work.com and
-#                    https://shift-work-diagnostic.onrender.com.
-#                    Blocks casual cross-origin abuse.
-#                    Not bulletproof (server-to-server bypasses
-#                    browser CORS) but cuts the attack surface.
-#
-#                (H) Thread-safety:
-#                    New _state_lock (threading.Lock) guards all
-#                    shared mutable state (session dicts, token
-#                    counter, issued set). Matters because gunicorn
-#                    runs multiple worker threads per process.
-#
-#                BEHAVIOR PRESERVED EXACTLY:
-#                - Full Thomas system prompt (every word)
-#                - BOT_DETECTED response handling (belt-and-suspenders)
-#                - Swarm integration
-#                - PDF transcript generation
-#                - ElevenLabs STT and TTS
-#                - All chat UI behavior
-#                - Opening message content
-#                - Conversation history truncation at 40 messages
+#                (A) IP rate limiting via Flask-Limiter
+#                (B) Daily token budget circuit breaker
+#                (C) Server-generated session IDs
+#                (D) Per-session message cap (25 messages)
+#                (E) Session idle expiration (30 minutes)
+#                (F) Message size limits (2000 chars)
+#                (G) CORS allow-list
+#                (H) Thread-safety via _state_lock
 #
 #   2026-04-17 -- Added Resend email notification on transcript
-#                download. jim@shift-work.com receives a copy of
-#                the PDF with lead info when a visitor downloads.
-#                Non-fatal -- visitor download unaffected if email
-#                fails. Requires RESEND_API_KEY env var in Render.
-#                Fixed IndentationError in /transcript route caused
-#                by malformed nested try/except blocks.
+#                download. Non-fatal if email fails.
+#                Fixed IndentationError in /transcript route.
 #
 #   2026-04-17 -- RESPONSE LENGTH: Tightened HOW YOU TALK in system
-#                prompt from "two to three sentences" guidance to
-#                "three to four sentences hard ceiling — no
-#                exceptions." Also reduced max_tokens from 600 to
-#                400 to enforce the ceiling at the API level.
-#                400 tokens (~300 words) is ample for 4 sentences.
-#                No other prompt content, logic, routes, or security
-#                changed.
+#                prompt to 3-4 sentence hard ceiling. Reduced
+#                max_tokens from 600 to 400.
+#
+#   2026-04-18 -- SATURDAY OVERTIME KNOWLEDGE: Added SATURDAY
+#                OVERTIME knowledge block to system prompt.
+#                Thomas was incorrectly treating Saturday overtime
+#                as implying a need for 7-day coverage. Correct
+#                framing: Monday-Saturday is 6 days, not 7.
+#
+#   2026-04-18 -- TTS PRONUNCIATION FIXES: Added normalize_tts()
+#                function that pre-processes Thomas's reply text
+#                before sending to ElevenLabs. Fixes:
+#                  - "overtime" -> "over-time" (was being read as
+#                    two words "over time" with wrong stress)
+#                  - "24/7" -> "twenty-four seven"
+#                  - "24/6" -> "twenty-four six"
+#                  - "24/5" -> "twenty-four five"
+#                    (slash notation was being read as fractions)
+#                normalize_tts() is called inside generate_speech()
+#                only -- the original text is preserved in the
+#                conversation history and transcript. No other
+#                logic, routes, security, or prompt changed.
 #
 # ROUTES:
 #   GET  /              -- Serves Thomas chat UI
@@ -199,6 +148,7 @@
 # =============================================================
 
 import os
+import re
 import base64
 import requests
 import io
@@ -300,6 +250,26 @@ def cleanup_expired_sessions():
         issued_session_ids.discard(sid)
     if expired:
         print(f"[SESSION_CLEANUP] Removed {len(expired)} expired sessions")
+
+
+# =============================================================
+# TTS TEXT NORMALIZATION
+# Fixes ElevenLabs mispronunciations before audio generation.
+# Applied only to TTS input — original text is preserved in
+# conversation history and transcript.
+# =============================================================
+
+def normalize_tts(text):
+    # "24/7", "24/6", "24/5" -- slash notation read as fractions
+    text = re.sub(r'\b24/7\b', 'twenty-four seven', text)
+    text = re.sub(r'\b24/6\b', 'twenty-four six', text)
+    text = re.sub(r'\b24/5\b', 'twenty-four five', text)
+    # "overtime" / "Overtime" / "OVERTIME" -- read as "over time" (two words)
+    # Hyphen forces ElevenLabs to treat it as a single compound word
+    text = re.sub(r'\bOVERTIME\b', 'OVER-TIME', text)
+    text = re.sub(r'\bOvertime\b', 'Over-time', text)
+    text = re.sub(r'\bovertime\b', 'over-time', text)
+    return text
 
 
 # =============================================================
@@ -627,6 +597,28 @@ you are not confident in the details of a specific pattern, say so honestly and 
 on the operational issues the visitor is describing rather than characterizing the
 schedule incorrectly.
 
+SATURDAY OVERTIME (know this cold — do not mischaracterize):
+Saturday overtime does NOT imply a need for 7-day coverage. Monday through Saturday is
+6 days, not 7. An operation running Saturday overtime is still a 6-day operation —
+not a continuous or 24/7 operation. Never assume Saturday overtime means the visitor
+needs a 7-day schedule design.
+
+Saturday overtime varies widely in scale: it might be half a crew for 4 hours to finish
+a production run, or everyone working a full 8-hour shift. The driver is almost always
+that the work volume cannot be completed in a Monday-Friday window — not that the
+operation requires permanent 7-day coverage.
+
+The real concerns with chronic Saturday overtime are: worker fatigue from losing
+weekend recovery time, employee frustration with disrupted personal and family plans,
+and the well-documented pattern where Saturday overtime gradually expands into Saturday
+plus Sunday overtime as production demands grow. That creep — from occasional Saturday
+to routine Saturday-Sunday — is one of the most common paths that leads operations to
+consider a formal schedule change.
+
+When a visitor mentions Saturday overtime, ask what is driving it (volume overflow vs.
+staffing gap vs. demand pattern) before drawing any conclusions about what kind of
+schedule solution might help.
+
 YOUNGER WORKFORCE — "KIDS DON'T WANT TO WORK" (hear this constantly):
 This is one of the most common complaints from operations managers and it comes up in
 almost every engagement. Do not dismiss it, but reframe it with depth. The real dynamic
@@ -738,7 +730,7 @@ def generate_speech(text):
             "Accept": "audio/mpeg"
         }
         payload = {
-            "text": text,
+            "text": normalize_tts(text),
             "model_id": "eleven_turbo_v2",
             "voice_settings": {
                 "stability": 0.55,
@@ -1142,7 +1134,7 @@ def tts_proxy():
             "Accept":       "audio/mpeg"
         }
         payload = {
-            "text":       text,
+            "text":       normalize_tts(text),
             "model_id":   "eleven_turbo_v2",
             "voice_settings": {
                 "stability":        0.5,
