@@ -23,27 +23,23 @@
                  design system. Playfair Display/DM Sans fonts.
                  Site palette: #1F4E79 navy, #E8610A orange.
     2026-04-05 -- URLs in Thomas's responses are now rendered as
-                 clickable hyperlinks. addBubble() uses linkifyText()
-                 to detect URLs and wrap them in <a> tags while
-                 keeping all other text safely escaped.
-    2026-04-17 -- SECURITY HARDENING -- FRONTEND CHANGES:
-                 Server-issued SESSION_ID, 429/403/503 handling,
-                 session_ended support, null SESSION_ID guard.
+                 clickable hyperlinks. linkifyText() added.
+    2026-04-17 -- SECURITY HARDENING: server-issued SESSION_ID,
+                 429/403/503 handling, session_ended support.
     2026-04-17 -- SIDEBAR IMAGE: /static/thomas.jpg robot avatar.
     2026-04-18 -- SIDEBAR BOTTOM IMAGE: Removed welding photo + CSS.
     2026-04-18 -- MIC HINT: Larger (15px/700), right-aligned near
-                 mic, SVG icon matching actual mic button, all
-                 JS states use innerHTML.
-    2026-04-18 -- FOOTER: Added dark-navy .thomas-footer bar below
-                 the disclaimer. Three columns:
-                 1. Book a Free Consultation (orange button)
-                 2. Phone (415) 265-1621 + Contact Us (orange button)
-                 3. Newsletter email input + Subscribe button
-                 Matches shift-work.com footer design language.
-                 Newsletter posts to Swarm API with source tag
-                 "thomas-footer". New JS function thomasFooterSubmit()
-                 with IDs thomasFooterEmail/Btn/Msg to avoid conflict
-                 with lead-modal form IDs.
+                 mic, SVG icon matching actual mic button.
+    2026-04-18 -- FOOTER: Dark-navy 3-col footer — Book Meeting |
+                 Phone + Contact | Newsletter subscribe.
+    2026-04-18 -- SIDEBAR CLEANUP:
+                 - Removed "Set up a conversation" button. Booking
+                   is now handled via the footer. Lead capture modal
+                   kept in HTML/JS for any future programmatic use
+                   but no longer has a trigger button in the sidebar.
+                 - "Download transcript" button changed to orange
+                   (was navy outline). Removed .action-btn.outline
+                   CSS rule as it is no longer used.
 
   I did no harm and this file is not truncated
 -->
@@ -372,11 +368,12 @@
 
   .sidebar-divider { height: 1px; background: var(--border); margin: 12px 0; }
 
+  /* Orange action button — used for Download transcript */
   .action-btn {
     display: block;
     width: 100%;
     text-align: center;
-    background: var(--navy);
+    background: var(--orange);
     color: var(--white);
     border: none;
     border-radius: var(--radius);
@@ -391,18 +388,7 @@
     letter-spacing: 0.01em;
   }
 
-  .action-btn:hover { background: var(--orange); }
-
-  .action-btn.outline {
-    background: none;
-    border: 1.5px solid var(--navy);
-    color: var(--navy);
-  }
-
-  .action-btn.outline:hover {
-    background: var(--navy);
-    color: var(--white);
-  }
+  .action-btn:hover { background: #c4510a; }
 
   .sidebar-site-link {
     display: block;
@@ -572,7 +558,6 @@
     z-index: 5;
   }
 
-  /* -- Mic hint: right-aligned, larger, near the mic button -- */
   .mic-hint {
     text-align: right;
     padding-right: 56px;
@@ -800,7 +785,7 @@
   .tf-nl-msg.ok  { color: #6ee7b7; }
   .tf-nl-msg.err { color: #fca5a5; }
 
-  /* -- Lead capture modal -- */
+  /* -- Lead capture modal (kept for programmatic use, no sidebar trigger) -- */
   .modal-overlay {
     position: fixed; inset: 0;
     background: rgba(13,31,60,0.75);
@@ -1026,11 +1011,7 @@
 
       <div class="sidebar-section-label">Take Action</div>
 
-      <button class="action-btn" onclick="showLeadCapture()">
-        &#x1F4C5; Set up a conversation
-      </button>
-
-      <button class="action-btn outline" onclick="downloadTranscript()">
+      <button class="action-btn" onclick="downloadTranscript()">
         &#x1F4C4; Download transcript
       </button>
 
@@ -1087,7 +1068,6 @@
 
     <!-- ── THOMAS FOOTER ── -->
     <div class="thomas-footer">
-      <!-- Col 1: Book a Free Consultation -->
       <div class="tf-col">
         <div class="tf-label">Free Consultation</div>
         <a href="https://outlook.office365.com/book/ShiftworkSolutionsLLC2@shift-work.com/?ismsaljsauthenabled=true"
@@ -1095,8 +1075,6 @@
           Book a Free Meeting &rarr;
         </a>
       </div>
-
-      <!-- Col 2: Phone + Contact page -->
       <div class="tf-col" style="align-items:center;text-align:center;">
         <div class="tf-label">Talk to Us Directly</div>
         <a href="tel:+14152651621" class="tf-phone">(415) 265-1621</a>
@@ -1104,8 +1082,6 @@
           Contact Us &rarr;
         </a>
       </div>
-
-      <!-- Col 3: Newsletter -->
       <div class="tf-col">
         <div class="tf-label">Newsletter</div>
         <div class="tf-nl-row">
@@ -1121,7 +1097,7 @@
   </div><!-- /.chat-area -->
 </div><!-- /.main-layout -->
 
-<!-- -- Lead capture modal -- -->
+<!-- -- Lead capture modal (no sidebar trigger — kept for future use) -- -->
 <div class="modal-overlay" id="lead-modal">
   <div class="modal">
     <div class="modal-eyebrow">Get in touch</div>
@@ -1157,7 +1133,6 @@
 </div>
 
 <script>
-  // -- DOM refs --
   const messagesEl  = document.getElementById('messages');
   const inputEl     = document.getElementById('user-input');
   const sendBtn     = document.getElementById('send-btn');
@@ -1170,10 +1145,8 @@
   const overlay     = document.getElementById('overlay');
   const leadModal   = document.getElementById('lead-modal');
 
-  // -- Shared mic SVG for hint states --
   const MIC_SVG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm0 2a2 2 0 0 0-2 2v6a2 2 0 0 0 4 0V5a2 2 0 0 0-2-2zm-1 14.93V20H9v2h6v-2h-2v-2.07A7 7 0 0 0 19 11h-2a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.93z"/></svg>';
 
-  // -- State --
   let SESSION_ID     = null;
   let isWaiting      = false;
   let isMuted        = false;
@@ -1182,7 +1155,6 @@
   let speakingEl     = null;
   let leadData       = null;
 
-  // -- MediaRecorder push-to-talk --
   let mediaRecorder  = null;
   let audioChunks    = [];
   let micStream      = null;
@@ -1297,7 +1269,6 @@
   micBtn.addEventListener('touchend',    (e) => { e.preventDefault(); stopRecording(); },  { passive: false });
   micBtn.addEventListener('touchcancel', (e) => { if (isRecording) stopRecording(); },     { passive: false });
 
-  // -- Overlay dismiss --
   function dismissOverlay() {
     overlay.classList.add('hidden');
     setTimeout(() => { overlay.style.display = 'none'; }, 500);
@@ -1305,7 +1276,6 @@
     inputEl.focus();
   }
 
-  // -- Mute --
   function toggleMute() {
     isMuted = !isMuted;
     muteBtn.textContent = isMuted ? '\u{1F507} Sound off' : '\u{1F50A} Sound on';
@@ -1316,7 +1286,6 @@
     }
   }
 
-  // -- Lead capture --
   function showLeadCapture()  { leadModal.classList.add('active'); }
   function closeLeadCapture() { leadModal.classList.remove('active'); }
 
@@ -1334,7 +1303,6 @@
     );
   }
 
-  // -- Transcript --
   async function downloadTranscript() {
     if (!SESSION_ID) {
       alert('Please start a conversation first -- then you can download its transcript.');
@@ -1365,7 +1333,6 @@
     }
   }
 
-  // -- Footer newsletter subscribe --
   async function thomasFooterSubmit() {
     const SWARM = 'https://ai-swarm-orchestrator.onrender.com/api/newsletter/subscribe';
     const btn   = document.getElementById('thomasFooterBtn');
@@ -1396,7 +1363,6 @@
     }
   }
 
-  // -- Audio --
   function playAudio(b64, indicator) {
     if (isMuted || !b64) return;
     try {
@@ -1422,7 +1388,6 @@
     } catch (err) { console.warn('Audio error:', err); }
   }
 
-  // -- URL linkification --
   function linkifyText(text) {
     const urlRegex = /(https?:\/\/[^\s,;)"'<>]+)/gi;
     const parts = text.split(urlRegex);
@@ -1446,7 +1411,6 @@
     return html;
   }
 
-  // -- Bubbles --
   function scrollBottom() {
     requestAnimationFrame(() => { messagesEl.scrollTop = messagesEl.scrollHeight; });
   }
@@ -1509,7 +1473,6 @@
     micBtn.classList.add('unsupported');
   }
 
-  // -- Send --
   async function sendMessage() {
     if (isTerminated) return;
     const text = inputEl.value.trim();
@@ -1573,7 +1536,6 @@
     isWaiting = false; sendBtn.disabled = false; inputEl.focus();
   }
 
-  // -- Opening --
   async function loadOpening() {
     if (isTerminated) return;
     showTyping();
@@ -1593,7 +1555,6 @@
     }
   }
 
-  // -- Events --
   leadModal.addEventListener('click', e => { if (e.target === leadModal) closeLeadCapture(); });
   sendBtn.addEventListener('click', sendMessage);
   inputEl.addEventListener('keydown', e => {
@@ -1604,7 +1565,6 @@
     inputEl.style.height = Math.min(inputEl.scrollHeight, 100) + 'px';
   });
 
-  // Allow Enter key in footer newsletter field
   document.getElementById('thomasFooterEmail').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') { e.preventDefault(); thomasFooterSubmit(); }
   });
