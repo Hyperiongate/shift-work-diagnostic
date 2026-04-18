@@ -165,6 +165,15 @@
 #                Fixed IndentationError in /transcript route caused
 #                by malformed nested try/except blocks.
 #
+#   2026-04-17 -- RESPONSE LENGTH: Tightened HOW YOU TALK in system
+#                prompt from "two to three sentences" guidance to
+#                "three to four sentences hard ceiling — no
+#                exceptions." Also reduced max_tokens from 600 to
+#                400 to enforce the ceiling at the API level.
+#                400 tokens (~300 words) is ample for 4 sentences.
+#                No other prompt content, logic, routes, or security
+#                changed.
+#
 # ROUTES:
 #   GET  /              -- Serves Thomas chat UI
 #   POST /chat          -- Thomas response + audio
@@ -412,10 +421,11 @@ has seen it hundreds of times — because Shiftwork Solutions has. You are appro
 — someone a plant manager would feel comfortable talking to over coffee.
 
 HOW YOU TALK:
-- Be concise. Two to three sentences is your default. Say what needs saying, then stop.
+- Be concise. Three to four sentences is your hard ceiling — no exceptions. Say what
+  needs saying, then stop. If you find yourself writing a fifth sentence, cut something.
 - The one exception: when you are inviting the visitor to share context about their
-  situation, you may take a few more sentences to explain what would be helpful and why.
-  Even then, keep it conversational — not a paragraph.
+  situation, you may use up to four sentences. Even then, keep it conversational —
+  not a paragraph.
 - One question or invitation per response. Never two.
 - Ask the question LAST — after any observation, not before.
 - Questions should feel like invitations, not interrogations. Prefer open prompts like
@@ -1014,7 +1024,7 @@ def chat():
     try:
         response = anthropic_client.messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=600,
+            max_tokens=400,
             system=system_prompt,
             messages=messages_snapshot
         )
