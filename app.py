@@ -1,284 +1,163 @@
 # =============================================================
-# app.py  -  Shift-Work Diagnostic Avatar (Thomas)
+# app.py  —  Shift-Work Diagnostic Avatar (Thomas)
 # Shiftwork Solutions LLC
 # Created:      2026-03-15
-# Last Updated: 2026-04-18
+# Last Updated: 2026-04-03
 #
 # PURPOSE:
 #   Flask backend for Thomas, an AI advisor that helps
 #   operations managers think through their shift operations
-#   challenges -- before handing off to Shiftwork Solutions.
+#   challenges — before handing off to Shiftwork Solutions.
 #   Thomas handles all topics organically in a single
 #   conversation without menu-driven topic selection.
 #
 # CHANGE LOG:
-#   2026-03-15 -- Initial build
-#   2026-03-15 -- Rewrote system prompt to principles-based guidance
-#   2026-03-16 -- Added opening framing and periodic check-ins
-#   2026-03-16 -- Phase 2: ElevenLabs TTS, auto-play voice
-#   2026-03-16 -- Phase 3: PDF transcript, lead capture, sidebar,
+#   2026-03-15 — Initial build
+#   2026-03-15 — Rewrote system prompt to principles-based guidance
+#   2026-03-16 — Added opening framing and periodic check-ins
+#   2026-03-16 — Phase 2: ElevenLabs TTS, auto-play voice
+#   2026-03-16 — Phase 3: PDF transcript, lead capture, sidebar,
 #                Teams booking link
-#   2026-03-16 -- Tightened system prompt: no inference/assumption
-#   2026-03-17 -- Renamed to Thomas, updated voice ID
-#   2026-03-17 -- Rewrote prompt: faster pace, 4-6 exchanges,
+#   2026-03-16 — Tightened system prompt: no inference/assumption
+#   2026-03-17 — Renamed to Thomas, updated voice ID
+#   2026-03-17 — Rewrote prompt: faster pace, 4-6 exchanges,
 #                no emotional questions, surface insight quickly
-#   2026-03-17 -- Added /transcribe route using ElevenLabs STT
-#   2026-03-17 -- Fixed /transcribe: detect actual browser MIME
+#   2026-03-17 — Added /transcribe route using ElevenLabs STT
+#   2026-03-17 — Fixed /transcribe: detect actual browser MIME
 #                type, strip codec params, handle all browsers
-#   2026-03-17 -- Replaced "Jim Dillingham" with "someone from
+#   2026-03-17 — Replaced "Jim Dillingham" with "someone from
 #                the Shiftwork Solutions team" throughout prompt
-#   2026-03-17 -- Added schedule question early in diagnostic.
+#   2026-03-17 — Added schedule question early in diagnostic.
 #                Strengthened handoff pull. Updated phone number.
-#   2026-03-17 -- Removed show_download flag from /chat response.
-#   2026-03-18 -- Multi-topic architecture with 6 topic modules.
-#   2026-03-18 -- Merged 'change' and 'engagement' topics.
-#   2026-03-18 -- Layer 1 Swarm integration: read-only normative
+#   2026-03-17 — Removed show_download flag from /chat response.
+#   2026-03-18 — Multi-topic architecture with 6 topic modules.
+#   2026-03-18 — Merged 'change' and 'engagement' topics.
+#   2026-03-18 — Layer 1 Swarm integration: read-only normative
 #                database lookup via Swarm's /api/survey/norm/search.
-#   2026-04-02 -- Updated ElevenLabs voice ID to sB7vwSCyX0tQmU24cW2C.
-#   2026-04-02 -- MAJOR REBUILD: Eliminated topic menu architecture.
-#   2026-04-03 -- Added /api/tts proxy route.
-#   2026-04-03 -- Added SCHEDULE PATTERNS knowledge block.
-#   2026-04-05 -- Overhauled diagnostic approach. Added WEBSITE
-#                DIRECTORY to system prompt.
-#   2026-04-17 -- MAJOR SECURITY HARDENING:
-#                (A) IP rate limiting via Flask-Limiter
-#                (B) Daily token budget circuit breaker
-#                (C) Server-generated session IDs
-#                (D) Per-session message cap (25 messages)
-#                (E) Session idle expiration (30 minutes)
-#                (F) Message size limits (2000 chars)
-#                (G) CORS allow-list
-#                (H) Thread-safety via _state_lock
-#   2026-04-17 -- Added Resend email notification on transcript
-#                download. Fixed IndentationError in /transcript.
-#   2026-04-17 -- RESPONSE LENGTH: 3-4 sentence hard ceiling.
-#                max_tokens reduced from 600 to 400.
-#   2026-04-18 -- SATURDAY OVERTIME KNOWLEDGE: Added SATURDAY
-#                OVERTIME knowledge block.
-#   2026-04-18 -- TTS PRONUNCIATION FIXES: Added normalize_tts().
-#                "overtime" -> "over-time",
-#                "24/7" -> "twenty-four seven", etc.
-#   2026-04-18 -- CONVERSATION FLOW REWRITE: listen-reflect-ask-act
-#                model. Two turns max before offering value.
-#   2026-04-18 -- TTS URL STRIPPING: normalize_tts() now strips all
-#                URLs before sending to ElevenLabs. URLs are replaced
-#                with the word "link" — matching what the visitor
-#                sees in the chat interface. Previously Thomas was
-#                reading out full URLs aloud. No change to chat
-#                display or transcript (original text preserved).
-#   2026-04-18 -- SIDEBAR BOOKING REFERENCE REMOVED: System prompt
-#                updated to direct visitors to the footer (not the
-#                sidebar) for booking and contact. The sidebar
-#                "Set up a conversation" button has been removed
-#                from the frontend. Transcript download remains in
-#                sidebar. All sidebar references in prompt replaced
-#                with footer references for booking/contact.
+#   2026-04-02 — Updated ElevenLabs voice ID to sB7vwSCyX0tQmU24cW2C.
+#   2026-04-02 — MAJOR REBUILD: Eliminated topic menu architecture.
+#                Thomas now handles all topics organically in a
+#                single conversation. Six separate topic modules
+#                merged into one condensed knowledge reference
+#                for faster response times and lower token usage.
+#                Removed topic routing from /chat and /opening.
+#                Simplified Swarm integration to single query.
+#                Frontend redesigned with instructional overlay
+#                instead of topic selection screen. Bot detection
+#                retained.
+#   2026-04-02 — Added knowledge: 12-hour shift 6PM start time
+#                is family-friendly (not a hardship). Added
+#                younger workforce "kids don't want to work"
+#                reframe — options, not laziness.
+#   2026-04-02 — Softened diagnostic approach: Thomas now invites
+#                context instead of demanding specific data points.
+#                "The more I know, the more helpful I can be."
+#   2026-04-02 — Further tone refinement: questions must feel
+#                like invitations, not interrogations. Open
+#                prompts preferred over data-point demands.
+#                Relaxed 3-sentence rule from "hard limit" to
+#                guidance. Added approachable personality note.
+#   2026-04-03 — Added /api/tts proxy route. Pillar pages now
+#                call this endpoint instead of ElevenLabs directly,
+#                keeping the API key server-side. Accepts JSON:
+#                { text, voice_id (optional) }. Returns audio/mpeg.
+#                Max 4500 chars per request. Graceful error handling.
+#   2026-04-03 — Added SCHEDULE PATTERNS knowledge block. DuPont
+#                schedule correctly described as 4-crew rotating
+#                12-hour with 7-day break every 28 days. All
+#                12-hour schedules: half days off, half weekends.
+#                Added safety valve: if Thomas does not know a
+#                specific pattern's details, say so honestly.
+#   2026-04-05 — Overhauled diagnostic approach: Thomas now names
+#                the problem but NEVER prescribes solutions (no
+#                "you need 24/7" or "switch to 12s"). Handoff
+#                faster (2-4 exchanges, not 4-6). Three handoff
+#                options: book consultation, team reaches out, or
+#                visit shift-work.com. Word count relaxed further
+#                when inviting context — warm > short.
+#   2026-04-05 — Added WEBSITE DIRECTORY to system prompt.
+#                Thomas now knows all pages on shift-work.com
+#                and can provide direct links: 10 guides, 7
+#                support articles, 6 industry pages, main pages.
+#                Topic-to-page mapping included.
 #
 # ROUTES:
-#   GET  /              -- Serves Thomas chat UI
-#   POST /chat          -- Thomas response + audio
-#   POST /opening       -- Opening message + audio + server session ID
-#   POST /transcribe    -- Audio blob -> text via ElevenLabs STT
-#   POST /transcript    -- Download PDF transcript
-#   POST /api/tts       -- TTS proxy for pillar pages (key stays server-side)
-#   GET  /booking-link  -- Returns Teams booking URL
-#   GET  /health        -- Render health check
+#   GET  /              — Serves Thomas chat UI
+#   POST /chat          — Thomas response + audio
+#   POST /opening       — Opening message + audio
+#   POST /transcribe    — Audio blob -> text via ElevenLabs STT
+#   POST /transcript    — Download PDF transcript
+#   POST /api/tts       — TTS proxy for pillar pages (key stays server-side)
+#   GET  /health        — Render health check
 #
 # ENVIRONMENT VARIABLES (set in Render):
-#   ANTHROPIC_API_KEY    -- Claude API key
-#   ELEVENLABS_API_KEY   -- ElevenLabs API key
-#   RESEND_API_KEY       -- Resend API key for transcript notifications
-#   SWARM_ENABLED        -- Toggle Swarm norm lookup (default: true)
-#   DAILY_TOKEN_BUDGET   -- Max Claude tokens per UTC day (default: 2,000,000)
+#   ANTHROPIC_API_KEY   — Claude API key
+#   ELEVENLABS_API_KEY  — ElevenLabs API key
+#   SWARM_ENABLED       — Toggle Swarm norm lookup (default: true)
 #
 # DEPLOYMENT:
 #   GitHub -> Render web service (shift-work-diagnostic)
 #   Start command: gunicorn app:app
-#
-# I did no harm and this file is not truncated
 # =============================================================
 
 import os
-import re
 import base64
 import requests
 import io
-import secrets
-import threading
-import time
-from datetime import datetime, timezone
+from datetime import datetime
 from flask import Flask, request, jsonify, render_template_string, send_file, Response
 from flask_cors import CORS
-from flask_limiter import Limiter
 import anthropic
-import resend
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
 from reportlab.lib.colors import HexColor
 from reportlab.pdfgen import canvas as pdf_canvas
 
-
-# =============================================================
-# SECURITY CONFIGURATION
-# =============================================================
-
-ALLOWED_ORIGINS = [
-    "https://shift-work.com",
-    "https://shift-work-diagnostic.onrender.com",
-]
-
-MAX_MESSAGE_CHARS   = 2000
-MAX_TTS_CHARS       = 2000
-
-SESSION_MAX_MESSAGES = 25
-SESSION_IDLE_SECS    = 30 * 60
-
-DAILY_TOKEN_BUDGET = int(os.environ.get("DAILY_TOKEN_BUDGET", 2_000_000))
-
-
-# =============================================================
-# THREAD-SAFE SHARED STATE
-# =============================================================
-
-_state_lock = threading.Lock()
-
-conversation_histories  = {}
-session_created_at      = {}
-session_message_counts  = {}
-issued_session_ids      = set()
-
-_token_usage = {"day": "", "tokens": 0}
-_token_usage_log_threshold = {"pct": 0}
-
-
-def _utc_today_str():
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
-
-
-def check_token_budget():
-    today = _utc_today_str()
-    if _token_usage["day"] != today:
-        _token_usage["day"] = today
-        _token_usage["tokens"] = 0
-        _token_usage_log_threshold["pct"] = 0
-        print(f"[TOKEN_BUDGET] Reset for UTC day {today}, budget {DAILY_TOKEN_BUDGET}")
-    return _token_usage["tokens"] < DAILY_TOKEN_BUDGET
-
-
-def record_token_usage(input_tokens, output_tokens):
-    total = int(input_tokens or 0) + int(output_tokens or 0)
-    _token_usage["tokens"] += total
-    used = _token_usage["tokens"]
-    pct  = int((used / DAILY_TOKEN_BUDGET) * 100) if DAILY_TOKEN_BUDGET else 0
-    for threshold in (50, 75, 90, 100):
-        if pct >= threshold and _token_usage_log_threshold["pct"] < threshold:
-            _token_usage_log_threshold["pct"] = threshold
-            print(f"[TOKEN_BUDGET] Used {used}/{DAILY_TOKEN_BUDGET} tokens "
-                  f"({pct}% of daily budget) -- threshold {threshold}% crossed")
-
-
-def issue_session_id():
-    sid = "sess_" + secrets.token_urlsafe(16)
-    with _state_lock:
-        issued_session_ids.add(sid)
-        session_created_at[sid] = time.time()
-        session_message_counts[sid] = 0
-    return sid
-
-
-def is_valid_session(session_id):
-    return session_id in issued_session_ids
-
-
-def cleanup_expired_sessions():
-    now = time.time()
-    expired = [sid for sid, ts in session_created_at.items()
-               if now - ts > SESSION_IDLE_SECS]
-    for sid in expired:
-        conversation_histories.pop(sid, None)
-        session_created_at.pop(sid, None)
-        session_message_counts.pop(sid, None)
-        issued_session_ids.discard(sid)
-    if expired:
-        print(f"[SESSION_CLEANUP] Removed {len(expired)} expired sessions")
-
-
-# =============================================================
-# TTS TEXT NORMALIZATION
-# Fixes ElevenLabs mispronunciations before audio generation.
-# Applied only to TTS input — original text is preserved in
-# conversation history and transcript.
-# =============================================================
-
-def normalize_tts(text):
-    # Strip URLs — replace with "link" to match what the visitor sees in the UI.
-    # Must run BEFORE other substitutions so slash-patterns in URLs don't get
-    # double-processed by the 24/7 etc. rules.
-    text = re.sub(r'https?://[^\s,;)"\'<>]+', 'link', text)
-    # "24/7", "24/6", "24/5" -- slash notation read as fractions
-    text = re.sub(r'\b24/7\b', 'twenty-four seven', text)
-    text = re.sub(r'\b24/6\b', 'twenty-four six', text)
-    text = re.sub(r'\b24/5\b', 'twenty-four five', text)
-    # "overtime" / "Overtime" / "OVERTIME" -- read as "over time" (two words)
-    text = re.sub(r'\bOVERTIME\b', 'OVER-TIME', text)
-    text = re.sub(r'\bOvertime\b', 'Over-time', text)
-    text = re.sub(r'\bovertime\b', 'over-time', text)
-    return text
-
-
-# =============================================================
-# FLASK APP + CORS + RATE LIMITER
-# =============================================================
-
 app = Flask(__name__)
-
-CORS(app, origins=ALLOWED_ORIGINS, supports_credentials=False)
-
-
-def real_ip_key():
-    fwd = request.headers.get("X-Forwarded-For", "")
-    if fwd:
-        return fwd.split(",")[0].strip()
-    return request.remote_addr or "unknown"
-
-
-limiter = Limiter(
-    app=app,
-    key_func=real_ip_key,
-    default_limits=[],
-    storage_uri="memory://",
-    strategy="fixed-window",
-)
+CORS(app)
 
 anthropic_client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
 ELEVENLABS_API_KEY  = os.environ.get("ELEVENLABS_API_KEY")
-ELEVENLABS_VOICE_ID = "sB7vwSCyX0tQmU24cW2C"
+ELEVENLABS_VOICE_ID = "sB7vwSCyX0tQmU24cW2C"  # Thomas voice — updated 2026-04-02
 ELEVENLABS_TTS_URL  = f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}"
 ELEVENLABS_STT_URL  = "https://api.elevenlabs.io/v1/speech-to-text"
-resend.api_key = os.environ.get("RESEND_API_KEY")
 
 TEAMS_BOOKING_LINK  = "https://outlook.office365.com/book/ShiftworkSolutionsLLC2@shift-work.com/?ismsaljsauthenabled=true"
 
-
-@app.errorhandler(429)
-def ratelimit_handler(e):
-    return jsonify({
-        "error": "rate_limited",
-        "message": "You're going a little fast for me. Please try again in a moment."
-    }), 429
-
-
 # =============================================================
-# LAYER 1: SWARM INTEGRATION
+# LAYER 1: SWARM INTEGRATION — READ-ONLY NORMATIVE LOOKUP
+#
+# Thomas calls the AI Swarm's normative database to fetch real
+# benchmark data as conversation teasers. Read-only, one endpoint.
+# Graceful fallback — if Swarm is unavailable, Thomas continues
+# normally without any error visible to the visitor.
+#
+# Simplified from topic-mapped queries to a single general query
+# since Thomas now handles all topics in one conversation.
+#
+# Layer 2 (conversation learning write-back) is not yet connected.
+#
+# Toggle: set SWARM_ENABLED=false in Render env vars to disable
+# without a redeploy. Defaults to enabled.
+#
+# Added: 2026-03-18 | Simplified: 2026-04-02
 # =============================================================
 
 SWARM_BASE_URL  = "https://ai-swarm-orchestrator.onrender.com"
 SWARM_ENABLED   = os.environ.get("SWARM_ENABLED", "true").lower() == "true"
-SWARM_TIMEOUT   = 3
+SWARM_TIMEOUT   = 3  # seconds — never slow Thomas down waiting for Swarm
 
 
 def query_swarm_norms(query_term):
+    """
+    Call the Swarm normative database search endpoint.
+    Returns a formatted insight string for injection into Thomas's
+    context, or None on any failure.
+
+    Endpoint: GET /api/survey/norm/search?q=<term>&limit=3
+    Always fails gracefully — never raises, never blocks Thomas.
+    """
     if not SWARM_ENABLED or not query_term:
         return None
     try:
@@ -292,7 +171,7 @@ def query_swarm_norms(query_term):
         results = data.get("results", []) or data.get("questions", [])
         if not results:
             return None
-        lines = ["NORMATIVE DATABASE -- LIVE BENCHMARKS (use as teasers only):"]
+        lines = ["NORMATIVE DATABASE — LIVE BENCHMARKS (use as teasers only):"]
         for r in results[:3]:
             question = r.get("question", "")
             avg      = r.get("norm_mean")
@@ -301,7 +180,7 @@ def query_swarm_norms(query_term):
             if not question or avg is None or count == 0:
                 continue
             lines.append(
-                f"- {section}: \"{question[:80]}\" -- "
+                f"- {section}: \"{question[:80]}\" — "
                 f"norm avg: {round(float(avg), 1)} "
                 f"({count} facilities)"
             )
@@ -309,7 +188,7 @@ def query_swarm_norms(query_term):
             return None
         return "\n".join(lines)
     except requests.exceptions.Timeout:
-        print("Swarm norm search timed out -- continuing without norm data")
+        print("Swarm norm search timed out — continuing without norm data")
         return None
     except Exception as e:
         print(f"Swarm norm search error (non-fatal): {e}")
@@ -317,6 +196,14 @@ def query_swarm_norms(query_term):
 
 
 def get_swarm_context(messages):
+    """
+    Decide whether a Swarm norm lookup is warranted for this
+    conversation turn. Returns a formatted context string to
+    append to the system prompt, or empty string if not needed.
+
+    Only queries after at least 2 exchanges so Thomas has context.
+    Uses a single general query covering the most common topics.
+    """
     if not SWARM_ENABLED:
         return ""
     if len(messages) < 2:
@@ -328,7 +215,13 @@ def get_swarm_context(messages):
 
 
 # =============================================================
-# SYSTEM PROMPT
+# SYSTEM PROMPT — SINGLE UNIFIED PROMPT
+#
+# All topic knowledge merged into one condensed reference.
+# Thomas routes organically based on conversation, not menus.
+# Optimized for token efficiency and fast response times.
+#
+# Rebuilt: 2026-04-02
 # =============================================================
 
 THOMAS_SYSTEM_PROMPT = """
@@ -345,78 +238,89 @@ has seen it hundreds of times — because Shiftwork Solutions has. You are appro
 — someone a plant manager would feel comfortable talking to over coffee.
 
 HOW YOU TALK:
-- Be concise. Three to four sentences is your hard ceiling — no exceptions. Say what
-  needs saying, then stop. If you find yourself writing a fifth sentence, cut something.
+- Be concise. Two to three sentences is your default. Say what needs saying, then stop.
+- The one exception: when you are inviting the visitor to share context about their
+  situation, you may take a few more sentences to explain what would be helpful and why.
+  Even then, keep it conversational — not a paragraph.
 - One question or invitation per response. Never two.
 - Ask the question LAST — after any observation, not before.
+- Questions should feel like invitations, not interrogations. Prefer open prompts like
+  "Tell me more about that" over data-point demands like "How many people?"
 - Plain language. No bullet points. No corporate jargon. No headers or lists.
 - Never explain what you are about to do. Just do it.
-- One insight per response, then either ask or offer next steps — never both.
+- One insight per response, then ask.
 
-YOUR ROLE:
+YOUR APPROACH:
 Visitors come to you because they are not ready to pick up the phone or book a meeting.
-You are the safe first step — a quick, low-pressure way to be heard and pointed in the
-right direction. This is not a long diagnostic consultation. Think of it as a hallway
-conversation: someone tells you what's going on, you show you understood, you ask if
-there's anything else to add, and then you point them somewhere useful.
+You are the safe first step. Your job is to help them think through what is going on,
+share relevant knowledge, and — when the time is right — connect them with the
+Shiftwork Solutions team.
 
-CONVERSATION FLOW — FOLLOW THIS EXACTLY:
+Listen to what the visitor says and respond with whatever knowledge is most relevant.
+If they describe a problem, diagnose it. If they ask about the process, explain it.
+If they ask about engagement or change management, share the philosophy. If they ask
+about their industry, engage with the specific challenges. Follow the conversation
+naturally — you do not need to be told what topic you are in.
 
-STEP 1 — LET THEM TALK.
-Your first response to any problem description should be short: reflect back what you
-heard in one sentence to show you understood, name the pattern if you recognize it,
-then ask ONE consolidating question. That question should invite any remaining context
-that would help — industry, number of employees, current schedule type, how long the
-problem has been going on. Keep it open: "Is there anything else you'd like to add
-before I point you in the right direction?" is better than a list of specific questions.
+PROACTIVE SITE LINKING (THIS IS IMPORTANT):
+Any time the conversation touches a topic that has a page on the website, include the
+link in your FIRST response about that topic. Do not wait for the visitor to ask. If
+someone mentions overtime, your response should include the overtime guide link. If they
+ask about schedules, include the schedule patterns or schedule design link. If they
+mention their industry, link to their industry page. If they ask what you do, link to
+services. This should feel natural — not like a sales pitch, just helpful.
 
-STEP 2 — MOVE TO VALUE. FAST.
-After their very next reply — whether they add more context or not — stop asking
-questions and deliver value in a single response:
-  a) Name the pattern or problem in one sentence.
-  b) Offer the most relevant link from shift-work.com for background reading.
-  c) Offer to connect them with the team: "The best next step is a conversation with
-     someone who has seen this hundreds of times — you can book a free meeting using
-     the button at the bottom of this page, or call us directly at (415) 265-1621."
-  d) Mention the transcript: "You can also download a transcript of our conversation
-     from the sidebar to share or reference later."
+When sharing a link, briefly describe what the visitor will find, then include the full
+URL. The interface automatically turns the URL into a clickable "link" that opens in a
+new tab. For example: "We have a guide that covers exactly that — you can check it out
+here: https://shiftwork-solutions-website.onrender.com/resources/overtime-management-guide/"
 
-DO NOT ask another question in Step 2. Do not probe for more data. You have enough.
-Move. The visitor came here for help, not an intake form.
+One or two links per response is plenty. Do not dump a list of links.
 
-STEP 3 — IF THEY KEEP TALKING, KEEP HELPING.
-If the visitor continues the conversation after Step 2, engage naturally. Answer their
-questions, share relevant knowledge, offer more links. But do not restart the diagnostic
-loop. You have already moved to value — stay there.
+DIAGNOSTIC APPROACH — WHEN A VISITOR DESCRIBES A PROBLEM:
+Your job is to name the problem, not solve it. You are the doorway to the team, not the
+consultant. Aim for 2 to 4 exchanges before transitioning to a handoff. When a visitor
+shares a problem, acknowledge it with a brief insight that shows you understand, then
+invite them to share more context so you can be more helpful. For example:
 
-PAGE LAYOUT — WHAT THE VISITOR SEES:
-The chat interface has a footer bar at the bottom with three options always visible:
-  - "Book a Free Meeting" button (left)
-  - Phone number (415) 265-1621 and "Contact Us" button (center)
-  - Newsletter subscribe form (right)
-There is also a sidebar with a "Download transcript" button and a link to shift-work.com.
-When directing visitors to take action, refer to "the button at the bottom of this page"
-for booking, and "the sidebar" only for downloading the transcript.
+"That's a pattern we see a lot. I'd like to understand your situation a little better so
+I can point you in the right direction. Things like your current staffing levels, the
+schedule pattern you're using, and your industry all help me give you a better read.
+What can you tell me?"
 
-PROACTIVE SITE LINKING:
-Be quick to offer relevant links. When sharing a link, describe what the visitor will
-find and include the full URL. The interface turns URLs into clickable "link" text that
-opens in a new tab. The visitor will hear the word "link" when Thomas speaks.
-Example: "We have a detailed guide on overtime management here:
-https://shift-work.com/resources/overtime-management-guide/"
-One or two links per response maximum. Never a list of links.
+Work with whatever the visitor gives you. A partial picture still lets you name the
+pattern. Once you see enough to name it, move to handoff — do not keep asking questions.
+Focus on operational facts, not feelings. Never infer or assume — only work with what
+the visitor explicitly tells you.
 
 WHAT THOMAS CAN AND CANNOT RECOMMEND:
-Thomas can offer directional observations — "It sounds like you might be running into
-a coverage gap" or "A 12-hour pattern might give you more flexibility here" — framed
-as possibilities, not prescriptions.
+Thomas can offer directional observations — "It sounds like you might need a 24/7
+schedule" or "A 12-hour pattern might give you the coverage you're missing" — as long
+as they are framed as possibilities, not prescriptions. These are the kinds of things
+a knowledgeable person would say in a casual conversation.
 
-NEVER recommend a weekend-only crew. If a visitor mentions one, flag it as something
-that usually creates more problems than it solves and suggest they discuss it with the
-team before going down that path.
+NEVER recommend a weekend-only crew. A weekend crew is a separate group of employees
+who only work weekends while other crews work only weekdays. This approach has serious
+problems — retention, fatigue, pay equity, morale — and Shiftwork Solutions almost
+never recommends it. If a visitor mentions they are considering a weekend crew or asks
+about one, Thomas should flag it as something that usually creates more problems than
+it solves and suggest they discuss it with the team before going down that path.
 
 Thomas should not provide detailed schedule designs, specific rotation patterns, policy
 language, or implementation plans. Those are deliverables of a paid engagement.
+
+HANDOFF — MOVE HERE QUICKLY:
+Do not wait until you have a complete picture. Once you can name the problem, transition
+to handoff. Offer three options naturally — not as a list, but woven into the conversation:
+1. Book a free consultation using the scheduling link in the sidebar — no obligation,
+   just a real conversation with someone who has done this hundreds of times.
+2. "If you'd prefer, I can have someone from the team reach out to you directly."
+   (This triggers the lead capture form in the sidebar.)
+3. Point them to relevant content on shift-work.com if their question is more
+   exploratory — e.g. "There's some good background on this at shift-work.com that
+   might help you frame the conversation."
+Always remind them the transcript can be downloaded from the sidebar and the team can
+be reached at (415) 265-1621 or shift-work.com.
 
 === RULES — ALWAYS IN EFFECT ===
 
@@ -540,28 +444,6 @@ you are not confident in the details of a specific pattern, say so honestly and 
 on the operational issues the visitor is describing rather than characterizing the
 schedule incorrectly.
 
-SATURDAY OVERTIME (know this cold — do not mischaracterize):
-Saturday overtime does NOT imply a need for 7-day coverage. Monday through Saturday is
-6 days, not 7. An operation running Saturday overtime is still a 6-day operation —
-not a continuous or 24/7 operation. Never assume Saturday overtime means the visitor
-needs a 7-day schedule design.
-
-Saturday overtime varies widely in scale: it might be half a crew for 4 hours to finish
-a production run, or everyone working a full 8-hour shift. The driver is almost always
-that the work volume cannot be completed in a Monday-Friday window — not that the
-operation requires permanent 7-day coverage.
-
-The real concerns with chronic Saturday overtime are: worker fatigue from losing
-weekend recovery time, employee frustration with disrupted personal and family plans,
-and the well-documented pattern where Saturday overtime gradually expands into Saturday
-plus Sunday overtime as production demands grow. That creep — from occasional Saturday
-to routine Saturday-Sunday — is one of the most common paths that leads operations to
-consider a formal schedule change.
-
-When a visitor mentions Saturday overtime, ask what is driving it (volume overflow vs.
-staffing gap vs. demand pattern) before drawing any conclusions about what kind of
-schedule solution might help.
-
 YOUNGER WORKFORCE — "KIDS DON'T WANT TO WORK" (hear this constantly):
 This is one of the most common complaints from operations managers and it comes up in
 almost every engagement. Do not dismiss it, but reframe it with depth. The real dynamic
@@ -576,7 +458,7 @@ generational character flaw.
 
 POLICIES (conceptual only — never draft policy text):
 Overtime distribution, holiday pay, vacation scheduling, shift differential, attendance
-systems -- discuss concepts only.
+systems — discuss concepts only.
 
 OUT OF SCOPE:
 Wage rates, union contract specifics, individual HR cases, anything unrelated to shift
@@ -587,48 +469,60 @@ Job satisfaction, workforce morale, and employee wellbeing as they relate to shi
 schedules are fully within scope and are core survey topics. Never redirect away from
 job satisfaction.
 
-=== WEBSITE DIRECTORY — shift-work.com ===
+=== WEBSITE DIRECTORY ===
+The Shiftwork Solutions website is at shift-work.com. The actual links below point to
+the Render deployment URL (shiftwork-solutions-website.onrender.com) which serves the
+same content. When talking to visitors, always refer to the site as "our website" or
+"shift-work.com" — never mention the Render URL. The links will work correctly regardless
+of which domain the visitor sees.
 When a visitor asks about a topic covered on the website, provide the direct link.
-Use the full URL format: https://shift-work.com/path/
 
 MAIN PAGES:
-- Homepage: https://shift-work.com/
-- Our Services: https://shift-work.com/services/
-- Resources Hub: https://shift-work.com/resources/
-- Contact Us: https://shift-work.com/contact/
-- Newsletter Signup: https://shift-work.com/newsletter/
+- Homepage: https://shiftwork-solutions-website.onrender.com/
+- Our Services: https://shiftwork-solutions-website.onrender.com/services/
+- Resources Hub: https://shiftwork-solutions-website.onrender.com/resources/
+- Industries: https://shiftwork-solutions-website.onrender.com/industries/
+- Why Us: https://shiftwork-solutions-website.onrender.com/why-us/
+- About Us: https://shiftwork-solutions-website.onrender.com/about/
+- Our Team: https://shiftwork-solutions-website.onrender.com/our_team/
+- Client Testimonials: https://shiftwork-solutions-website.onrender.com/testimonials/
+- Contact Us: https://shiftwork-solutions-website.onrender.com/contact/
+- Newsletter Signup: https://shiftwork-solutions-website.onrender.com/newsletter/
 
 10 GUIDES (deep-dive reference content):
-- Shift Schedule Design: https://shift-work.com/resources/shift-schedule-design-guide/
-- Shift Schedule Patterns: https://shift-work.com/resources/shift-schedule-patterns-guide/
-- Equipment Utilization & Scheduling: https://shift-work.com/resources/equipment-utilization-shift-scheduling/
-- Managing Variable Workloads: https://shift-work.com/resources/managing-variable-workloads/
-- Overtime Management: https://shift-work.com/resources/overtime-management-guide/
-- Schedule Change Management: https://shift-work.com/resources/schedule-change-management/
-- Employee Engagement in Shift Work: https://shift-work.com/resources/employee-engagement-shift-work/
-- Operational Best Practices: https://shift-work.com/resources/shift-work-best-practices/
-- Staffing Strategy for 24/7 Operations: https://shift-work.com/resources/staffing-strategy-guide/
-- Shift Work Health, Safety & Compliance: https://shift-work.com/resources/shift-work-health-safety-compliance/
+- Shift Schedule Design: https://shiftwork-solutions-website.onrender.com/resources/shift-schedule-design-guide/
+- Shift Schedule Patterns: https://shiftwork-solutions-website.onrender.com/resources/shift-schedule-patterns-guide/
+- Equipment Utilization & Scheduling: https://shiftwork-solutions-website.onrender.com/resources/equipment-utilization-shift-scheduling/
+- Managing Variable Workloads: https://shiftwork-solutions-website.onrender.com/resources/managing-variable-workloads/
+- Overtime Management: https://shiftwork-solutions-website.onrender.com/resources/overtime-management-guide/
+- Schedule Change Management: https://shiftwork-solutions-website.onrender.com/resources/schedule-change-management/
+- Employee Engagement in Shift Work: https://shiftwork-solutions-website.onrender.com/resources/employee-engagement-shift-work/
+- Operational Best Practices: https://shiftwork-solutions-website.onrender.com/resources/shift-work-best-practices/
+- Staffing Strategy for 24/7 Operations: https://shiftwork-solutions-website.onrender.com/resources/staffing-strategy-guide/
+- Shift Work Health, Safety & Compliance: https://shiftwork-solutions-website.onrender.com/resources/shift-work-health-safety-compliance/
 
 7 SUPPORT ARTICLES (targeted how-to content):
-- Scaling Production Up or Down: https://shift-work.com/resources/support/scaling-production-quickly/
-- Sleep, Alertness & Safety: https://shift-work.com/resources/support/sleep-alertness-safety-shift-work/
-- Maintenance Worker Scheduling: https://shift-work.com/resources/support/maintenance-worker-scheduling/
-- Communicating Schedule Changes: https://shift-work.com/resources/support/communicating-schedule-changes/
-- Workforce Survey Analysis: https://shift-work.com/resources/support/workforce-survey-analysis/
-- Balancing Business & Employee Needs: https://shift-work.com/resources/support/balancing-business-employee-needs/
-- Schedule Change Pitfalls: https://shift-work.com/resources/support/schedule-change-pitfalls/
+- Scaling Production Up or Down: https://shiftwork-solutions-website.onrender.com/resources/support/scaling-production-quickly/
+- Sleep, Alertness & Safety: https://shiftwork-solutions-website.onrender.com/resources/support/sleep-alertness-safety-shift-work/
+- Maintenance Worker Scheduling: https://shiftwork-solutions-website.onrender.com/resources/support/maintenance-worker-scheduling/
+- Communicating Schedule Changes: https://shiftwork-solutions-website.onrender.com/resources/support/communicating-schedule-changes/
+- Workforce Survey Analysis: https://shiftwork-solutions-website.onrender.com/resources/support/workforce-survey-analysis/
+- Balancing Business & Employee Needs: https://shiftwork-solutions-website.onrender.com/resources/support/balancing-business-employee-needs/
+- Schedule Change Pitfalls: https://shiftwork-solutions-website.onrender.com/resources/support/schedule-change-pitfalls/
 
 6 INDUSTRY PAGES:
-- Manufacturing & Assembly: https://shift-work.com/industries/manufacturing-assembly-operations/
-- Distribution & Logistics: https://shift-work.com/industries/distribution-logistics-operations/
-- Mining & Extraction: https://shift-work.com/industries/mining-extraction-industries/
-- Refining & Utilities: https://shift-work.com/industries/refining-utilities-operations/
-- Food & Beverage: https://shift-work.com/industries/food-beverage-manufacturing/
-- Chemical & Pharmaceutical: https://shift-work.com/industries/chemical-pharmaceutical-operations/
+- Manufacturing & Assembly: https://shiftwork-solutions-website.onrender.com/industries/manufacturing-assembly-operations/
+- Distribution & Logistics: https://shiftwork-solutions-website.onrender.com/industries/distribution-logistics-operations/
+- Mining & Extraction: https://shiftwork-solutions-website.onrender.com/industries/mining-extraction-industries/
+- Refining & Utilities: https://shiftwork-solutions-website.onrender.com/industries/refining-utilities-operations/
+- Food & Beverage: https://shiftwork-solutions-website.onrender.com/industries/food-beverage-manufacturing/
+- Chemical & Pharmaceutical: https://shiftwork-solutions-website.onrender.com/industries/chemical-pharmaceutical-operations/
+
+DIAGNOSTIC TOOLS:
+- 26 Warning Signs: https://shiftwork-solutions-website.onrender.com/resources/26-warning-signs-schedule-problems/
 
 TOPIC-TO-PAGE MAPPING (use these when a visitor asks about a topic):
-- Overtime problems → Overtime Management guide + shift-work.com/resources/overtime-management-guide/
+- Overtime problems → Overtime Management guide
 - Schedule patterns / DuPont / rotating → Schedule Patterns guide
 - Employee engagement / surveys / morale → Employee Engagement guide
 - Implementation / change management → Schedule Change Management guide
@@ -640,10 +534,14 @@ TOPIC-TO-PAGE MAPPING (use these when a visitor asks about a topic):
 - Schedule design / shift lengths → Shift Schedule Design guide
 - Industry-specific → Link to the matching industry page
 - "How do you work" / process → Services page
-- "How do I contact you" → Contact page or booking button at the bottom of the page
+- "How do I contact you" → Contact page or booking link in sidebar
+- "Who are you" / about the company → About Us or Why Us page
+- "Who would I work with" / team → Our Team page
+- "Do you have references" / testimonials → Client Testimonials page
+- "What should I look for" / warning signs → 26 Warning Signs page
 """
 
-# Opening message
+# Opening message — one universal opener
 THOMAS_OPENING = (
     "Hi, I'm Thomas — an AI advisor for Shiftwork Solutions. I help operations "
     "managers think through what's going on with their shift operations. I can also "
@@ -651,19 +549,16 @@ THOMAS_OPENING = (
     "background on a topic. What's on your mind?"
 )
 
-SESSION_LIMIT_HANDOFF = (
-    "We've covered a lot of ground in this session. The next best step is probably "
-    "a direct conversation with the team — you can book a free meeting using the "
-    "button at the bottom of this page, or call us at (415) 265-1621. You can also "
-    "download the transcript from the sidebar before you go."
-)
+conversation_histories = {}
 
 
 def is_bot_response(reply):
+    """Check if Claude returned the bot detection signal."""
     return reply.strip() == "BOT_DETECTED"
 
 
 def generate_speech(text):
+    """Call ElevenLabs TTS, return base64 MP3. Returns None on failure."""
     if not ELEVENLABS_API_KEY:
         return None
     try:
@@ -673,7 +568,7 @@ def generate_speech(text):
             "Accept": "audio/mpeg"
         }
         payload = {
-            "text": normalize_tts(text),
+            "text": text,
             "model_id": "eleven_turbo_v2",
             "voice_settings": {
                 "stability": 0.55,
@@ -694,6 +589,7 @@ def generate_speech(text):
 
 
 def generate_transcript_pdf(session_id, messages, lead_info=None):
+    """Generate branded PDF transcript. Returns BytesIO buffer."""
     buffer = io.BytesIO()
     c = pdf_canvas.Canvas(buffer, pagesize=letter)
     width, height = letter
@@ -716,7 +612,8 @@ def generate_transcript_pdf(session_id, messages, lead_info=None):
     c.drawString(margin, height - 0.65*inch, "Shiftwork Solutions LLC")
     c.setFillColorRGB(1, 1, 1)
     c.setFont("Helvetica", 11)
-    c.drawRightString(width - margin, height - 0.55*inch, "Conversation Transcript")
+    c.drawRightString(width - margin, height - 0.55*inch,
+                      "Conversation Transcript")
     c.drawRightString(width - margin, height - 0.85*inch,
                       datetime.now().strftime("%B %d, %Y"))
 
@@ -793,12 +690,7 @@ def generate_transcript_pdf(session_id, messages, lead_info=None):
     return buffer
 
 
-# =============================================================
-# ROUTES
-# =============================================================
-
 @app.route("/health")
-@limiter.exempt
 def health():
     return jsonify({
         "status":      "ok",
@@ -808,20 +700,26 @@ def health():
 
 
 @app.route("/")
-@limiter.limit("60/minute")
 def index():
     return render_template_string(open("templates/index.html").read())
 
 
 @app.route("/opening", methods=["POST"])
-@limiter.limit("5/minute;20/hour")
 def opening():
-    session_id = issue_session_id()
-    with _state_lock:
-        conversation_histories[session_id] = [{
-            "role":    "assistant",
-            "content": THOMAS_OPENING
-        }]
+    """
+    Return the opening message and audio.
+    Called when the visitor dismisses the instructional overlay.
+    No topic selection — Thomas handles everything organically.
+    Accepts: { session_id }
+    """
+    data       = request.get_json() or {}
+    session_id = data.get("session_id", "default")
+
+    conversation_histories[session_id] = [{
+        "role":    "assistant",
+        "content": THOMAS_OPENING
+    }]
+
     audio_b64 = generate_speech(THOMAS_OPENING)
     return jsonify({
         "reply":      THOMAS_OPENING,
@@ -831,8 +729,16 @@ def opening():
 
 
 @app.route("/transcribe", methods=["POST"])
-@limiter.limit("20/hour")
 def transcribe():
+    """
+    Receive audio blob from frontend, send to ElevenLabs STT,
+    return transcribed text.
+
+    Handles all browser audio formats:
+    - Chrome/Edge: audio/webm;codecs=opus  -> audio.webm
+    - Firefox:     audio/ogg;codecs=opus   -> audio.ogg
+    - Safari:      audio/mp4               -> audio.mp4
+    """
     if not ELEVENLABS_API_KEY:
         return jsonify({"error": "STT not configured"}), 503
 
@@ -890,103 +796,60 @@ def transcribe():
 
 
 @app.route("/chat", methods=["POST"])
-@limiter.limit("10/minute;30/hour")
 def chat():
+    """
+    Main conversation route.
+    Accepts: { message, session_id }
+    No topic parameter — Thomas handles all topics organically.
+    Returns bot_detected:true if bot signal received — frontend
+    silently ends the session without displaying any message.
+    """
     data = request.get_json()
     if not data:
         return jsonify({"error": "No data provided"}), 400
 
-    session_id   = (data.get("session_id") or "").strip()
-    user_message = (data.get("message") or "").strip()
+    session_id   = data.get("session_id", "default")
+    user_message = data.get("message", "").strip()
 
     if not user_message:
         return jsonify({"error": "No message provided"}), 400
 
-    if len(user_message) > MAX_MESSAGE_CHARS:
-        return jsonify({
-            "error": "message_too_long",
-            "message": f"Please keep messages under {MAX_MESSAGE_CHARS} characters."
-        }), 400
+    if session_id not in conversation_histories:
+        conversation_histories[session_id] = []
 
-    with _state_lock:
-        cleanup_expired_sessions()
+    conversation_histories[session_id].append({
+        "role": "user", "content": user_message
+    })
 
-        if not session_id or not is_valid_session(session_id):
-            return jsonify({
-                "error": "invalid_session",
-                "message": "Your session has expired or is invalid. Please refresh the page."
-            }), 403
-
-        count = session_message_counts.get(session_id, 0)
-        if count >= SESSION_MAX_MESSAGES:
-            return jsonify({
-                "reply":       SESSION_LIMIT_HANDOFF,
-                "audio":       None,
-                "session_id":  session_id,
-                "session_ended": True
-            }), 200
-
-        if not check_token_budget():
-            print(f"[TOKEN_BUDGET] Rejected /chat -- daily budget exhausted")
-            return jsonify({
-                "error": "budget_exhausted",
-                "message": ("Thomas is taking a short break. Please try again later, or "
-                            "reach the team directly at (415) 265-1621 or shift-work.com.")
-            }), 503
-
-        if session_id not in conversation_histories:
-            conversation_histories[session_id] = []
-
-        conversation_histories[session_id].append({
-            "role": "user", "content": user_message
-        })
-
-        if len(conversation_histories[session_id]) > 40:
-            conversation_histories[session_id] = \
-                conversation_histories[session_id][-40:]
-
-        session_created_at[session_id] = time.time()
-        session_message_counts[session_id] = count + 1
-
-        messages_snapshot = list(conversation_histories[session_id])
+    # Keep last 40 messages to manage context window
+    if len(conversation_histories[session_id]) > 40:
+        conversation_histories[session_id] = \
+            conversation_histories[session_id][-40:]
 
     system_prompt = THOMAS_SYSTEM_PROMPT
 
-    swarm_context = get_swarm_context(messages_snapshot)
+    # Layer 1: Append live normative context from Swarm if available
+    swarm_context = get_swarm_context(conversation_histories[session_id])
     if swarm_context:
         system_prompt = system_prompt + swarm_context
 
     try:
         response = anthropic_client.messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=400,
+            max_tokens=600,
             system=system_prompt,
-            messages=messages_snapshot
+            messages=conversation_histories[session_id]
         )
         thomas_reply = response.content[0].text
 
-        usage = getattr(response, "usage", None)
-        if usage:
-            with _state_lock:
-                record_token_usage(
-                    getattr(usage, "input_tokens", 0),
-                    getattr(usage, "output_tokens", 0)
-                )
-
+        # Bot detection — silent termination
         if is_bot_response(thomas_reply):
-            with _state_lock:
-                conversation_histories.pop(session_id, None)
-                issued_session_ids.discard(session_id)
-                session_created_at.pop(session_id, None)
-                session_message_counts.pop(session_id, None)
+            conversation_histories.pop(session_id, None)
             return jsonify({"bot_detected": True}), 200
 
-        with _state_lock:
-            if session_id in conversation_histories:
-                conversation_histories[session_id].append({
-                    "role": "assistant", "content": thomas_reply
-                })
-
+        conversation_histories[session_id].append({
+            "role": "assistant", "content": thomas_reply
+        })
         audio_b64 = generate_speech(thomas_reply)
         return jsonify({
             "reply":      thomas_reply,
@@ -1001,55 +864,39 @@ def chat():
 
 
 @app.route("/transcript", methods=["POST"])
-@limiter.limit("10/hour")
 def download_transcript():
     data = request.get_json()
     if not data:
         return jsonify({"error": "No data provided"}), 400
-    session_id = (data.get("session_id") or "").strip()
+    session_id = data.get("session_id", "default")
     lead_info  = data.get("lead_info", None)
-
-    with _state_lock:
-        messages = list(conversation_histories.get(session_id, []))
-
+    messages   = conversation_histories.get(session_id, [])
     if not messages:
         return jsonify({"error": "No conversation found for this session"}), 404
-
     try:
         pdf_buffer = generate_transcript_pdf(session_id, messages, lead_info)
         filename   = f"Shiftwork-Diagnostic-{datetime.now().strftime('%Y-%m-%d')}.pdf"
-
-        try:
-            pdf_bytes = pdf_buffer.read()
-            pdf_buffer.seek(0)
-            email_body = "<p>A visitor just downloaded a Thomas transcript.</p>"
-            if lead_info:
-                lines = "".join(
-                    f"<li><strong>{k}:</strong> {v}</li>"
-                    for k, v in lead_info.items() if v
-                )
-                email_body += f"<p><strong>Lead info:</strong></p><ul>{lines}</ul>"
-            resend.Emails.send({
-                "from": "thomas@shift-work.com",
-                "to":   "jim@shift-work.com",
-                "subject": f"Thomas Transcript — {datetime.now().strftime('%B %d, %Y %I:%M %p')}",
-                "html": email_body,
-                "attachments": [{"filename": filename, "content": list(pdf_bytes)}]
-            })
-        except Exception as e:
-            print(f"Resend email error (non-fatal): {e}")
-
         return send_file(pdf_buffer, mimetype="application/pdf",
                          as_attachment=True, download_name=filename)
-
     except Exception as e:
         print(f"Transcript PDF error: {e}")
         return jsonify({"error": f"PDF generation failed: {str(e)}"}), 500
 
 
 @app.route("/api/tts", methods=["POST"])
-@limiter.limit("10/hour")
 def tts_proxy():
+    """
+    TTS proxy for pillar pages on the Shiftwork Solutions website.
+
+    Pillar pages call this endpoint instead of ElevenLabs directly,
+    keeping ELEVENLABS_API_KEY server-side and out of browser code.
+
+    Accepts JSON: { "text": "...", "voice_id": "..." (optional) }
+    Returns: audio/mpeg stream directly (not base64)
+    Max text: 4500 characters per request (ElevenLabs limit per call)
+
+    Added: 2026-04-03
+    """
     if not ELEVENLABS_API_KEY:
         return jsonify({"error": "TTS not configured"}), 503
 
@@ -1061,11 +908,10 @@ def tts_proxy():
     if not text:
         return jsonify({"error": "No text provided"}), 400
 
-    if len(text) > MAX_TTS_CHARS:
-        return jsonify({
-            "error": f"Text exceeds {MAX_TTS_CHARS} character limit per request"
-        }), 400
+    if len(text) > 4500:
+        return jsonify({"error": "Text exceeds 4500 character limit per request"}), 400
 
+    # Use provided voice_id or fall back to the default Thomas voice
     voice_id = data.get("voice_id", ELEVENLABS_VOICE_ID).strip() or ELEVENLABS_VOICE_ID
     tts_url  = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
 
@@ -1076,7 +922,7 @@ def tts_proxy():
             "Accept":       "audio/mpeg"
         }
         payload = {
-            "text":       normalize_tts(text),
+            "text":       text,
             "model_id":   "eleven_turbo_v2",
             "voice_settings": {
                 "stability":        0.5,
@@ -1100,6 +946,7 @@ def tts_proxy():
                 }
             )
 
+        # Forward the error status from ElevenLabs
         print(f"ElevenLabs TTS proxy error {el_response.status_code}: {el_response.text[:200]}")
         return jsonify({
             "error": f"ElevenLabs error {el_response.status_code}"
@@ -1114,7 +961,6 @@ def tts_proxy():
 
 
 @app.route("/booking-link")
-@limiter.exempt
 def booking_link():
     return jsonify({"url": TEAMS_BOOKING_LINK}), 200
 
