@@ -2,7 +2,7 @@
 # app.py  —  Shift-Work Diagnostic Avatar (Thomas)
 # Shiftwork Solutions LLC
 # Created:      2026-03-15
-# Last Updated: 2026-04-03
+# Last Updated: 2026-04-21
 #
 # PURPOSE:
 #   Flask backend for Thomas, an AI advisor that helps
@@ -80,6 +80,15 @@
 #                and can provide direct links: 10 guides, 7
 #                support articles, 6 industry pages, main pages.
 #                Topic-to-page mapping included.
+#   2026-04-21 — Added strip_urls_for_tts(). Thomas was speaking
+#                raw URLs aloud (e.g. "you can check it out here
+#                colon https://shiftwork-solutions-website dot
+#                onrender dot com..."). Now URLs are stripped from
+#                the TTS text before sending to ElevenLabs — intro
+#                words like "here:" are replaced with "via the link
+#                in the chat" so the spoken sentence remains natural.
+#                The full URL is still rendered as a clickable link
+#                in the chat bubble by the frontend's linkifyText().
 #
 # ROUTES:
 #   GET  /              — Serves Thomas chat UI
@@ -101,6 +110,7 @@
 # =============================================================
 
 import os
+import re
 import base64
 import requests
 import io
@@ -215,6 +225,57 @@ def get_swarm_context(messages):
 
 
 # =============================================================
+# TTS URL STRIPPING
+#
+# Thomas's responses often include URLs for the chat UI to render
+# as clickable links. However, ElevenLabs TTS would speak those
+# URLs aloud verbatim ("https colon slash slash..."), which is
+# jarring and unhelpful to the listener.
+#
+# strip_urls_for_tts() removes URLs from the text BEFORE it is
+# sent to ElevenLabs, replacing intro-phrase + URL constructions
+# ("here: https://...") with "via the link in the chat" so the
+# spoken sentence stays grammatically natural.
+#
+# The full URL is still in the original reply text and is rendered
+# as a clickable anchor by the frontend's linkifyText() function.
+#
+# Added: 2026-04-21
+# =============================================================
+
+def strip_urls_for_tts(text):
+    """
+    Prepare Thomas's reply text for TTS by removing URLs gracefully.
+
+    Two passes:
+      1. Replace  <intro-word> <URL>  with  "via the link in the chat"
+         where intro-word is "here", "at", or "there" (optional colon).
+         Examples:
+           "check it out here: https://..." → "check it out via the link in the chat"
+           "more info at https://..."       → "more info via the link in the chat"
+      2. Replace any remaining bare URLs with "via the link in the chat".
+
+    Then collapse any double-spaces left behind.
+    """
+    # Pass 1: intro-word + URL
+    text = re.sub(
+        r'\s+(?:here|at|there)\s*:?\s*https?://[^\s,;)"\'<>]+',
+        ' via the link in the chat',
+        text,
+        flags=re.IGNORECASE
+    )
+    # Pass 2: bare URLs with no intro word
+    text = re.sub(
+        r'https?://[^\s,;)"\'<>]+',
+        'via the link in the chat',
+        text
+    )
+    # Collapse multiple spaces
+    text = re.sub(r'  +', ' ', text).strip()
+    return text
+
+
+# =============================================================
 # SYSTEM PROMPT — SINGLE UNIFIED PROMPT
 #
 # All topic knowledge merged into one condensed reference.
@@ -271,7 +332,7 @@ mention their industry, link to their industry page. If they ask what you do, li
 services. This should feel natural — not like a sales pitch, just helpful.
 
 When sharing a link, briefly describe what the visitor will find, then include the full
-URL. The interface automatically turns the URL into a clickable "link" that opens in a
+URL. The interface automatically turns the URL into a clickable link that opens in a
 new tab. For example: "We have a guide that covers exactly that — you can check it out
 here: https://shiftwork-solutions-website.onrender.com/resources/overtime-management-guide/"
 
@@ -558,17 +619,27 @@ def is_bot_response(reply):
 
 
 def generate_speech(text):
-    """Call ElevenLabs TTS, return base64 MP3. Returns None on failure."""
+    """
+    Call ElevenLabs TTS, return base64 MP3. Returns None on failure.
+
+    URLs are stripped from the text before sending to ElevenLabs so
+    Thomas does not speak raw URLs aloud. The frontend renders URLs
+    as clickable links in the chat bubble independently.
+    """
     if not ELEVENLABS_API_KEY:
         return None
     try:
+        tts_text = strip_urls_for_tts(text)
+        if not tts_text:
+            return None
+
         headers = {
             "xi-api-key": ELEVENLABS_API_KEY,
             "Content-Type": "application/json",
             "Accept": "audio/mpeg"
         }
         payload = {
-            "text": text,
+            "text": tts_text,
             "model_id": "eleven_turbo_v2",
             "voice_settings": {
                 "stability": 0.55,
@@ -894,6 +965,9 @@ def tts_proxy():
     Accepts JSON: { "text": "...", "voice_id": "..." (optional) }
     Returns: audio/mpeg stream directly (not base64)
     Max text: 4500 characters per request (ElevenLabs limit per call)
+
+    Note: strip_urls_for_tts() is NOT applied here because pillar
+    page TTS content is hand-crafted prose without URLs.
 
     Added: 2026-04-03
     """
