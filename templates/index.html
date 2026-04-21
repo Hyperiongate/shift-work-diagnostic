@@ -3,7 +3,7 @@
   index.html -- Thomas | Shiftwork Solutions AI Advisor
   File: templates/index.html (served by app.py Flask route)
   Created:      2026-03-15
-  Last Updated: 2026-04-18
+  Last Updated: 2026-04-21
 
   CHANGE LOG:
     2026-03-15 -- Initial build
@@ -40,6 +40,15 @@
                  - "Download transcript" button changed to orange
                    (was navy outline). Removed .action-btn.outline
                    CSS rule as it is no longer used.
+    2026-04-21 -- LINK RENDERING FIX: linkifyText() rewritten.
+                 Previously rendered URLs as the word "link" with
+                 no context, making Thomas say things like
+                 "check it out here: link". Now the function
+                 absorbs the preceding intro word ("here", "at",
+                 "there") into the anchor text so the rendered
+                 result reads naturally: "check it out [here]"
+                 where [here] is the clickable link. Bare URLs
+                 with no intro word render as "this link".
 
   I did no harm and this file is not truncated
 -->
@@ -483,7 +492,6 @@
     color: var(--orange);
     text-decoration: underline;
     text-underline-offset: 2px;
-    word-break: break-all;
   }
 
   .bubble a:hover { color: #d4550a; }
@@ -1388,27 +1396,78 @@
     } catch (err) { console.warn('Audio error:', err); }
   }
 
+  /*
+   * linkifyText(text)
+   *
+   * Converts plain text containing URLs into HTML with clickable anchors.
+   *
+   * LINK LABELING LOGIC (updated 2026-04-21):
+   *   - If the URL is immediately preceded by an intro word ("here", "at", or "there"
+   *     with an optional colon), that word is absorbed into the anchor and the anchor
+   *     renders as "here". Example:
+   *       "check it out here: https://..." → "check it out <a>here</a>"
+   *   - If the URL has no intro word, the anchor renders as "this link". Example:
+   *       "Check out https://..." → "Check out <a>this link</a>"
+   *
+   * This eliminates the prior behavior where Thomas displayed "check it out here: link"
+   * (the intro word rendered as plain text AND the anchor was labeled "link").
+   *
+   * Security: all non-URL text is HTML-escaped. URL and trailing punctuation are
+   * attribute-escaped. Target and rel are hardcoded.
+   */
   function linkifyText(text) {
     const urlRegex = /(https?:\/\/[^\s,;)"'<>]+)/gi;
-    const parts = text.split(urlRegex);
-    let html = '';
+    // Matches the final "here", "at", or "there" (+ optional colon/spaces) at the
+    // end of a plain-text segment. Both capture groups are used:
+    //   m[0] = full match including leading space (e.g. " here:")
+    //   m[1] = the leading whitespace character
+    //   m[2] = the trigger word + optional colon + optional trailing spaces
+    const introRe = /(\s)((?:here|at|there)\s*:?\s*)$/i;
+
+    const parts  = text.split(urlRegex);
+    const result = [];
+
     for (let i = 0; i < parts.length; i++) {
-      if (urlRegex.test(parts[i])) {
-        let url = parts[i];
+      if (i % 2 === 1) {
+        // ── URL segment ──
+        let url      = parts[i];
         let trailing = '';
+        // Strip trailing punctuation that is not part of the URL
         while (url.length > 0 && /[.,;:!?)}\]"']$/.test(url)) {
           trailing = url.slice(-1) + trailing;
-          url = url.slice(0, -1);
+          url      = url.slice(0, -1);
         }
-        const safeUrl = url.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
-        const safeTrailing = trailing.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        html += '<a href="' + safeUrl + '" target="_blank" rel="noopener">link</a>' + safeTrailing;
+        const safeUrl  = url.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+        const safeTail = trailing.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+        const prevRaw  = parts[i - 1] || '';
+        const m        = prevRaw.match(introRe);
+
+        if (m) {
+          // Remove the intro word from the tail of the already-pushed result segment,
+          // then emit a spaced anchor labeled "here".
+          const trimmed = prevRaw.slice(0, prevRaw.length - m[0].length);
+          result[result.length - 1] = escapeHtml(trimmed);
+          result.push(
+            ' <a href="' + safeUrl + '" target="_blank" rel="noopener noreferrer">here</a>' + safeTail
+          );
+        } else {
+          // No intro word — label the anchor "this link"
+          result.push(
+            '<a href="' + safeUrl + '" target="_blank" rel="noopener noreferrer">this link</a>' + safeTail
+          );
+        }
       } else {
-        html += parts[i].replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        // ── Plain text segment ──
+        result.push(escapeHtml(parts[i]));
       }
-      urlRegex.lastIndex = 0;
     }
-    return html;
+
+    return result.join('');
+
+    function escapeHtml(s) {
+      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
   }
 
   function scrollBottom() {
