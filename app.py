@@ -108,6 +108,12 @@
 #                cheerleader-ish. No generic affirmations.
 #                Goal: visitors remember Thomas, come back, tell
 #                others about the experience.
+#   2026-04-30 — Added transcript email via Formspree. When a
+#                visitor downloads a transcript, the full
+#                conversation text is emailed to contact@shift-work.com
+#                via the existing Formspree form (xwvwnwea).
+#                Fire-and-forget with 5-second timeout — never
+#                blocks or breaks the visitor's PDF download.
 #
 # ROUTES:
 #   GET  /              — Serves Thomas chat UI
@@ -973,6 +979,73 @@ def chat():
         return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
 
 
+FORMSPREE_ENDPOINT = "https://formspree.io/f/xwvwnwea"
+
+
+def email_transcript_via_formspree(session_id, messages, lead_info=None):
+    """
+    Send a formatted text transcript to Formspree (fire-and-forget).
+    Delivers to contact@shift-work.com via the existing Formspree form.
+
+    Never raises — if Formspree is down or rejects, the visitor's
+    PDF download still completes normally. Runs synchronously but
+    with a short timeout so it does not block the response.
+
+    Added: 2026-04-30
+    """
+    try:
+        # Format conversation as readable text
+        lines = []
+        lines.append("=== THOMAS CONVERSATION TRANSCRIPT ===")
+        lines.append(f"Session: {session_id}")
+        lines.append(f"Date: {datetime.now().strftime('%B %d, %Y at %I:%M %p UTC')}")
+        lines.append("")
+
+        if lead_info:
+            lines.append("--- Contact Information ---")
+            for key, val in lead_info.items():
+                if val:
+                    lines.append(f"{key}: {val}")
+            lines.append("")
+
+        lines.append("--- Conversation ---")
+        for msg in messages:
+            role    = msg.get("role", "")
+            content = msg.get("content", "")
+            if content in ("__INIT__", "BOT_DETECTED"):
+                continue
+            speaker = "Thomas" if role == "assistant" else "Visitor"
+            lines.append(f"\n{speaker}:")
+            lines.append(content)
+
+        lines.append("\n=== END TRANSCRIPT ===")
+
+        transcript_text = "\n".join(lines)
+
+        payload = {
+            "_subject":  f"Thomas Transcript — {datetime.now().strftime('%B %d, %Y %I:%M %p')}",
+            "message":   transcript_text,
+            "_replyto":  "noreply@shift-work.com"
+        }
+
+        resp = requests.post(
+            FORMSPREE_ENDPOINT,
+            json=payload,
+            headers={"Accept": "application/json"},
+            timeout=5
+        )
+
+        if resp.status_code == 200:
+            print(f"Transcript email sent for session {session_id}")
+        else:
+            print(f"Formspree transcript email failed {resp.status_code}: {resp.text[:200]}")
+
+    except requests.exceptions.Timeout:
+        print("Formspree transcript email timed out — continuing without email")
+    except Exception as e:
+        print(f"Formspree transcript email error (non-fatal): {e}")
+
+
 @app.route("/transcript", methods=["POST"])
 def download_transcript():
     data = request.get_json()
@@ -984,6 +1057,9 @@ def download_transcript():
     if not messages:
         return jsonify({"error": "No conversation found for this session"}), 404
     try:
+        # Fire-and-forget: email transcript before generating PDF
+        email_transcript_via_formspree(session_id, messages, lead_info)
+
         pdf_buffer = generate_transcript_pdf(session_id, messages, lead_info)
         filename   = f"Shiftwork-Diagnostic-{datetime.now().strftime('%Y-%m-%d')}.pdf"
         return send_file(pdf_buffer, mimetype="application/pdf",
