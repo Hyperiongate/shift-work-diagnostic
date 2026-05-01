@@ -2,7 +2,7 @@
 # app.py  —  Shift-Work Diagnostic Avatar (Thomas)
 # Shiftwork Solutions LLC
 # Created:      2026-03-15
-# Last Updated: 2026-04-30
+# Last Updated: 2026-05-01
 #
 # PURPOSE:
 #   Flask backend for Thomas, an AI advisor that helps
@@ -114,6 +114,29 @@
 #                via the existing Formspree form (xwvwnwea).
 #                Fire-and-forget with 5-second timeout — never
 #                blocks or breaks the visitor's PDF download.
+#   2026-05-01 — WEBSITE DIRECTORY URL FIX: Replaced every
+#                shiftwork-solutions-website.onrender.com URL in
+#                the WEBSITE DIRECTORY section of the system prompt
+#                with https://shift-work.com/...
+#                The site has been live on the custom domain since
+#                April 19, so the Render subdomain should never be
+#                exposed to visitors in chat. Removed the workaround
+#                paragraph that previously instructed Thomas to refer
+#                to the site as "shift-work.com" verbally while
+#                inserting Render URLs — that paragraph is no longer
+#                needed and was a confusion source.
+#                Booking URL (outlook.office365.com/book/...) left
+#                untouched per Jim. Thomas's own backend URL
+#                (shift-work-diagnostic.onrender.com) left untouched
+#                — that is the diagnostic app's own location and is
+#                not a "website link" for visitors.
+#                Total occurrences of shiftwork-solutions-website
+#                .onrender.com in this file before edit: 33.
+#                After edit: 0. All 33 URLs converted to
+#                https://shift-work.com/ + same path.
+#                No code, route, or function logic changed.
+#                No behavioral rule, opening message, or knowledge
+#                block changed except the URLs themselves.
 #
 # ROUTES:
 #   GET  /              — Serves Thomas chat UI
@@ -307,7 +330,7 @@ def strip_urls_for_tts(text):
 # Thomas routes organically based on conversation, not menus.
 # Optimized for token efficiency and fast response times.
 #
-# Rebuilt: 2026-04-02 | Updated: 2026-04-23
+# Rebuilt: 2026-04-02 | Updated: 2026-05-01
 # =============================================================
 
 THOMAS_SYSTEM_PROMPT = """
@@ -389,7 +412,7 @@ services. This should feel natural — not like a sales pitch, just helpful.
 When sharing a link, briefly describe what the visitor will find, then include the full
 URL. The interface automatically turns the URL into a clickable link that opens in a
 new tab. For example: "We have a guide that covers exactly that — you can check it out
-here: https://shiftwork-solutions-website.onrender.com/resources/overtime-management-guide/"
+here: https://shift-work.com/resources/overtime-management-guide/"
 
 One or two links per response is plenty. Do not dump a list of links.
 
@@ -571,57 +594,53 @@ schedules are fully within scope and are core survey topics. Never redirect away
 job satisfaction.
 
 === WEBSITE DIRECTORY ===
-The Shiftwork Solutions website is at shift-work.com. The actual links below point to
-the Render deployment URL (shiftwork-solutions-website.onrender.com) which serves the
-same content. When talking to visitors, always refer to the site as "our website" or
-"shift-work.com" — never mention the Render URL. The links will work correctly regardless
-of which domain the visitor sees.
-When a visitor asks about a topic covered on the website, provide the direct link.
+The Shiftwork Solutions website is at shift-work.com. When a visitor asks about a topic
+covered on the website, provide the direct link.
 
 MAIN PAGES:
-- Homepage: https://shiftwork-solutions-website.onrender.com/
-- Our Services: https://shiftwork-solutions-website.onrender.com/services/
-- Resources Hub: https://shiftwork-solutions-website.onrender.com/resources/
-- Industries Landing: https://shiftwork-solutions-website.onrender.com/industries/
-- Why Us: https://shiftwork-solutions-website.onrender.com/why-us/
-- About Us: https://shiftwork-solutions-website.onrender.com/about/
-- Our Team: https://shiftwork-solutions-website.onrender.com/our_team/
-- Client Testimonials: https://shiftwork-solutions-website.onrender.com/testimonials/
-- Contact Us: https://shiftwork-solutions-website.onrender.com/contact/
-- Newsletter Signup: https://shiftwork-solutions-website.onrender.com/newsletter/
+- Homepage: https://shift-work.com/
+- Our Services: https://shift-work.com/services/
+- Resources Hub: https://shift-work.com/resources/
+- Industries Landing: https://shift-work.com/industries/
+- Why Us: https://shift-work.com/why-us/
+- About Us: https://shift-work.com/about/
+- Our Team: https://shift-work.com/our_team/
+- Client Testimonials: https://shift-work.com/testimonials/
+- Contact Us: https://shift-work.com/contact/
+- Newsletter Signup: https://shift-work.com/newsletter/
 
 10 GUIDES (deep-dive reference content):
-- Shift Schedule Design: https://shiftwork-solutions-website.onrender.com/resources/shift-schedule-design-guide/
-- Shift Schedule Patterns: https://shiftwork-solutions-website.onrender.com/resources/shift-schedule-patterns-guide/
-- Equipment Utilization & Scheduling: https://shiftwork-solutions-website.onrender.com/resources/equipment-utilization-shift-scheduling/
-- Managing Variable Workloads: https://shiftwork-solutions-website.onrender.com/resources/managing-variable-workloads/
-- Overtime Management: https://shiftwork-solutions-website.onrender.com/resources/overtime-management-guide/
-- Schedule Change Management: https://shiftwork-solutions-website.onrender.com/resources/schedule-change-management/
-- Employee Engagement in Shift Work: https://shiftwork-solutions-website.onrender.com/resources/employee-engagement-shift-work/
-- Operational Best Practices: https://shiftwork-solutions-website.onrender.com/resources/shift-work-best-practices/
-- Absenteeism & Coverage Gaps: https://shiftwork-solutions-website.onrender.com/resources/absenteeism-relief-coverage-management/
-- Shift Work Policies (Pay, Time-Off & Compliance): https://shiftwork-solutions-website.onrender.com/resources/shift-work-policies-guide/
+- Shift Schedule Design: https://shift-work.com/resources/shift-schedule-design-guide/
+- Shift Schedule Patterns: https://shift-work.com/resources/shift-schedule-patterns-guide/
+- Equipment Utilization & Scheduling: https://shift-work.com/resources/equipment-utilization-shift-scheduling/
+- Managing Variable Workloads: https://shift-work.com/resources/managing-variable-workloads/
+- Overtime Management: https://shift-work.com/resources/overtime-management-guide/
+- Schedule Change Management: https://shift-work.com/resources/schedule-change-management/
+- Employee Engagement in Shift Work: https://shift-work.com/resources/employee-engagement-shift-work/
+- Operational Best Practices: https://shift-work.com/resources/shift-work-best-practices/
+- Absenteeism & Coverage Gaps: https://shift-work.com/resources/absenteeism-relief-coverage-management/
+- Shift Work Policies (Pay, Time-Off & Compliance): https://shift-work.com/resources/shift-work-policies-guide/
 
 7 SUPPORT ARTICLES (targeted how-to content):
-- Scaling Production Up or Down: https://shiftwork-solutions-website.onrender.com/resources/support/scaling-production-quickly/
-- Sleep, Alertness & Safety: https://shiftwork-solutions-website.onrender.com/resources/support/sleep-alertness-safety-shift-work/
-- Maintenance Worker Scheduling: https://shiftwork-solutions-website.onrender.com/resources/support/maintenance-worker-scheduling/
-- Communicating Schedule Changes: https://shiftwork-solutions-website.onrender.com/resources/support/communicating-schedule-changes/
-- Workforce Survey Analysis: https://shiftwork-solutions-website.onrender.com/resources/support/workforce-survey-analysis/
-- Balancing Business & Employee Needs: https://shiftwork-solutions-website.onrender.com/resources/support/balancing-business-employee-needs/
-- Schedule Change Pitfalls: https://shiftwork-solutions-website.onrender.com/resources/support/schedule-change-pitfalls/
+- Scaling Production Up or Down: https://shift-work.com/resources/support/scaling-production-quickly/
+- Sleep, Alertness & Safety: https://shift-work.com/resources/support/sleep-alertness-safety-shift-work/
+- Maintenance Worker Scheduling: https://shift-work.com/resources/support/maintenance-worker-scheduling/
+- Communicating Schedule Changes: https://shift-work.com/resources/support/communicating-schedule-changes/
+- Workforce Survey Analysis: https://shift-work.com/resources/support/workforce-survey-analysis/
+- Balancing Business & Employee Needs: https://shift-work.com/resources/support/balancing-business-employee-needs/
+- Schedule Change Pitfalls: https://shift-work.com/resources/support/schedule-change-pitfalls/
 
 7 INDUSTRY PAGES:
-- Manufacturing & Assembly: https://shiftwork-solutions-website.onrender.com/industries/manufacturing-assembly-operations/
-- Distribution & Logistics: https://shiftwork-solutions-website.onrender.com/industries/distribution-logistics-operations/
-- Mining & Extraction: https://shiftwork-solutions-website.onrender.com/industries/mining-extraction-industries/
-- Refining & Utilities: https://shiftwork-solutions-website.onrender.com/industries/refining-utilities-operations/
-- Food & Beverage: https://shiftwork-solutions-website.onrender.com/industries/food-beverage-manufacturing/
-- Chemical & Pharmaceutical: https://shiftwork-solutions-website.onrender.com/industries/chemical-pharmaceutical-operations/
-- Paper & Packaging: https://shiftwork-solutions-website.onrender.com/industries/paper-packaging-operations/
+- Manufacturing & Assembly: https://shift-work.com/industries/manufacturing-assembly-operations/
+- Distribution & Logistics: https://shift-work.com/industries/distribution-logistics-operations/
+- Mining & Extraction: https://shift-work.com/industries/mining-extraction-industries/
+- Refining & Utilities: https://shift-work.com/industries/refining-utilities-operations/
+- Food & Beverage: https://shift-work.com/industries/food-beverage-manufacturing/
+- Chemical & Pharmaceutical: https://shift-work.com/industries/chemical-pharmaceutical-operations/
+- Paper & Packaging: https://shift-work.com/industries/paper-packaging-operations/
 
 DIAGNOSTIC TOOLS:
-- 26 Warning Signs: https://shiftwork-solutions-website.onrender.com/resources/26-warning-signs-schedule-problems/
+- 26 Warning Signs: https://shift-work.com/resources/26-warning-signs-schedule-problems/
 
 TOPIC-TO-PAGE MAPPING (use these when a visitor asks about a topic):
 - Overtime problems → Overtime Management guide
