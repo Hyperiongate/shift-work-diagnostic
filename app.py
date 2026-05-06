@@ -2,7 +2,7 @@
 # app.py  —  Shift-Work Diagnostic Avatar (Thomas)
 # Shiftwork Solutions LLC
 # Created:      2026-03-15
-# Last Updated: 2026-05-01
+# Last Updated: 2026-05-06
 #
 # PURPOSE:
 #   Flask backend for Thomas, an AI advisor that helps
@@ -125,11 +125,6 @@
 #                to the site as "shift-work.com" verbally while
 #                inserting Render URLs — that paragraph is no longer
 #                needed and was a confusion source.
-#                Booking URL (outlook.office365.com/book/...) left
-#                untouched per Jim. Thomas's own backend URL
-#                (shift-work-diagnostic.onrender.com) left untouched
-#                — that is the diagnostic app's own location and is
-#                not a "website link" for visitors.
 #                Total occurrences of shiftwork-solutions-website
 #                .onrender.com in this file before edit: 33.
 #                After edit: 0. All 33 URLs converted to
@@ -137,6 +132,24 @@
 #                No code, route, or function logic changed.
 #                No behavioral rule, opening message, or knowledge
 #                block changed except the URLs themselves.
+#   2026-05-06 — SHIFTWORKER HEALTH KNOWLEDGE BLOCK ADDED.
+#                New knowledge section covers: biological clock and
+#                circadian rhythms, sleep requirements and sleep debt,
+#                lifestyle choices (caffeine, alcohol, napping,
+#                exercise, light, diet, nicotine, sleep environment,
+#                family/social), and schedule-specific sleep
+#                strategies (8-hr rotating, 8-hr fixed nights,
+#                12-hr rotating, 12-hr fixed nights, 12-hr fixed
+#                days, anchor sleep technique, rapid adjustment).
+#                New website directory entry added:
+#                Shiftworker Health Guide →
+#                https://shift-work.com/resources/shiftworker-health/
+#                New topic-to-page mapping added:
+#                Health / circadian / sleep strategies / lifestyle
+#                → Shiftworker Health Guide.
+#                Existing sleep/alertness support article mapping
+#                updated to reference both pages.
+#                No code, route, or function logic changed.
 #
 # ROUTES:
 #   GET  /              — Serves Thomas chat UI
@@ -331,6 +344,7 @@ def strip_urls_for_tts(text):
 # Optimized for token efficiency and fast response times.
 #
 # Rebuilt: 2026-04-02 | Updated: 2026-05-01
+# Health knowledge block added: 2026-05-06
 # =============================================================
 
 THOMAS_SYSTEM_PROMPT = """
@@ -593,6 +607,83 @@ Job satisfaction, workforce morale, and employee wellbeing as they relate to shi
 schedules are fully within scope and are core survey topics. Never redirect away from
 job satisfaction.
 
+SHIFTWORKER HEALTH — BIOLOGICAL CLOCK, SLEEP & LIFESTYLE (discuss openly):
+This is an important topic that managers often raise when workers are fatigued, calling
+in sick, or struggling with night shifts. Thomas can discuss all of this knowledgeably.
+Point visitors to the health guide at https://shift-work.com/resources/shiftworker-health/
+when this topic comes up.
+
+THE BIOLOGICAL CLOCK AND CIRCADIAN RHYTHMS:
+The biological clock runs on a roughly 24-hour cycle and is calibrated primarily by
+light exposure. It drives a predictable daily pattern of body temperature and alertness —
+peaking in mid-to-late afternoon and hitting its lowest point between 2 AM and 6 AM
+(the "circadian trough"). Night shift workers are asked to be productive during the
+circadian trough, which is why errors, accidents, and health complications are higher
+on night shifts across virtually every industry studied. Rotating shift workers face an
+additional complication: the clock never fully adapts because most rotating schedules
+change before the 7–10 days of consistent exposure needed for meaningful adaptation can
+occur. Rotating workers live in a state of perpetual partial adjustment — like mild,
+chronic jet lag.
+
+SLEEP REQUIREMENTS AND SLEEP DEBT:
+Most adults need 7–9 hours of sleep per 24-hour period. This requirement is largely
+genetic — it cannot be trained away. Shiftworkers consistently fall short because daytime
+sleep is inherently shorter than nighttime sleep (on average 1.5–2 hours shorter for the
+same person in the same environment) because the circadian clock is signaling wakefulness
+during daylight hours. When a person sleeps less than their personal requirement, sleep
+debt accumulates cumulatively. The most dangerous feature of sleep debt is that people
+with significant debt routinely underestimate how impaired they are — they feel subjectively
+alert while their performance is objectively compromised. This is a safety issue as well
+as a health issue.
+
+LIFESTYLE FACTORS:
+Caffeine: useful alertness tool when timed correctly. Taken within 4–6 hours of intended
+sleep, it delays onset and reduces quality. Dependence on caffeine to offset chronic sleep
+debt is not sustainable.
+Alcohol: may help sleep onset but fragments sleep architecture — reduces REM sleep and
+causes earlier waking. Counterproductive as a sleep aid for shiftworkers.
+Nicotine: a stimulant that disrupts sleep onset and quality.
+Diet and meal timing: the digestive system has its own circadian rhythm. Heavy meals
+during the biological night cause more GI distress. Lighter meals during night shifts help.
+Exercise: improves sleep quality and circadian regulation. Intense exercise immediately
+before sleep may delay onset for some people.
+Light exposure: bright light during night shifts suppresses melatonin and improves
+alertness. Darkness during sleep (blackout curtains, eye masks) meaningfully improves
+daytime sleep duration. Light is the primary signal that sets the biological clock.
+Napping: a 20-minute nap before a night shift can significantly reduce shift fatigue.
+A 90-minute nap allows a full sleep cycle and provides more sustained recovery.
+Sleep environment: dark, quiet, and cool. Blackout curtains are the single most
+impactful investment a day-sleeping shiftworker can make.
+Health habits benchmark: shiftworkers follow an average of 3.4 of six key longevity-linked
+health habits, versus 4.1 for day workers — a meaningful gap driven by structural pressures.
+
+SCHEDULE-SPECIFIC SLEEP STRATEGIES:
+8-hour rotating: anticipate first night by sleeping late the day before; take a pre-shift
+nap; go straight to bed after shifts; protect the sleep environment.
+8-hour fixed nights: healthiest to maintain consistent sleep on days off; if wanting
+daytime participation on days off, use anchor sleep (see below).
+12-hour rotating: more days off than 8-hour schedules — many workers "tough out" nights
+without full adaptation; pre-shift napping helps; after last night shift, sleep only
+3–4 hours then return to normal pattern.
+12-hour fixed nights: anchor sleep or rapid adjustment strategies; any sleep strategy
+is better than none.
+12-hour fixed days: go to bed earlier before first day back; avoid sleeping in late on
+days off (creates Monday morning fatigue); catch up by going to bed earlier, not staying
+in bed later.
+
+ANCHOR SLEEP TECHNIQUE:
+For fixed night shift workers who want to participate in daytime life on days off without
+fully flipping their schedule. If the worker normally sleeps 8 AM–4 PM on work days, on
+days off they sleep 2 AM–10 AM instead. The 2-hour overlap between the two windows
+(approximately 8–10 AM) is the "anchor" — it prevents the biological clock from fully
+shifting to a daytime schedule while still allowing afternoon and evening participation.
+
+RAPID ADJUSTMENT TO DAYS:
+An alternative for fixed night workers. After the last night shift, sleep only 4 hours
+(e.g., 8 AM–noon). Get up and spend 20+ minutes in bright sunlight or strong indoor light.
+Result: a 4-hour sleep debt that helps the worker fall asleep at a normal evening time,
+without losing the entire day. Less recovery than a full sleep but preserves family time.
+
 === WEBSITE DIRECTORY ===
 The Shiftwork Solutions website is at shift-work.com. When a visitor asks about a topic
 covered on the website, provide the direct link.
@@ -620,6 +711,9 @@ MAIN PAGES:
 - Operational Best Practices: https://shift-work.com/resources/shift-work-best-practices/
 - Absenteeism & Coverage Gaps: https://shift-work.com/resources/absenteeism-relief-coverage-management/
 - Shift Work Policies (Pay, Time-Off & Compliance): https://shift-work.com/resources/shift-work-policies-guide/
+
+HEALTH GUIDE (added 2026-05-06):
+- Shiftworker Health (Sleep, Circadian Rhythms & Lifestyle): https://shift-work.com/resources/shiftworker-health/
 
 7 SUPPORT ARTICLES (targeted how-to content):
 - Scaling Production Up or Down: https://shift-work.com/resources/support/scaling-production-quickly/
@@ -652,7 +746,8 @@ TOPIC-TO-PAGE MAPPING (use these when a visitor asks about a topic):
 - Equipment utilization / capacity → Equipment Utilization guide
 - Absenteeism / call-offs / coverage gaps → Absenteeism & Coverage Gaps guide
 - Pay policies / vacation / holiday / shift differential → Shift Work Policies guide
-- Health / safety / fatigue → Sleep, Alertness & Safety article
+- Health / circadian rhythms / biological clock / sleep strategies / lifestyle → Shiftworker Health guide
+- Fatigue / alertness / night shift health / sleep debt → Shiftworker Health guide AND Sleep, Alertness & Safety article
 - Best practices / general advice → Operational Best Practices guide
 - Industry-specific → Link to the matching industry page
 - "How do you work" / process / services → Services page
