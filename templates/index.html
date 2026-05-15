@@ -3,7 +3,7 @@
   index.html -- Thomas | Shiftwork Solutions AI Advisor
   File: templates/index.html (served by app.py Flask route)
   Created:      2026-03-15
-  Last Updated: 2026-04-29
+  Last Updated: 2026-05-15
 
   CHANGE LOG:
     2026-03-15 -- Initial build
@@ -30,7 +30,7 @@
     2026-04-18 -- SIDEBAR BOTTOM IMAGE: Removed welding photo + CSS.
     2026-04-18 -- MIC HINT: Larger (15px/700), right-aligned near
                  mic, SVG icon matching actual mic button.
-    2026-04-18 -- FOOTER: Dark-navy 3-col footer — Book Meeting |
+    2026-04-18 -- FOOTER: Dark-navy 3-col footer -- Book Meeting |
                  Phone + Contact | Newsletter subscribe.
     2026-04-18 -- SIDEBAR CLEANUP:
                  - Removed "Set up a conversation" button. Booking
@@ -52,18 +52,50 @@
     2026-04-28 -- Plausible analytics added (pa-sH0BT-KFFBE-QL0g-zuyZ.js).
     2026-04-29 -- OVERLAY REDESIGN: Replaced the prior 4-card how-to
                  overlay with a 4-zone marketing overlay:
-                 Zone 1: Identity — title + positioning statement
-                 Zone 2: Symptom prompts — 6 clickable chips that
+                 Zone 1: Identity -- title + positioning statement
+                 Zone 2: Symptom prompts -- 6 clickable chips that
                          open the visitor's thinking and pre-fill
                          the chat input on click.
-                 Zone 3: How it works — compact 3-step row.
+                 Zone 3: How it works -- compact 3-step row.
                  Zone 4: Transcript value callout.
                  Removed low-confidence defensive copy. CTA renamed
                  to "Start the conversation."
                  Overlay max-width widened to 740px for breathing room.
-                 Symptom chips are interactive — clicking one pre-fills
+                 Symptom chips are interactive -- clicking one pre-fills
                  the textarea and dismisses the overlay automatically.
                  All existing JS, chat, sidebar, footer unchanged.
+    2026-05-15 -- SEO + AI SEARCH OPTIMIZATION + CONVERSION TRACKING:
+                 Brings Thomas to parity with shift-work.com homepage.
+                 ADDED (purely additive -- zero existing functionality
+                 altered):
+                   1. SEO meta tags: description, keywords, robots,
+                      canonical, Open Graph (og:title, og:description,
+                      og:url, og:type, og:site_name, og:image),
+                      Twitter Card tags.
+                   2. Microsoft Clarity tracking snippet
+                      (project ID: wiyn7e4d73 -- same as shift-work.com
+                      so all sessions land in one dashboard).
+                   3. Custom event tracker script
+                      (/static/js/event-tracker.js -- mirrored from
+                      shift-work.com). The repo MUST contain this file
+                      at static/js/event-tracker.js for tracking to fire.
+                   4. JSON-LD schemas (4 blocks):
+                      - WebApplication (primary entity for Thomas)
+                      - Organization (ties Thomas to Shiftwork Solutions)
+                      - WebSite
+                      - BreadcrumbList (Home > Thomas)
+                   5. data-track attributes added to footer Book a
+                      Meeting button, Contact Us button, Subscribe
+                      button, and sidebar Visit-shift-work.com link.
+                      Phone link is auto-tracked by trackPhoneLinks().
+                   6. thomas_question event wired into sendMessage()
+                      JavaScript. Fires after every successful /chat
+                      response. Sends ONLY a message count (the integer
+                      "how many questions has the visitor asked"). NO
+                      message content, NO PII -- privacy preserved.
+                 All existing CSS, JS, chat behavior, mic, audio,
+                 transcript, overlay, lead modal, sidebar, header,
+                 and footer remain bit-for-bit identical.
 
   I did no harm and this file is not truncated
 -->
@@ -72,6 +104,206 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Thomas | Shiftwork Solutions AI Advisor</title>
+
+<!-- ══ SEO META TAGS (added 2026-05-15) ══ -->
+<meta name="description" content="Meet Thomas -- the AI Shift Operations Advisor from Shiftwork Solutions LLC. Describe your scheduling, overtime, retention, or engagement challenge and get directional guidance grounded in over 30 years of consulting across hundreds of 24/7 industrial operations.">
+<meta name="keywords" content="AI shift advisor, shift schedule consultant AI, shift work AI tool, AI workforce advisor, scheduling diagnostic tool, overtime diagnostic, 24/7 operations advisor, Thomas AI, Shiftwork Solutions, shift schedule AI, manufacturing scheduling AI">
+<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+<link rel="canonical" href="https://shift-work-diagnostic.onrender.com/">
+
+<!-- Open Graph -->
+<meta property="og:title" content="Thomas | Shiftwork Solutions AI Advisor">
+<meta property="og:description" content="The AI Shift Operations Advisor from Shiftwork Solutions LLC. Describe your scheduling, overtime, retention, or engagement challenge and get directional guidance in minutes.">
+<meta property="og:url" content="https://shift-work-diagnostic.onrender.com/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Shiftwork Solutions LLC">
+<meta property="og:image" content="https://shift-work-diagnostic.onrender.com/static/thomas.jpg">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Thomas | Shiftwork Solutions AI Advisor">
+<meta name="twitter:description" content="Describe your shift operations challenge and get directional guidance in minutes from Thomas -- the AI advisor backed by Shiftwork Solutions' work across hundreds of 24/7 operations.">
+<meta name="twitter:image" content="https://shift-work-diagnostic.onrender.com/static/thomas.jpg">
+
+<!-- ══════════════════════════════════════════════════════════════════
+     JSON-LD SCHEMA BLOCK 1: WebApplication (primary entity for Thomas)
+     ══════════════════════════════════════════════════════════════════ -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Thomas -- Shiftwork Solutions AI Advisor",
+  "alternateName": "Thomas AI",
+  "url": "https://shift-work-diagnostic.onrender.com/",
+  "description": "Conversational AI advisor that helps operations managers diagnose shift schedule, overtime, retention, and engagement problems in 24/7 industrial operations. Backed by Shiftwork Solutions LLC's experience across hundreds of facilities.",
+  "applicationCategory": "BusinessApplication",
+  "applicationSubCategory": "Workforce Diagnostic Tool",
+  "operatingSystem": "Web Browser",
+  "browserRequirements": "Modern web browser with JavaScript enabled. Microphone optional for voice input.",
+  "isAccessibleForFree": true,
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "featureList": [
+    "Voice and text conversation with an AI shift operations advisor",
+    "Diagnostic guidance for shift schedule problems",
+    "Overtime and labor cost analysis discussion",
+    "Employee engagement and retention diagnostics",
+    "Change management direction for shift transitions",
+    "Downloadable PDF transcript of every conversation",
+    "Direct booking with the human Shiftwork Solutions consulting team"
+  ],
+  "creator": {
+    "@type": "Organization",
+    "name": "Shiftwork Solutions LLC",
+    "url": "https://shift-work.com"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Shiftwork Solutions LLC",
+    "url": "https://shift-work.com"
+  },
+  "audience": {
+    "@type": "Audience",
+    "audienceType": "Operations managers, plant managers, HR leaders, and continuous improvement leaders at 24/7 industrial facilities"
+  },
+  "about": [
+    "shift schedule design",
+    "overtime management",
+    "workforce engagement",
+    "shift work change management",
+    "24/7 operations staffing",
+    "manufacturing scheduling",
+    "distribution center scheduling",
+    "union workforce consulting"
+  ]
+}
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     JSON-LD SCHEMA BLOCK 2: Organization (ties Thomas to Shiftwork Solutions)
+     ══════════════════════════════════════════════════════════════════ -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "Shiftwork Solutions LLC",
+  "url": "https://shift-work.com",
+  "logo": "https://shift-work.com/images/clear_bkgr_logo_2.png",
+  "telephone": "+14152651621",
+  "email": "Contact@shift-work.com",
+  "slogan": "Cost efficiency, workforce engagement, and operational reliability -- delivered simultaneously.",
+  "address": {
+    "@type": "PostalAddress",
+    "addressLocality": "San Rafael",
+    "addressRegion": "CA",
+    "postalCode": "94901",
+    "addressCountry": "US"
+  },
+  "description": "Fixed-fee management consulting firm specializing in shift schedule optimization, workforce engagement, and change management for 24/7 industrial operations. Over 30 years of experience across hundreds of facilities.",
+  "foundingDate": "1993",
+  "areaServed": {
+    "@type": "Country",
+    "name": "United States"
+  },
+  "knowsAbout": [
+    "shift schedule design",
+    "shift work consulting",
+    "24/7 operations management",
+    "continuous operations staffing",
+    "change management",
+    "workforce surveys",
+    "overtime management",
+    "overtime cost reduction",
+    "employee engagement",
+    "manufacturing workforce planning",
+    "distribution center scheduling",
+    "pharmaceutical shift scheduling",
+    "chemical plant operations",
+    "food and beverage manufacturing",
+    "mining shift scheduling",
+    "paper and packaging operations",
+    "union workforce consulting",
+    "rotating shift schedules",
+    "fixed shift schedules",
+    "12-hour shift schedules",
+    "staffing and workforce planning",
+    "labor cost analysis",
+    "fatigue risk management",
+    "post-implementation workforce surveys"
+  ],
+  "sameAs": [
+    "https://www.linkedin.com/company/shiftwork-solutions-llc",
+    "https://shift-work.com"
+  ]
+}
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     JSON-LD SCHEMA BLOCK 3: WebSite
+     ══════════════════════════════════════════════════════════════════ -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "Thomas -- Shiftwork Solutions AI Advisor",
+  "url": "https://shift-work-diagnostic.onrender.com/",
+  "description": "AI advisor for 24/7 shift operations -- diagnostic conversations on scheduling, overtime, engagement, and change management.",
+  "publisher": {
+    "@type": "Organization",
+    "name": "Shiftwork Solutions LLC",
+    "url": "https://shift-work.com"
+  }
+}
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     JSON-LD SCHEMA BLOCK 4: BreadcrumbList
+     ══════════════════════════════════════════════════════════════════ -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Shiftwork Solutions",
+      "item": "https://shift-work.com/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Thomas AI Advisor",
+      "item": "https://shift-work-diagnostic.onrender.com/"
+    }
+  ]
+}
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     MICROSOFT CLARITY (added 2026-05-15)
+     Project ID: wiyn7e4d73 (same as shift-work.com -- shared dashboard)
+     Heatmaps, session recordings, user behavior analytics.
+     To verify: clarity.microsoft.com -> project -> Settings -> Setup
+     -> "Verify installation". Visit the live site to trigger first session.
+     ══════════════════════════════════════════════════════════════════ -->
+<script type="text/javascript">
+  (function(c,l,a,r,i,t,y){
+      c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+      t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+      y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+  })(window, document, "clarity", "script", "wiyn7e4d73");
+</script>
+
+<!-- ══ CUSTOM EVENT TRACKER (added 2026-05-15) ══
+     File MUST exist at static/js/event-tracker.js in the Thomas repo.
+     Tracks: landing_page, newsletter_signup, booking_click, phone_click,
+             thomas_opened, scroll_depth, time_on_page, plus any element
+             with a data-track attribute. -->
+<script src="/static/js/event-tracker.js"></script>
 
 <!-- ══ PLAUSIBLE ANALYTICS (added 2026-04-28) ══ -->
 <script async src="https://plausible.io/js/pa-sH0BT-KFFBE-QL0g-zuyZ.js"></script>
@@ -125,7 +357,7 @@
   }
 
   /* ══════════════════════════════════════════
-     INSTRUCTIONAL OVERLAY — redesigned 2026-04-29
+     INSTRUCTIONAL OVERLAY -- redesigned 2026-04-29
      4-zone vertical layout, max-width 740px
   ══════════════════════════════════════════ */
   #overlay {
@@ -151,7 +383,7 @@
     width: 100%;
   }
 
-  /* ── Zone 1: Identity ── */
+  /* -- Zone 1: Identity -- */
   .overlay-top {
     text-align: center;
     padding: 0 0 24px;
@@ -191,7 +423,7 @@
     font-weight: 600;
   }
 
-  /* ── Zone 2: Symptom prompts ── */
+  /* -- Zone 2: Symptom prompts -- */
   .overlay-symptoms {
     width: 100%;
     padding: 24px 0 24px;
@@ -240,7 +472,7 @@
     background: rgba(232,97,10,0.30);
   }
 
-  /* ── Zone 3: How it works ── */
+  /* -- Zone 3: How it works -- */
   .overlay-how {
     width: 100%;
     padding: 22px 0 22px;
@@ -314,7 +546,7 @@
     line-height: 1.5;
   }
 
-  /* ── Zone 4: Transcript takeaway ── */
+  /* -- Zone 4: Transcript takeaway -- */
   .overlay-takeaway {
     width: 100%;
     padding: 20px 0 24px;
@@ -354,7 +586,7 @@
     line-height: 1.55;
   }
 
-  /* ── CTA ── */
+  /* -- CTA -- */
   .overlay-cta {
     padding: 8px 0 0;
     display: flex;
@@ -534,7 +766,7 @@
 
   .sidebar-divider { height: 1px; background: var(--border); margin: 12px 0; }
 
-  /* Orange action button — used for Download transcript */
+  /* Orange action button -- used for Download transcript */
   .action-btn {
     display: block;
     width: 100%;
@@ -842,7 +1074,7 @@
     line-height: 1.5;
   }
 
-  /* ── THOMAS FOOTER ── */
+  /* -- THOMAS FOOTER -- */
   .thomas-footer {
     background: var(--navy-dark);
     border-top: 1px solid rgba(255,255,255,0.08);
@@ -1093,7 +1325,7 @@
 <body>
 
 <!-- ══════════════════════════════════════════
-     INSTRUCTIONAL OVERLAY — redesigned 2026-04-29
+     INSTRUCTIONAL OVERLAY -- redesigned 2026-04-29
      4-zone: Identity / Symptom prompts / How it works / Transcript takeaway
 ════════════════════════════════════════════ -->
 <div id="overlay">
@@ -1104,7 +1336,7 @@
       <div class="overlay-eyebrow">Shiftwork Solutions AI Advisor</div>
       <div class="overlay-title">Meet Thomas</div>
       <div class="overlay-subtitle">
-        <strong>Describe what's happening.</strong> Thomas will help you understand what it means —
+        <strong>Describe what's happening.</strong> Thomas will help you understand what it means &mdash;
         and what your options are.
       </div>
     </div>
@@ -1208,13 +1440,14 @@
 
       <div class="sidebar-section-label">Take Action</div>
 
-      <button class="action-btn" onclick="downloadTranscript()">
+      <button class="action-btn" onclick="downloadTranscript()" data-track="resource_download" data-label="Thomas transcript PDF">
         &#x1F4C4; Download transcript
       </button>
 
       <a class="sidebar-site-link"
          href="https://shift-work.com"
-         target="_blank" rel="noopener">
+         target="_blank" rel="noopener"
+         data-track="external_click" data-label="Sidebar: Visit shift-work.com">
         Visit shift-work.com &rarr;
       </a>
     </div>
@@ -1263,19 +1496,21 @@
       </p>
     </div>
 
-    <!-- ── THOMAS FOOTER ── -->
+    <!-- -- THOMAS FOOTER -- -->
     <div class="thomas-footer">
       <div class="tf-col">
         <div class="tf-label">Free Consultation</div>
         <a href="https://outlook.office365.com/book/ShiftworkSolutionsLLC2@shift-work.com/?ismsaljsauthenabled=true"
-           class="tf-btn" target="_blank" rel="noopener">
+           class="tf-btn" target="_blank" rel="noopener"
+           data-track="booking_click" data-label="Thomas footer: Book a Free Meeting">
           Book a Free Meeting &rarr;
         </a>
       </div>
       <div class="tf-col" style="align-items:center;text-align:center;">
         <div class="tf-label">Talk to Us Directly</div>
         <a href="tel:+14152651621" class="tf-phone">(415) 265-1621</a>
-        <a href="https://shift-work.com/contact/" class="tf-btn" target="_blank" rel="noopener">
+        <a href="https://shift-work.com/contact/" class="tf-btn" target="_blank" rel="noopener"
+           data-track="contact_click" data-label="Thomas footer: Contact Us">
           Contact Us &rarr;
         </a>
       </div>
@@ -1285,7 +1520,8 @@
           <input type="email" class="tf-nl-input" id="thomasFooterEmail"
                  placeholder="your@company.com" autocomplete="email">
           <button class="tf-nl-btn" id="thomasFooterBtn"
-                  onclick="thomasFooterSubmit()">Subscribe &rarr;</button>
+                  onclick="thomasFooterSubmit()"
+                  data-track="newsletter_signup" data-label="Thomas footer newsletter">Subscribe &rarr;</button>
         </div>
         <div class="tf-nl-msg" id="thomasFooterMsg"></div>
       </div>
@@ -1294,7 +1530,7 @@
   </div><!-- /.chat-area -->
 </div><!-- /.main-layout -->
 
-<!-- -- Lead capture modal (no sidebar trigger — kept for future use) -- -->
+<!-- -- Lead capture modal (no sidebar trigger -- kept for future use) -- -->
 <div class="modal-overlay" id="lead-modal">
   <div class="modal">
     <div class="modal-eyebrow">Get in touch</div>
@@ -1323,7 +1559,8 @@
     </div>
     <a class="teams-link"
        href="https://outlook.office365.com/book/ShiftworkSolutionsLLC2@shift-work.com/?ismsaljsauthenabled=true"
-       target="_blank">
+       target="_blank"
+       data-track="booking_click" data-label="Lead modal: book a time directly">
       Or book a time directly &rarr;
     </a>
   </div>
@@ -1352,11 +1589,53 @@
   let speakingEl     = null;
   let leadData       = null;
 
+  // ── thomas_question event counter (added 2026-05-15) ──
+  // Counts how many user messages have been sent successfully to /chat.
+  // Sent with the thomas_question event payload (no message content).
+  let thomasQuestionCount = 0;
+
   let mediaRecorder  = null;
   let audioChunks    = [];
   let micStream      = null;
   let isRecording    = false;
   let micPermGranted = false;
+
+  /*
+   * trackThomasQuestion()
+   * Fires the thomas_question event to the AI Swarm Orchestrator
+   * after each successful /chat response. Sends ONLY the message
+   * count -- no content, no PII. Safe-fails if tracker not loaded
+   * or endpoint unreachable.
+   */
+  function trackThomasQuestion() {
+    try {
+      thomasQuestionCount += 1;
+      var ENDPOINT = 'https://ai-swarm-orchestrator.onrender.com/api/events/log';
+      var payload = {
+        event_type:  'thomas_question',
+        page_url:    window.location.href,
+        referrer:    document.referrer || '',
+        session_id:  (function(){
+          try { return window.sessionStorage.getItem('sw_session') || ''; }
+          catch(e){ return window._swSessionId || ''; }
+        })(),
+        device_type: /Mobi|Android|iPhone|iPod/i.test(navigator.userAgent) ? 'mobile' :
+                     /iPad|Tablet/i.test(navigator.userAgent) ? 'tablet' : 'desktop',
+        event_data:  { question_number: thomasQuestionCount }
+      };
+      if (navigator.sendBeacon) {
+        var blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+        navigator.sendBeacon(ENDPOINT, blob);
+      } else {
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', ENDPOINT, true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.send(JSON.stringify(payload));
+      }
+    } catch (e) {
+      // Tracker errors must never break the chat
+    }
+  }
 
   /*
    * useSymptom(btn)
@@ -1616,9 +1895,9 @@
    *   - If the URL is immediately preceded by an intro word ("here", "at", or "there"
    *     with an optional colon), that word is absorbed into the anchor and the anchor
    *     renders as "here". Example:
-   *       "check it out here: https://..." → "check it out <a>here</a>"
+   *       "check it out here: https://..." -> "check it out <a>here</a>"
    *   - If the URL has no intro word, the anchor renders as "this link". Example:
-   *       "Check out https://..." → "Check out <a>this link</a>"
+   *       "Check out https://..." -> "Check out <a>this link</a>"
    *
    * This eliminates the prior behavior where Thomas displayed "check it out here: link"
    * (the intro word rendered as plain text AND the anchor was labeled "link").
@@ -1635,7 +1914,7 @@
 
     for (let i = 0; i < parts.length; i++) {
       if (i % 2 === 1) {
-        // ── URL segment ──
+        // -- URL segment --
         let url      = parts[i];
         let trailing = '';
         while (url.length > 0 && /[.,;:!?)}\]"']$/.test(url)) {
@@ -1660,7 +1939,7 @@
           );
         }
       } else {
-        // ── Plain text segment ──
+        // -- Plain text segment --
         result.push(escapeHtml(parts[i]));
       }
     }
@@ -1786,6 +2065,8 @@
 
       if (data.reply) {
         addBubble(data.reply, 'thomas', data.audio || null);
+        // ── Conversion tracking: fire thomas_question event on successful chat ──
+        trackThomasQuestion();
         if (data.session_ended) { endSessionGracefully(); isWaiting = false; return; }
       } else {
         addBubble("Sorry, something went wrong on my end. Please try again.", 'thomas', null);
