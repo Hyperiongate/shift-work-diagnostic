@@ -2,7 +2,7 @@
 # app.py  —  Shift-Work Diagnostic Avatar (Thomas)
 # Shiftwork Solutions LLC
 # Created:      2026-03-15
-# Last Updated: 2026-05-06
+# Last Updated: 2026-05-17
 #
 # PURPOSE:
 #   Flask backend for Thomas, an AI advisor that helps
@@ -150,6 +150,36 @@
 #                Existing sleep/alertness support article mapping
 #                updated to reference both pages.
 #                No code, route, or function logic changed.
+#   2026-05-17 — SESSION ID VALIDATION FIX (BUG FIX).
+#                Closes a concurrency bug where every visitor whose
+#                browser did not supply a session_id was bucketed
+#                into a single shared key "default" in
+#                conversation_histories. Under any concurrent traffic
+#                this caused two visitors to see each other's
+#                conversation state.
+#
+#                Changes (additive only — no existing functionality
+#                removed or altered):
+#                  1. Added "import uuid" to imports.
+#                  2. Added validate_session_id() helper. Accepts
+#                     only 32-character lowercase hex strings (the
+#                     exact format produced by uuid.uuid4().hex).
+#                     Returns the valid value or None.
+#                  3. /opening: if the request omits or supplies an
+#                     invalid session_id, the server now generates a
+#                     fresh uuid.uuid4().hex. The literal string
+#                     "default" can no longer leak into the dict.
+#                  4. /chat: requires a valid session_id. Returns
+#                     400 with a clear error if missing or malformed.
+#                  5. /transcript: same validation as /chat.
+#                  6. /api/tts, /transcribe, /health, /booking-link
+#                     — untouched. They do not use session_id.
+#                  7. System prompt, opening text, all knowledge
+#                     blocks, all helper functions (Swarm, TTS,
+#                     STT, PDF generation, Formspree) — untouched.
+#                  8. Frontend requires no changes. It already sends
+#                     session_id on /chat and /transcript, and
+#                     /opening already generates and returns one.
 #
 # ROUTES:
 #   GET  /              — Serves Thomas chat UI
@@ -172,6 +202,7 @@
 
 import os
 import re
+import uuid
 import base64
 import requests
 import io
@@ -195,6 +226,44 @@ ELEVENLABS_TTS_URL  = f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_
 ELEVENLABS_STT_URL  = "https://api.elevenlabs.io/v1/speech-to-text"
 
 TEAMS_BOOKING_LINK  = "https://outlook.office365.com/book/ShiftworkSolutionsLLC2@shift-work.com/?ismsaljsauthenabled=true"
+
+
+# =============================================================
+# SESSION ID VALIDATION (added 2026-05-17)
+#
+# Accepts ONLY 32-character lowercase hex strings — the exact
+# format produced by uuid.uuid4().hex.
+#
+# This is intentionally strict. It rejects:
+#   - None / missing
+#   - Empty string
+#   - The literal "default" (the prior silent fallback)
+#   - Any value with the wrong length or non-hex characters
+#   - Uppercase hex (we generate lowercase so we accept lowercase)
+#
+# By matching the exact format of the IDs we ourselves generate,
+# we guarantee that no foreign or guessed value can land in the
+# conversation_histories dict and collide with another visitor.
+#
+# Returns the valid session_id string, or None if invalid.
+# =============================================================
+
+_SESSION_ID_RE = re.compile(r"^[0-9a-f]{32}$")
+
+
+def validate_session_id(value):
+    """
+    Return the value unchanged if it is a valid 32-char lowercase
+    hex string (the format produced by uuid.uuid4().hex).
+    Return None for any other input — including None, empty string,
+    wrong length, wrong charset, or the literal string "default".
+    """
+    if not isinstance(value, str):
+        return None
+    if not _SESSION_ID_RE.match(value):
+        return None
+    return value
+
 
 # =============================================================
 # LAYER 1: SWARM INTEGRATION — READ-ONLY NORMATIVE LOOKUP
@@ -940,10 +1009,18 @@ def opening():
     Return the opening message and audio.
     Called when the visitor dismisses the instructional overlay.
     No topic selection — Thomas handles everything organically.
-    Accepts: { session_id }
+
+    Accepts: { session_id (optional) }
+    If session_id is missing or invalid, the server generates a
+    fresh uuid.uuid4().hex value. This eliminates the prior shared
+    "default" key bug — see 2026-05-17 entry in change log.
     """
-    data       = request.get_json() or {}
-    session_id = data.get("session_id", "default")
+    data = request.get_json() or {}
+
+    # Accept a valid client-supplied session_id (returning visitor
+    # or testing tool) — but never silently fall back to a shared key.
+    incoming   = data.get("session_id")
+    session_id = validate_session_id(incoming) or uuid.uuid4().hex
 
     conversation_histories[session_id] = [{
         "role":    "assistant",
@@ -1031,6 +1108,13 @@ def chat():
     Main conversation route.
     Accepts: { message, session_id }
     No topic parameter — Thomas handles all topics organically.
+
+    session_id is REQUIRED and must be a valid 32-char lowercase
+    hex string (the format returned by /opening). Missing or
+    malformed session_id returns 400. This closes the prior bug
+    where missing session_id silently bucketed visitors into a
+    shared "default" key. See 2026-05-17 entry in change log.
+
     Returns bot_detected:true if bot signal received — frontend
     silently ends the session without displaying any message.
     """
@@ -1038,9 +1122,14 @@ def chat():
     if not data:
         return jsonify({"error": "No data provided"}), 400
 
-    session_id   = data.get("session_id", "default")
-    user_message = data.get("message", "").strip()
+    session_id = validate_session_id(data.get("session_id"))
+    if not session_id:
+        return jsonify({
+            "error": "Invalid or missing session_id. "
+                     "Call /opening first to obtain a session."
+        }), 400
 
+    user_message = data.get("message", "").strip()
     if not user_message:
         return jsonify({"error": "No message provided"}), 400
 
@@ -1162,10 +1251,24 @@ def email_transcript_via_formspree(session_id, messages, lead_info=None):
 
 @app.route("/transcript", methods=["POST"])
 def download_transcript():
+    """
+    Generate and return a PDF transcript for a session.
+
+    session_id is REQUIRED and must be a valid 32-char lowercase
+    hex string. Missing or malformed session_id returns 400.
+    See 2026-05-17 entry in change log.
+    """
     data = request.get_json()
     if not data:
         return jsonify({"error": "No data provided"}), 400
-    session_id = data.get("session_id", "default")
+
+    session_id = validate_session_id(data.get("session_id"))
+    if not session_id:
+        return jsonify({
+            "error": "Invalid or missing session_id. "
+                     "Call /opening first to obtain a session."
+        }), 400
+
     lead_info  = data.get("lead_info", None)
     messages   = conversation_histories.get(session_id, [])
     if not messages:
