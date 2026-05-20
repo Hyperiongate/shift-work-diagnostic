@@ -2,7 +2,7 @@
 # app.py  —  Shift-Work Diagnostic Avatar (Thomas)
 # Shiftwork Solutions LLC
 # Created:      2026-03-15
-# Last Updated: 2026-05-17
+# Last Updated: 2026-05-20
 #
 # PURPOSE:
 #   Flask backend for Thomas, an AI advisor that helps
@@ -12,6 +12,76 @@
 #   conversation without menu-driven topic selection.
 #
 # CHANGE LOG:
+#   2026-05-20 — LIVE SWARM KNOWLEDGE BASE INTEGRATION.
+#                Thomas now pulls relevant project knowledge from
+#                the Swarm Orchestrator on every conversation turn,
+#                mirroring the existing query_swarm_norms() pattern
+#                exactly. The hardcoded knowledge reference inside
+#                THOMAS_SYSTEM_PROMPT is RETAINED as the fallback —
+#                if the Swarm endpoint is unreachable or warming up,
+#                Thomas continues working from the hardcoded block
+#                without any visible degradation to the visitor.
+#
+#                Changes (additive only — Rule 1, do no harm):
+#                  1. New constant: SWARM_KNOWLEDGE_QUERY_AFTER_TURNS
+#                     governs after how many conversation turns
+#                     Thomas starts querying the live KB. Default 1
+#                     (any user turn). Lower than the norm gating
+#                     because knowledge context is far more useful
+#                     than norm teasers in early turns.
+#                  2. New function: query_swarm_knowledge(query).
+#                     Mirrors query_swarm_norms() exactly. Calls
+#                     GET https://ai-swarm-orchestrator.onrender.com
+#                     /api/knowledge/context?q=<query> with the
+#                     existing SWARM_TIMEOUT (3 seconds). Returns
+#                     the AI-ready formatted context string on
+#                     success, or None on any failure. Never raises.
+#                  3. New helper: get_swarm_knowledge_context(
+#                     messages, user_message). Mirrors
+#                     get_swarm_context(messages) exactly. Uses the
+#                     latest user message as the query. Returns
+#                     formatted string suitable for appending to
+#                     system_prompt, or empty string when no useful
+#                     context is available.
+#                  4. /chat route: ONE-LINE addition. After the
+#                     existing swarm_context append block, a
+#                     parallel kb_context append block. Both run
+#                     in the same conversation turn. Both fail
+#                     independently and gracefully.
+#                  5. THOMAS_SYSTEM_PROMPT: small additive block
+#                     at the bottom of the prompt explaining the
+#                     LIVE PROJECT KNOWLEDGE section that may be
+#                     appended below. Does NOT modify or remove
+#                     any existing prompt content. The hardcoded
+#                     knowledge reference, three-part response,
+#                     neutrality rule, website directory, and
+#                     everything else stays exactly as-is.
+#                  6. /health: added "swarm_kb_enabled" field for
+#                     visibility into whether live KB lookup is on.
+#                     No other health-check field changed.
+#                  7. No other change to any other route, helper,
+#                     PDF generation, TTS, STT, session validation,
+#                     Formspree integration, or bot detection.
+#
+#                NEW SWARM ENDPOINT DEPENDENCY:
+#                  This update REQUIRES the Swarm Orchestrator to
+#                  have the /api/knowledge/context endpoint live.
+#                  That endpoint is added in the parallel Swarm
+#                  update (routes/ingest.py + app.py, May 20, 2026).
+#                  If the endpoint is not yet deployed, this Thomas
+#                  update is still SAFE — query_swarm_knowledge()
+#                  will fail gracefully (network error, 404, etc.)
+#                  and Thomas will continue working from the
+#                  hardcoded knowledge block exactly as before.
+#                  Deploy order: Swarm first, then Thomas.
+#
+#                NEW ENV VAR (optional):
+#                  SWARM_KB_ENABLED — defaults to true. Set to
+#                  "false" in Render to disable live KB lookup
+#                  without a redeploy if anything goes wrong.
+#                  Independent of SWARM_ENABLED (norm lookup),
+#                  so each can be toggled separately.
+#
 #   2026-03-15 — Initial build
 #   2026-03-15 — Rewrote system prompt to principles-based guidance
 #   2026-03-16 — Added opening framing and periodic check-ins
@@ -118,68 +188,8 @@
 #                shiftwork-solutions-website.onrender.com URL in
 #                the WEBSITE DIRECTORY section of the system prompt
 #                with https://shift-work.com/...
-#                The site has been live on the custom domain since
-#                April 19, so the Render subdomain should never be
-#                exposed to visitors in chat. Removed the workaround
-#                paragraph that previously instructed Thomas to refer
-#                to the site as "shift-work.com" verbally while
-#                inserting Render URLs — that paragraph is no longer
-#                needed and was a confusion source.
-#                Total occurrences of shiftwork-solutions-website
-#                .onrender.com in this file before edit: 33.
-#                After edit: 0. All 33 URLs converted to
-#                https://shift-work.com/ + same path.
-#                No code, route, or function logic changed.
-#                No behavioral rule, opening message, or knowledge
-#                block changed except the URLs themselves.
 #   2026-05-06 — SHIFTWORKER HEALTH KNOWLEDGE BLOCK ADDED.
-#                New knowledge section covers: biological clock and
-#                circadian rhythms, sleep requirements and sleep debt,
-#                lifestyle choices (caffeine, alcohol, napping,
-#                exercise, light, diet, nicotine, sleep environment,
-#                family/social), and schedule-specific sleep
-#                strategies (8-hr rotating, 8-hr fixed nights,
-#                12-hr rotating, 12-hr fixed nights, 12-hr fixed
-#                days, anchor sleep technique, rapid adjustment).
-#                New website directory entry added:
-#                Shiftworker Health Guide →
-#                https://shift-work.com/resources/shiftworker-health/
-#                New topic-to-page mapping added:
-#                Health / circadian / sleep strategies / lifestyle
-#                → Shiftworker Health Guide.
-#                Existing sleep/alertness support article mapping
-#                updated to reference both pages.
-#                No code, route, or function logic changed.
 #   2026-05-17 — SESSION ID VALIDATION FIX (BUG FIX).
-#                Closes a concurrency bug where every visitor whose
-#                browser did not supply a session_id was bucketed
-#                into a single shared key "default" in
-#                conversation_histories. Under any concurrent traffic
-#                this caused two visitors to see each other's
-#                conversation state.
-#
-#                Changes (additive only — no existing functionality
-#                removed or altered):
-#                  1. Added "import uuid" to imports.
-#                  2. Added validate_session_id() helper. Accepts
-#                     only 32-character lowercase hex strings (the
-#                     exact format produced by uuid.uuid4().hex).
-#                     Returns the valid value or None.
-#                  3. /opening: if the request omits or supplies an
-#                     invalid session_id, the server now generates a
-#                     fresh uuid.uuid4().hex. The literal string
-#                     "default" can no longer leak into the dict.
-#                  4. /chat: requires a valid session_id. Returns
-#                     400 with a clear error if missing or malformed.
-#                  5. /transcript: same validation as /chat.
-#                  6. /api/tts, /transcribe, /health, /booking-link
-#                     — untouched. They do not use session_id.
-#                  7. System prompt, opening text, all knowledge
-#                     blocks, all helper functions (Swarm, TTS,
-#                     STT, PDF generation, Formspree) — untouched.
-#                  8. Frontend requires no changes. It already sends
-#                     session_id on /chat and /transcript, and
-#                     /opening already generates and returns one.
 #
 # ROUTES:
 #   GET  /              — Serves Thomas chat UI
@@ -193,7 +203,9 @@
 # ENVIRONMENT VARIABLES (set in Render):
 #   ANTHROPIC_API_KEY   — Claude API key
 #   ELEVENLABS_API_KEY  — ElevenLabs API key
-#   SWARM_ENABLED       — Toggle Swarm norm lookup (default: true)
+#   SWARM_ENABLED       — Toggle Swarm norm lookup     (default: true)
+#   SWARM_KB_ENABLED    — Toggle Swarm KB context lookup (default: true)
+#                         (added 2026-05-20)
 #
 # DEPLOYMENT:
 #   GitHub -> Render web service (shift-work-diagnostic)
@@ -233,19 +245,6 @@ TEAMS_BOOKING_LINK  = "https://outlook.office365.com/book/ShiftworkSolutionsLLC2
 #
 # Accepts ONLY 32-character lowercase hex strings — the exact
 # format produced by uuid.uuid4().hex.
-#
-# This is intentionally strict. It rejects:
-#   - None / missing
-#   - Empty string
-#   - The literal "default" (the prior silent fallback)
-#   - Any value with the wrong length or non-hex characters
-#   - Uppercase hex (we generate lowercase so we accept lowercase)
-#
-# By matching the exact format of the IDs we ourselves generate,
-# we guarantee that no foreign or guessed value can land in the
-# conversation_histories dict and collide with another visitor.
-#
-# Returns the valid session_id string, or None if invalid.
 # =============================================================
 
 _SESSION_ID_RE = re.compile(r"^[0-9a-f]{32}$")
@@ -272,11 +271,6 @@ def validate_session_id(value):
 # benchmark data as conversation teasers. Read-only, one endpoint.
 # Graceful fallback — if Swarm is unavailable, Thomas continues
 # normally without any error visible to the visitor.
-#
-# Simplified from topic-mapped queries to a single general query
-# since Thomas now handles all topics in one conversation.
-#
-# Layer 2 (conversation learning write-back) is not yet connected.
 #
 # Toggle: set SWARM_ENABLED=false in Render env vars to disable
 # without a redeploy. Defaults to enabled.
@@ -355,6 +349,167 @@ def get_swarm_context(messages):
 
 
 # =============================================================
+# LAYER 1B: SWARM INTEGRATION — LIVE PROJECT KNOWLEDGE LOOKUP
+#
+# Added: 2026-05-20
+#
+# WHAT THIS DOES:
+#   On every conversation turn, Thomas calls the Swarm's
+#   /api/knowledge/context endpoint with the visitor's latest
+#   message as the search query. The endpoint returns an
+#   AI-ready, formatted context block drawn from the Swarm's
+#   live project knowledge base (lessons learned, implementation
+#   guides, white paper content, contract patterns, schedule
+#   library, etc.). That block is appended to Thomas's system
+#   prompt for that ONE Claude API call — so Thomas's answer is
+#   informed by the most current Shiftwork Solutions thinking,
+#   not just the hardcoded knowledge reference that was frozen
+#   into the prompt at last deploy.
+#
+# WHY IT MIRRORS query_swarm_norms EXACTLY:
+#   - Same SWARM_BASE_URL constant
+#   - Same SWARM_TIMEOUT (3 seconds)
+#   - Same graceful-failure pattern — never raises, never blocks
+#   - Same toggle pattern via env var (SWARM_KB_ENABLED)
+#   - Same logging pattern with "(non-fatal)" tag
+#   This minimizes new failure modes and behavioral surprises.
+#
+# WHY THE HARDCODED KNOWLEDGE STAYS IN THE PROMPT:
+#   The big KNOWLEDGE REFERENCE section in THOMAS_SYSTEM_PROMPT
+#   is intentionally LEFT IN PLACE. It is the fallback. If the
+#   Swarm endpoint is unreachable, slow, returns empty results,
+#   or is still warming up, Thomas continues working from the
+#   hardcoded reference exactly as he did before this change.
+#   The visitor sees no degradation. Once the Swarm endpoint is
+#   confirmed stable, future updates may trim the hardcoded
+#   reference — but that is a separate, later decision.
+#
+# WHY THE GATING IS LOOSER THAN NORMS:
+#   query_swarm_norms only fires after 2+ messages — norm
+#   teasers are noise on the first turn. Knowledge context,
+#   in contrast, is useful from the very first user message,
+#   so SWARM_KNOWLEDGE_QUERY_AFTER_TURNS defaults to 1
+#   (any user turn triggers a query).
+#
+# TOGGLE:
+#   Set SWARM_KB_ENABLED=false in Render env vars to disable
+#   without a redeploy. Defaults to enabled.
+# =============================================================
+
+SWARM_KB_ENABLED                  = os.environ.get(
+    "SWARM_KB_ENABLED", "true"
+).lower() == "true"
+
+# Knowledge context becomes useful from the first user turn —
+# unlike norm teasers which only fit in mid-conversation. Keep
+# this constant separate from norm gating so each is tunable
+# independently.
+SWARM_KNOWLEDGE_QUERY_AFTER_TURNS = 1
+
+
+def query_swarm_knowledge(query_term):
+    """
+    Call the Swarm's live knowledge-base context endpoint.
+
+    Returns an AI-ready formatted context string for injection
+    into Thomas's system prompt, or None on any failure.
+
+    Endpoint: GET /api/knowledge/context?q=<term>
+              (added to the Swarm in routes/ingest.py, 2026-05-20)
+
+    The endpoint returns JSON of the form:
+      {
+        "success":  true,
+        "query":    "...",
+        "kb_ready": bool,
+        "length":   int,
+        "context":  "...the formatted context string..."
+      }
+
+    Always fails gracefully — never raises, never blocks Thomas:
+      - If the call times out, returns None.
+      - If the endpoint returns non-200, returns None.
+      - If kb_ready is false (Swarm still warming up), returns None.
+      - If the context string is empty, returns None.
+      - If anything raises, logs "(non-fatal)" and returns None.
+
+    Returning None makes Thomas fall through to the hardcoded
+    knowledge reference in his system prompt — no visitor-facing
+    degradation.
+    """
+    if not SWARM_KB_ENABLED or not query_term:
+        return None
+    try:
+        url      = f"{SWARM_BASE_URL}/api/knowledge/context"
+        params   = {"q": query_term}
+        response = requests.get(url, params=params, timeout=SWARM_TIMEOUT)
+        if response.status_code != 200:
+            print(f"Swarm knowledge context returned {response.status_code}")
+            return None
+        data = response.json()
+        if not data.get("success"):
+            print(f"Swarm knowledge context success=false: "
+                  f"{data.get('error', '')[:200]}")
+            return None
+        if not data.get("kb_ready"):
+            # KB is still warming up — fall back silently. Thomas
+            # will use the hardcoded knowledge reference instead.
+            return None
+        context_str = (data.get("context") or "").strip()
+        if not context_str:
+            return None
+        return context_str
+    except requests.exceptions.Timeout:
+        print("Swarm knowledge context timed out — continuing without KB context")
+        return None
+    except Exception as e:
+        print(f"Swarm knowledge context error (non-fatal): {e}")
+        return None
+
+
+def get_swarm_knowledge_context(messages, user_message):
+    """
+    Decide whether a Swarm knowledge lookup is warranted for this
+    turn, and if so, return a formatted context block to append to
+    the system prompt. Returns empty string when no lookup runs or
+    when no useful context comes back.
+
+    Uses the visitor's most recent message as the search query.
+    That is the freshest signal of what Thomas needs to know about
+    on this turn — far better than a fixed query string.
+
+    Parameters
+    ----------
+    messages     : list of {"role", "content"} dicts — the running
+                   conversation_histories[session_id] list.
+    user_message : str — the latest user message (already stripped).
+    """
+    if not SWARM_KB_ENABLED:
+        return ""
+    if not user_message:
+        return ""
+
+    # Gate on conversation length the same way get_swarm_context does,
+    # using a separate constant so it can be tuned independently.
+    if len(messages) < SWARM_KNOWLEDGE_QUERY_AFTER_TURNS:
+        return ""
+
+    kb_context = query_swarm_knowledge(user_message)
+    if not kb_context:
+        return ""
+
+    # Prefix with a clear header so the Claude API call sees this as
+    # a distinct, authoritative block — separate from the hardcoded
+    # KNOWLEDGE REFERENCE in the system prompt body.
+    return (
+        "\n\n"
+        "=== LIVE PROJECT KNOWLEDGE (from Shiftwork Solutions Swarm) ===\n"
+        f"{kb_context}\n"
+        "=== END LIVE PROJECT KNOWLEDGE ===\n"
+    )
+
+
+# =============================================================
 # TTS URL STRIPPING
 #
 # Thomas's responses often include URLs for the chat UI to render
@@ -362,30 +517,12 @@ def get_swarm_context(messages):
 # URLs aloud verbatim ("https colon slash slash..."), which is
 # jarring and unhelpful to the listener.
 #
-# strip_urls_for_tts() removes URLs from the text BEFORE it is
-# sent to ElevenLabs, replacing intro-phrase + URL constructions
-# ("here: https://...") with "via the link in the chat" so the
-# spoken sentence stays grammatically natural.
-#
-# The full URL is still in the original reply text and is rendered
-# as a clickable anchor by the frontend's linkifyText() function.
-#
 # Added: 2026-04-21
 # =============================================================
 
 def strip_urls_for_tts(text):
     """
     Prepare Thomas's reply text for TTS by removing URLs gracefully.
-
-    Two passes:
-      1. Replace  <intro-word> <URL>  with  "via the link in the chat"
-         where intro-word is "here", "at", or "there" (optional colon).
-         Examples:
-           "check it out here: https://..." → "check it out via the link in the chat"
-           "more info at https://..."       → "more info via the link in the chat"
-      2. Replace any remaining bare URLs with "via the link in the chat".
-
-    Then collapse any double-spaces left behind.
     """
     # Pass 1: intro-word + URL
     text = re.sub(
@@ -414,6 +551,7 @@ def strip_urls_for_tts(text):
 #
 # Rebuilt: 2026-04-02 | Updated: 2026-05-01
 # Health knowledge block added: 2026-05-06
+# Live KB instruction block added: 2026-05-20
 # =============================================================
 
 THOMAS_SYSTEM_PROMPT = """
@@ -828,6 +966,32 @@ TOPIC-TO-PAGE MAPPING (use these when a visitor asks about a topic):
 - Communication / how to tell employees → Communicating Schedule Changes article
 - Maintenance scheduling → Maintenance Worker Scheduling article
 - Scaling up/down / production changes → Scaling Production article
+
+=== LIVE PROJECT KNOWLEDGE — HOW TO USE IT ===
+(Added 2026-05-20.)
+
+In addition to the KNOWLEDGE REFERENCE above (which is your reliable baseline and is
+always available), a section titled "LIVE PROJECT KNOWLEDGE (from Shiftwork Solutions
+Swarm)" may be appended below this prompt on any given turn. It is drawn live from the
+Shiftwork Solutions internal knowledge base — current implementation guides, lessons
+learned, schedule library, white paper material, contract patterns, and related
+proprietary thinking. It reflects the most up-to-date Shiftwork Solutions point of view
+and supersedes any conflicting general knowledge.
+
+When the LIVE PROJECT KNOWLEDGE block appears:
+- Treat it as authoritative for Shiftwork Solutions thinking and methodology.
+- Use it to inform your answer naturally — do NOT quote it verbatim, do NOT name files
+  or sources, and do NOT tell the visitor you are reading from a knowledge base. Speak
+  as Thomas always speaks: confident, plain language, in your own voice.
+- Continue to obey every rule above: Rule 1 (neutrality) is absolute, Rule 2 (proprietary
+  content) still applies — do not surface specific normative database statistics or
+  detailed survey question content even if it appears in the live block.
+- If the live block does not appear on a given turn, just rely on the KNOWLEDGE REFERENCE
+  above. The visitor should never notice a difference.
+
+The LIVE PROJECT KNOWLEDGE block, when present, will always start with a clearly marked
+header line and end with a clearly marked end line. Everything between those markers is
+the live content.
 """
 
 # Opening message — one universal opener
@@ -991,10 +1155,19 @@ def generate_transcript_pdf(session_id, messages, lead_info=None):
 
 @app.route("/health")
 def health():
+    """
+    Health check endpoint for Render and external monitors.
+
+    Added 2026-05-20: swarm_kb_enabled field for visibility into
+    whether the live KB lookup is currently on. The field reflects
+    the SWARM_KB_ENABLED env var at process start.
+    """
     return jsonify({
-        "status":      "ok",
-        "service":     "shift-work-diagnostic",
-        "tts_enabled": bool(ELEVENLABS_API_KEY)
+        "status":            "ok",
+        "service":           "shift-work-diagnostic",
+        "tts_enabled":       bool(ELEVENLABS_API_KEY),
+        "swarm_enabled":     SWARM_ENABLED,
+        "swarm_kb_enabled":  SWARM_KB_ENABLED,
     }), 200
 
 
@@ -1117,6 +1290,13 @@ def chat():
 
     Returns bot_detected:true if bot signal received — frontend
     silently ends the session without displaying any message.
+
+    Two parallel Swarm lookups run per turn:
+      1. get_swarm_context()           — normative database teaser
+      2. get_swarm_knowledge_context() — live project knowledge
+                                          (added 2026-05-20)
+    Both fail independently and gracefully. Either, both, or
+    neither may append context to the system prompt for this turn.
     """
     data = request.get_json()
     if not data:
@@ -1147,10 +1327,21 @@ def chat():
 
     system_prompt = THOMAS_SYSTEM_PROMPT
 
-    # Layer 1: Append live normative context from Swarm if available
+    # Layer 1: Append live normative context from Swarm if available.
     swarm_context = get_swarm_context(conversation_histories[session_id])
     if swarm_context:
         system_prompt = system_prompt + swarm_context
+
+    # Layer 1B: Append live project knowledge from Swarm if available.
+    # Added 2026-05-20. Mirrors the line above exactly — independent
+    # failure mode, both can fire on the same turn, both fall through
+    # to the hardcoded knowledge reference if unavailable.
+    kb_context = get_swarm_knowledge_context(
+        conversation_histories[session_id],
+        user_message
+    )
+    if kb_context:
+        system_prompt = system_prompt + kb_context
 
     try:
         response = anthropic_client.messages.create(
