@@ -1,0 +1,1589 @@
+<!DOCTYPE html>
+<!--
+  live.html  —  Thomas Voice Avatar (Phase 2)
+  File: templates/live.html (served by app.py /live route)
+  Created:      2026-05-21
+  Last Updated: 2026-05-21
+
+  PURPOSE:
+    Voice-and-video front door for Thomas. Visitor sees:
+      - Streaming video avatar in upper-right corner (~3" square)
+      - Text-bubble conversation in the main pane (mirrors text Thomas)
+      - Continuous voice activity detection — no push-to-talk
+      - Same sidebar + footer + chrome as the text chat at /
+
+    Brain: same Flask backend, same /chat endpoint, same Claude system
+    prompt, same Swarm KB integration. The visitor's voice → ElevenLabs
+    STT via /transcribe → /chat → Claude reply → simultaneously
+    (a) rendered as a text bubble and (b) sent to LiveAvatar via
+    avatar.speak_text event so the on-screen avatar speaks it.
+
+  ARCHITECTURE:
+    - LiveKit JS SDK (CDN): WebRTC connection to LiveAvatar's room
+    - @ricky0123/vad-web (CDN): browser-side voice activity detection
+    - Vanilla JS — no build pipeline, no npm, no bundler
+    - All existing /chat, /opening, /transcribe routes reused
+
+  KEY DECISIONS (locked in 2026-05-21):
+    1. VAD library: @ricky0123/vad-web (ML-based, reliable across browsers)
+    2. Avatar position: fixed upper-right, ~280px square, non-draggable
+    3. Opening: explicit "Start Conversation" button (browser autoplay safe)
+    4. Session timeout: avatar disappears gracefully, text chat continues
+    5. Interruption: visitor can talk over the avatar (avatar.interrupt)
+    6. Text bubbles render simultaneously with avatar speech
+
+  CHANGE LOG:
+    2026-05-21 — Initial build. Phase 2 / Option B (SDK-based with
+                 LiveKit direct, no LiveAvatar SDK due to its npm-only
+                 packaging).
+
+  I did no harm and this file is not truncated
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thomas Live | Shiftwork Solutions Voice Advisor</title>
+
+<meta name="description" content="Talk live with Thomas, the AI shift operations advisor from Shiftwork Solutions LLC. Voice and video conversation backed by hundreds of facilities worth of consulting experience.">
+<meta name="robots" content="noindex, follow">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy:        #1F4E79;
+    --navy-dark:   #0D1F3C;
+    --navy-mid:    #163057;
+    --mid-blue:    #85B7EB;
+    --light-blue:  #EEF3F8;
+    --orange:      #E8610A;
+    --orange-lt:   #f5a623;
+    --green:       #1D9E75;
+    --white:       #ffffff;
+    --smoke:       #f4f6f9;
+    --gray:        #64748b;
+    --gray-lt:     #94a3b8;
+    --border:      #cbd5e1;
+    --thomas-bg:   #EEF3F8;
+    --user-bg:     #1F4E79;
+    --user-tx:     #ffffff;
+    --radius:      8px;
+    --radius-lg:   16px;
+    --shadow:      0 4px 24px rgba(12,31,63,0.08);
+    --shadow-lg:   0 8px 40px rgba(12,31,63,0.14);
+    --font-display: 'Playfair Display', Georgia, serif;
+    --font-body:    'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  html, body { height: 100%; overflow: hidden; }
+
+  body {
+    font-family: var(--font-body);
+    font-weight: 400;
+    background: var(--smoke);
+    color: var(--navy-dark);
+    display: flex;
+    flex-direction: column;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* -- Start overlay -- */
+  #start-overlay {
+    position: fixed; inset: 0;
+    background: rgba(13, 31, 60, 0.94);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow-y: auto;
+    transition: opacity 0.5s ease;
+    padding: 24px 16px;
+  }
+
+  #start-overlay.hidden { opacity: 0; pointer-events: none; }
+
+  .start-content {
+    max-width: 600px;
+    width: 100%;
+    text-align: center;
+  }
+
+  .start-eyebrow {
+    font-family: var(--font-body);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--orange);
+    margin-bottom: 10px;
+  }
+
+  .start-title {
+    font-family: var(--font-display);
+    font-size: 38px;
+    font-weight: 700;
+    color: var(--white);
+    line-height: 1.15;
+    margin-bottom: 14px;
+  }
+
+  .start-subtitle {
+    font-size: 15px;
+    color: rgba(255,255,255,0.75);
+    line-height: 1.65;
+    margin-bottom: 28px;
+  }
+
+  .start-features {
+    display: flex;
+    gap: 28px;
+    justify-content: center;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+  }
+
+  .start-feat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    max-width: 160px;
+  }
+
+  .start-feat-icon {
+    font-size: 20px;
+    width: 40px;
+    height: 40px;
+    background: rgba(232,97,10,0.15);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .start-feat-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--white);
+  }
+
+  .start-feat-desc {
+    font-size: 11.5px;
+    color: rgba(255,255,255,0.55);
+    line-height: 1.5;
+    text-align: center;
+  }
+
+  .start-btn {
+    background: var(--orange);
+    color: var(--white);
+    border: none;
+    border-radius: var(--radius);
+    padding: 16px 48px;
+    font-family: var(--font-body);
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    box-shadow: 0 4px 20px rgba(232,97,10,0.40);
+    letter-spacing: 0.01em;
+  }
+
+  .start-btn:hover  { background: #d4550a; }
+  .start-btn:active { transform: scale(0.97); }
+  .start-btn:disabled { background: #888; cursor: not-allowed; opacity: 0.6; }
+
+  .start-status {
+    margin-top: 18px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.6);
+    min-height: 18px;
+  }
+
+  .start-status.error { color: #fca5a5; }
+  .start-fallback {
+    margin-top: 14px;
+    font-size: 12.5px;
+    color: rgba(255,255,255,0.55);
+  }
+  .start-fallback a { color: var(--orange-lt); text-decoration: underline; }
+
+  /* -- Header -- */
+  header {
+    width: 100%;
+    background: var(--navy-dark);
+    padding: 0 28px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    border-bottom: 3px solid var(--orange);
+    flex-shrink: 0;
+    z-index: 10;
+  }
+
+  .logo-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    flex-shrink: 0;
+  }
+
+  .logo-mark {
+    width: 36px;
+    height: 36px;
+    background: var(--orange);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--white);
+    flex-shrink: 0;
+    letter-spacing: -0.02em;
+  }
+
+  .header-text h1 {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--white);
+    letter-spacing: -0.01em;
+  }
+
+  .header-text p {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--mid-blue);
+    margin-top: 1px;
+  }
+
+  .header-right { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+
+  .text-mode-link {
+    color: rgba(255,255,255,0.7);
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 6px 12px;
+    border: 1px solid rgba(133,183,235,0.35);
+    border-radius: var(--radius);
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .text-mode-link:hover { color: var(--white); border-color: rgba(255,255,255,0.55); }
+
+  .status-dot {
+    width: 8px; height: 8px;
+    background: #4ade80;
+    border-radius: 50%;
+    box-shadow: 0 0 6px #4ade80;
+    animation: pulse 2.4s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+  .status-dot.idle { background: #94a3b8; box-shadow: none; animation: none; }
+  .status-dot.listening { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
+  .status-dot.speaking { background: var(--orange); box-shadow: 0 0 8px var(--orange); }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.45} }
+
+  /* -- Main layout -- */
+  .main-layout { display: flex; flex: 1; min-height: 0; overflow: hidden; }
+
+  /* -- Sidebar -- */
+  .sidebar {
+    width: 244px;
+    flex-shrink: 0;
+    background: var(--white);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .sidebar-header {
+    background: var(--navy);
+    padding: 18px 16px 16px;
+  }
+
+  .sidebar-firm {
+    font-family: var(--font-body);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--mid-blue);
+    margin-bottom: 4px;
+  }
+
+  .sidebar-title {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--white);
+    line-height: 1.2;
+  }
+
+  .sidebar-body { padding: 16px 14px; }
+
+  .sidebar-section-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--gray-lt);
+    margin-bottom: 8px;
+  }
+
+  .sidebar-about {
+    font-size: 12.5px;
+    color: var(--gray);
+    line-height: 1.6;
+    margin-bottom: 16px;
+  }
+
+  .sidebar-about strong { color: var(--navy); font-weight: 600; }
+
+  .sidebar-divider { height: 1px; background: var(--border); margin: 12px 0; }
+
+  .action-btn {
+    display: block;
+    width: 100%;
+    text-align: center;
+    background: var(--orange);
+    color: var(--white);
+    border: none;
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    font-family: var(--font-body);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+    text-decoration: none;
+    margin-bottom: 8px;
+    letter-spacing: 0.01em;
+  }
+
+  .action-btn:hover { background: #c4510a; }
+
+  .sidebar-site-link {
+    display: block;
+    text-align: center;
+    font-size: 11.5px;
+    color: var(--orange);
+    text-decoration: none;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+
+  .sidebar-site-link:hover { text-decoration: underline; }
+
+  /* -- Chat column -- */
+  .chat-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .intro-card {
+    background: var(--light-blue);
+    border-bottom: 1px solid #c6d9ed;
+    border-left: 4px solid var(--orange);
+    padding: 10px 22px;
+    font-size: 13px;
+    color: var(--navy);
+    line-height: 1.6;
+    flex-shrink: 0;
+  }
+
+  .intro-card strong { font-weight: 700; }
+
+  #messages {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 22px 22px 10px 22px;
+    scroll-behavior: smooth;
+  }
+
+  /* Extra right-padding so text doesn't run under the corner avatar */
+  @media (min-width: 681px) {
+    #messages { padding-right: 320px; }
+  }
+
+  .bubble-row { display: flex; align-items: flex-end; gap: 10px; }
+  .bubble-row.thomas { justify-content: flex-start; }
+  .bubble-row.user   { justify-content: flex-end; }
+
+  .avatar-circle {
+    width: 34px;
+    height: 34px;
+    background: var(--navy);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--orange);
+    flex-shrink: 0;
+    letter-spacing: -0.02em;
+  }
+
+  .bubble {
+    max-width: 76%;
+    padding: 12px 16px;
+    border-radius: var(--radius-lg);
+    font-size: 14px;
+    line-height: 1.65;
+    box-shadow: var(--shadow);
+  }
+
+  .bubble-row.thomas .bubble {
+    background: var(--thomas-bg);
+    color: var(--navy-dark);
+    border-bottom-left-radius: 4px;
+  }
+
+  .bubble-row.user .bubble {
+    background: var(--user-bg);
+    color: var(--user-tx);
+    border-bottom-right-radius: 4px;
+  }
+
+  .bubble a {
+    color: var(--orange);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .bubble a:hover { color: #d4550a; }
+  .bubble-row.user .bubble a { color: var(--orange-lt); }
+
+  .typing-indicator {
+    display: none;
+    align-items: center;
+    gap: 5px;
+    padding: 12px 16px;
+    background: var(--thomas-bg);
+    border-radius: var(--radius-lg);
+    border-bottom-left-radius: 4px;
+    width: fit-content;
+    box-shadow: var(--shadow);
+  }
+
+  .typing-indicator span {
+    width: 7px;
+    height: 7px;
+    background: var(--navy);
+    border-radius: 50%;
+    opacity: 0.4;
+    animation: bounce 1.2s ease-in-out infinite;
+  }
+
+  .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+  .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes bounce {
+    0%,80%,100%{transform:translateY(0);opacity:0.4}
+    40%{transform:translateY(-6px);opacity:1}
+  }
+
+  /* ===========================================================
+     CORNER AVATAR — fixed upper-right, ~280px square
+     =========================================================== */
+  #avatar-corner {
+    position: fixed;
+    top: 80px;   /* below the 60px header + breathing room */
+    right: 20px;
+    width: 280px;
+    height: 280px;
+    background: #0D1F3C;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(12,31,63,0.30);
+    overflow: hidden;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.4s ease;
+  }
+  #avatar-corner.hidden { opacity: 0; pointer-events: none; }
+
+  #avatar-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: #0D1F3C;
+  }
+
+  #avatar-placeholder {
+    color: rgba(255,255,255,0.4);
+    font-size: 12px;
+    text-align: center;
+    padding: 16px;
+  }
+
+  /* Listening / speaking ring around the avatar */
+  #avatar-corner::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 14px;
+    border: 3px solid transparent;
+    pointer-events: none;
+    transition: border-color 0.2s;
+  }
+  #avatar-corner.listening::after { border-color: #f59e0b; }
+  #avatar-corner.speaking::after  { border-color: var(--orange); }
+
+  #avatar-label {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    right: 8px;
+    background: rgba(13,31,60,0.7);
+    color: var(--white);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 4px;
+    text-align: center;
+    letter-spacing: 0.04em;
+    backdrop-filter: blur(4px);
+  }
+
+  #avatar-timer {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(13,31,60,0.7);
+    color: var(--white);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 3px;
+    letter-spacing: 0.04em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ===========================================================
+     VOICE STATUS BAR — replaces input area from text chat
+     =========================================================== */
+  .voice-status-area {
+    flex-shrink: 0;
+    padding: 14px 22px;
+    background: var(--white);
+    border-top: 1px solid var(--border);
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .voice-status-text {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--gray);
+    line-height: 1.5;
+  }
+  .voice-status-text.listening { color: #d97706; font-weight: 600; }
+  .voice-status-text.thinking  { color: var(--orange); font-weight: 600; }
+  .voice-status-text.speaking  { color: var(--green); font-weight: 600; }
+  .voice-status-text.ended     { color: var(--gray-lt); font-weight: 500; }
+
+  .voice-status-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--smoke);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--gray);
+    transition: background 0.2s, color 0.2s;
+  }
+  .voice-status-icon.listening { background: #fef3c7; color: #d97706; }
+  .voice-status-icon.thinking  { background: #fed7aa; color: var(--orange); }
+  .voice-status-icon.speaking  { background: #d1fae5; color: var(--green); }
+
+  .voice-restart-btn {
+    background: var(--navy);
+    color: var(--white);
+    border: none;
+    border-radius: var(--radius);
+    padding: 8px 16px;
+    font-family: var(--font-body);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+    display: none;
+  }
+  .voice-restart-btn:hover { background: var(--orange); }
+  .voice-restart-btn.visible { display: inline-block; }
+
+  .disclaimer {
+    text-align: center;
+    font-size: 11px;
+    color: var(--gray-lt);
+    padding: 6px 16px;
+    background: var(--white);
+    border-top: 1px solid var(--border);
+    line-height: 1.5;
+  }
+
+  /* -- THOMAS FOOTER (same as text chat) -- */
+  .thomas-footer {
+    background: var(--navy-dark);
+    border-top: 1px solid rgba(255,255,255,0.08);
+    flex-shrink: 0;
+    padding: 14px 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0;
+  }
+
+  .tf-col {
+    padding: 0 18px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .tf-col:first-child { padding-left: 0; border-right: 1px solid rgba(255,255,255,0.08); }
+  .tf-col:last-child  { padding-right: 0; border-left: 1px solid rgba(255,255,255,0.08); }
+
+  .tf-label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--mid-blue);
+    line-height: 1;
+  }
+
+  .tf-btn {
+    display: inline-block;
+    padding: 8px 16px;
+    background: var(--orange);
+    color: var(--white);
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+    align-self: flex-start;
+  }
+
+  .tf-btn:hover { background: #c4510a; }
+
+  .tf-phone {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--white);
+    text-decoration: none;
+    letter-spacing: 0.01em;
+  }
+
+  .tf-phone:hover { color: var(--mid-blue); }
+
+  @media (max-width: 680px) {
+    .sidebar { display: none; }
+    #avatar-corner { width: 140px; height: 140px; top: 70px; right: 12px; }
+    #messages { padding-right: 22px; padding-top: 168px; }
+    .bubble  { max-width: 90%; }
+    header { padding: 0 16px; }
+    .thomas-footer { grid-template-columns: 1fr; gap: 12px; padding: 14px 16px; }
+    .tf-col { padding: 0; border: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════
+     START OVERLAY — decision #3 from build plan
+     Explicit click required (browser autoplay policy)
+═══════════════════════════════════════════════ -->
+<div id="start-overlay">
+  <div class="start-content">
+    <div class="start-eyebrow">Shiftwork Solutions AI Advisor</div>
+    <div class="start-title">Talk live with Thomas</div>
+    <div class="start-subtitle">
+      Voice and video conversation with the AI advisor backed by
+      Shiftwork Solutions&rsquo; experience across hundreds of facilities.
+      Speak naturally &mdash; no buttons to hold.
+    </div>
+
+    <div class="start-features">
+      <div class="start-feat">
+        <div class="start-feat-icon">&#x1F3A4;</div>
+        <div class="start-feat-label">Just speak</div>
+        <div class="start-feat-desc">Continuous voice &mdash; no push-to-talk.</div>
+      </div>
+      <div class="start-feat">
+        <div class="start-feat-icon">&#x1F4AC;</div>
+        <div class="start-feat-label">See and hear</div>
+        <div class="start-feat-desc">Thomas&rsquo;s replies appear as text and spoken video.</div>
+      </div>
+      <div class="start-feat">
+        <div class="start-feat-icon">&#x1F517;</div>
+        <div class="start-feat-label">Click any link</div>
+        <div class="start-feat-desc">Links in Thomas&rsquo;s replies open in new tabs.</div>
+      </div>
+    </div>
+
+    <button class="start-btn" id="start-btn" onclick="startSession()">
+      Start the conversation
+    </button>
+    <div class="start-status" id="start-status">
+      You&rsquo;ll be asked for microphone permission once you click.
+    </div>
+    <div class="start-fallback">
+      Prefer text only? <a href="/">Use the text version of Thomas</a>.
+    </div>
+  </div>
+</div>
+
+<!-- -- Header -- -->
+<header>
+  <a href="https://shift-work.com" class="logo-wrap" target="_blank" rel="noopener" aria-label="Shiftwork Solutions">
+    <div class="logo-mark">T</div>
+  </a>
+  <div class="header-text">
+    <h1>Thomas Live</h1>
+    <p>Shiftwork Solutions &nbsp;&middot;&nbsp; Voice Advisor</p>
+  </div>
+  <div class="header-right">
+    <a href="/" class="text-mode-link" title="Switch to text chat">Text mode</a>
+    <div class="status-dot idle" id="status-dot" title="Idle"></div>
+  </div>
+</header>
+
+<!-- -- Main layout -- -->
+<div class="main-layout">
+
+  <!-- -- Sidebar -- -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-firm">Shiftwork Solutions LLC</div>
+      <div class="sidebar-title">AI Voice Advisor</div>
+    </div>
+
+    <div class="sidebar-body">
+      <div class="sidebar-section-label">About Thomas</div>
+      <div class="sidebar-about">
+        <strong>Thomas</strong> is backed by Shiftwork Solutions&rsquo; experience across
+        hundreds of facilities. Speak naturally &mdash; he&rsquo;ll listen, respond,
+        and point you toward what you need on shift-work.com.
+      </div>
+
+      <div class="sidebar-divider"></div>
+
+      <div class="sidebar-section-label">Take Action</div>
+
+      <button class="action-btn" onclick="downloadTranscript()">
+        &#x1F4C4; Download transcript
+      </button>
+
+      <a class="sidebar-site-link" href="https://shift-work.com" target="_blank" rel="noopener">
+        Visit shift-work.com &rarr;
+      </a>
+    </div>
+  </aside>
+
+  <!-- -- Chat area -- -->
+  <div class="chat-area">
+
+    <div class="intro-card">
+      <strong>Thomas is listening.</strong>
+      Speak naturally about what&rsquo;s going on with your shift operations.
+      His video reply appears in the corner; the text appears here so you can
+      click any links he shares.
+    </div>
+
+    <div id="messages">
+      <div class="bubble-row thomas" id="typing-row">
+        <div class="avatar-circle">T</div>
+        <div class="typing-indicator" id="typing">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="voice-status-area">
+      <div class="voice-status-icon" id="vs-icon">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+          <path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm0 2a2 2 0 0 0-2 2v6a2 2 0 0 0 4 0V5a2 2 0 0 0-2-2zm-1 14.93V20H9v2h6v-2h-2v-2.07A7 7 0 0 0 19 11h-2a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.93z"/>
+        </svg>
+      </div>
+      <div class="voice-status-text" id="vs-text">Click Start to begin the conversation.</div>
+      <button class="voice-restart-btn" id="vs-restart" onclick="restartSession()">
+        Start new voice session
+      </button>
+    </div>
+
+    <p class="disclaimer">
+      Your conversation is private and not stored beyond this session.
+      Shiftwork Solutions LLC &nbsp;&middot;&nbsp; (415) 265-1621 &nbsp;&middot;&nbsp; shift-work.com
+    </p>
+
+    <!-- -- Corner avatar — fixed, upper-right -- -->
+    <div id="avatar-corner" class="hidden">
+      <video id="avatar-video" autoplay playsinline muted></video>
+      <div id="avatar-placeholder">Avatar will appear here</div>
+      <div id="avatar-label">THOMAS</div>
+      <div id="avatar-timer">5:00</div>
+    </div>
+
+    <!-- -- Footer (same as text chat) -- -->
+    <div class="thomas-footer">
+      <div class="tf-col">
+        <div class="tf-label">Free Consultation</div>
+        <a href="https://outlook.office365.com/book/ShiftworkSolutionsLLC2@shift-work.com/?ismsaljsauthenabled=true"
+           class="tf-btn" target="_blank" rel="noopener">Book a Free Meeting &rarr;</a>
+      </div>
+      <div class="tf-col" style="align-items:center;text-align:center;">
+        <div class="tf-label">Talk to Us Directly</div>
+        <a href="tel:+14152651621" class="tf-phone">(415) 265-1621</a>
+        <a href="https://shift-work.com/contact/" class="tf-btn" target="_blank" rel="noopener">
+          Contact Us &rarr;
+        </a>
+      </div>
+      <div class="tf-col">
+        <div class="tf-label">More from Thomas</div>
+        <a href="/" class="tf-btn">Switch to Text &rarr;</a>
+      </div>
+    </div>
+
+  </div><!-- /.chat-area -->
+</div><!-- /.main-layout -->
+
+<!-- ════════════════════════════════════════════
+     EXTERNAL LIBRARIES (CDN)
+     - LiveKit JS client SDK: WebRTC + room + data channels
+     - @ricky0123/vad-web: ML-based voice activity detection
+═══════════════════════════════════════════════ -->
+<script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/ort.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.19/dist/bundle.min.js"></script>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   Thomas Live — Phase 2 client-side JavaScript
+   ═══════════════════════════════════════════════════════════════════
+
+   GLOBAL STATE:
+     thomasSessionId       — the 32-char hex session id from /opening,
+                              shared with /chat and /transcript
+     liveAvatarSession     — { session_id, livekit_url,
+                                livekit_client_token, max_session_duration }
+     livekitRoom           — LiveKit Room instance (the WebRTC connection)
+     vad                   — MicVAD instance (voice activity detection)
+     conversationState     — one of: 'idle', 'listening', 'thinking',
+                                      'speaking', 'ended'
+     audioRecorder         — MediaRecorder for capturing audio chunks
+                              between VAD speech-start and speech-end
+     sessionTimerInterval  — setInterval handle for the countdown display
+     leadData              — placeholder for future lead-capture data
+
+   FLOW:
+     1. startSession()
+        → POST /api/live/session  → get LiveKit coords
+        → connect to LiveKit room → attach video track to corner
+        → POST /opening           → text bubble + send to avatar
+        → setupVAD()              → start listening
+     2. VAD detects speech start → audioRecorder.start()
+        VAD detects speech end   → audioRecorder.stop()
+                                  → POST /transcribe (audio blob)
+                                  → POST /chat (text)
+                                  → display text bubble
+                                  → send avatar.speak_text event
+     3. Session ends naturally or at 5min limit
+        → corner avatar fades out
+        → text mode continues to work via "Start new voice session"
+   ═══════════════════════════════════════════════════════════════════ */
+
+const messagesEl   = document.getElementById('messages');
+const typingEl     = document.getElementById('typing');
+const typingRow    = document.getElementById('typing-row');
+const startOverlay = document.getElementById('start-overlay');
+const startBtn     = document.getElementById('start-btn');
+const startStatus  = document.getElementById('start-status');
+const statusDot    = document.getElementById('status-dot');
+const avatarCorner = document.getElementById('avatar-corner');
+const avatarVideo  = document.getElementById('avatar-video');
+const avatarPlace  = document.getElementById('avatar-placeholder');
+const avatarTimer  = document.getElementById('avatar-timer');
+const vsIcon       = document.getElementById('vs-icon');
+const vsText       = document.getElementById('vs-text');
+const vsRestart    = document.getElementById('vs-restart');
+
+let thomasSessionId      = null;
+let liveAvatarSession    = null;
+let livekitRoom          = null;
+let vad                  = null;
+let audioRecorder        = null;
+let audioChunks          = [];
+let recordingStream      = null;
+let conversationState    = 'idle';
+let sessionTimerInterval = null;
+let sessionTimerEndsAt   = null;
+let leadData             = null;
+let avatarSpeaking       = false;
+let sessionEnded         = false;
+
+/* ─────────────────────────────────────────────────────
+   UI HELPERS
+   ───────────────────────────────────────────────────── */
+
+function setState(state, text) {
+  conversationState = state;
+  statusDot.classList.remove('idle', 'listening', 'speaking');
+  vsIcon.classList.remove('listening', 'thinking', 'speaking');
+  vsText.classList.remove('listening', 'thinking', 'speaking', 'ended');
+  avatarCorner.classList.remove('listening', 'speaking');
+
+  if (state === 'listening') {
+    statusDot.classList.add('listening');
+    statusDot.title = 'Listening';
+    vsIcon.classList.add('listening');
+    vsText.classList.add('listening');
+    vsText.textContent = text || 'Listening…';
+    avatarCorner.classList.add('listening');
+  } else if (state === 'thinking') {
+    vsIcon.classList.add('thinking');
+    vsText.classList.add('thinking');
+    vsText.textContent = text || 'Thinking…';
+  } else if (state === 'speaking') {
+    statusDot.classList.add('speaking');
+    statusDot.title = 'Speaking';
+    vsIcon.classList.add('speaking');
+    vsText.classList.add('speaking');
+    vsText.textContent = text || 'Thomas is speaking…';
+    avatarCorner.classList.add('speaking');
+  } else if (state === 'ended') {
+    statusDot.classList.add('idle');
+    statusDot.title = 'Voice session ended';
+    vsText.classList.add('ended');
+    vsText.textContent = text || 'Voice session ended.';
+    vsRestart.classList.add('visible');
+  } else {
+    statusDot.classList.add('idle');
+    statusDot.title = 'Idle';
+    vsText.textContent = text || '';
+  }
+}
+
+function scrollBottom() {
+  requestAnimationFrame(() => { messagesEl.scrollTop = messagesEl.scrollHeight; });
+}
+
+function showTyping() {
+  typingEl.style.display  = 'flex';
+  typingRow.style.display = 'flex';
+  scrollBottom();
+}
+
+function hideTyping() {
+  typingEl.style.display  = 'none';
+  typingRow.style.display = 'none';
+}
+
+/* ─────────────────────────────────────────────────────
+   linkifyText — same logic as text chat for consistency
+   ───────────────────────────────────────────────────── */
+function linkifyText(text) {
+  const urlRegex = /(https?:\/\/[^\s,;)"'<>]+)/gi;
+  const introRe = /(\s)((?:here|at|there)\s*:?\s*)$/i;
+
+  const parts  = text.split(urlRegex);
+  const result = [];
+
+  for (let i = 0; i < parts.length; i++) {
+    if (i % 2 === 1) {
+      let url      = parts[i];
+      let trailing = '';
+      while (url.length > 0 && /[.,;:!?)}\]"']$/.test(url)) {
+        trailing = url.slice(-1) + trailing;
+        url      = url.slice(0, -1);
+      }
+      const safeUrl  = url.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+      const safeTail = trailing.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+      const prevRaw  = parts[i - 1] || '';
+      const m        = prevRaw.match(introRe);
+
+      if (m) {
+        const trimmed = prevRaw.slice(0, prevRaw.length - m[0].length);
+        result[result.length - 1] = escapeHtml(trimmed);
+        result.push(
+          ' <a href="' + safeUrl + '" target="_blank" rel="noopener noreferrer">here</a>' + safeTail
+        );
+      } else {
+        result.push(
+          '<a href="' + safeUrl + '" target="_blank" rel="noopener noreferrer">this link</a>' + safeTail
+        );
+      }
+    } else {
+      result.push(escapeHtml(parts[i]));
+    }
+  }
+  return result.join('');
+
+  function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+}
+
+function addBubble(text, who) {
+  const row = document.createElement('div');
+  row.className = 'bubble-row ' + who;
+  if (who === 'thomas') {
+    const av = document.createElement('div');
+    av.className = 'avatar-circle';
+    av.textContent = 'T';
+    row.appendChild(av);
+  }
+  const bub = document.createElement('div');
+  bub.className = 'bubble';
+  if (who === 'thomas') {
+    bub.innerHTML = linkifyText(text);
+  } else {
+    bub.textContent = text;
+  }
+  row.appendChild(bub);
+  messagesEl.insertBefore(row, typingRow);
+  scrollBottom();
+}
+
+/* ─────────────────────────────────────────────────────
+   SESSION TIMER — counts down max_session_duration
+   ───────────────────────────────────────────────────── */
+function startSessionTimer(durationSec) {
+  sessionTimerEndsAt = Date.now() + durationSec * 1000;
+  updateTimer();
+  if (sessionTimerInterval) clearInterval(sessionTimerInterval);
+  sessionTimerInterval = setInterval(updateTimer, 1000);
+}
+
+function updateTimer() {
+  if (!sessionTimerEndsAt) return;
+  const remaining = Math.max(0, Math.floor((sessionTimerEndsAt - Date.now()) / 1000));
+  const mm = Math.floor(remaining / 60);
+  const ss = remaining % 60;
+  avatarTimer.textContent = mm + ':' + (ss < 10 ? '0' + ss : ss);
+  if (remaining === 0) {
+    clearInterval(sessionTimerInterval);
+    sessionTimerInterval = null;
+  }
+}
+
+function stopSessionTimer() {
+  if (sessionTimerInterval) clearInterval(sessionTimerInterval);
+  sessionTimerInterval = null;
+  sessionTimerEndsAt = null;
+}
+
+/* ─────────────────────────────────────────────────────
+   AVATAR EVENT HELPERS — send commands via LiveKit data
+   channel "agent-control" topic. See LiveAvatar docs:
+   https://docs.liveavatar.com/docs/full-mode/events
+   ───────────────────────────────────────────────────── */
+
+async function sendAvatarEvent(eventType, payload) {
+  if (!livekitRoom || livekitRoom.state !== 'connected') {
+    console.warn('Cannot send avatar event — room not connected:', eventType);
+    return;
+  }
+  const evt = {
+    event_id:        crypto.randomUUID(),
+    event_type:      eventType,
+    session_id:      liveAvatarSession ? liveAvatarSession.session_id : null,
+    source_event_id: null,
+  };
+  if (payload) Object.assign(evt, payload);
+  try {
+    const data = new TextEncoder().encode(JSON.stringify(evt));
+    await livekitRoom.localParticipant.publishData(data, {
+      reliable: true,
+      topic:    'agent-control',
+    });
+  } catch (err) {
+    console.error('Failed to publish avatar event:', eventType, err);
+  }
+}
+
+async function avatarSpeakText(text) {
+  await sendAvatarEvent('avatar.speak_text', { payload: { text: text } });
+}
+
+async function avatarInterrupt() {
+  await sendAvatarEvent('avatar.interrupt');
+}
+
+/* ─────────────────────────────────────────────────────
+   START SESSION — wired to the orange button
+   ───────────────────────────────────────────────────── */
+async function startSession() {
+  startBtn.disabled = true;
+  startStatus.classList.remove('error');
+  startStatus.textContent = 'Connecting…';
+
+  // Step 1: ask backend for LiveAvatar coords
+  try {
+    const resp = await fetch('/api/live/session', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({})
+    });
+    if (resp.status === 503) {
+      const err = await resp.json().catch(() => ({}));
+      startStatus.classList.add('error');
+      startStatus.textContent =
+        (err.error || 'Voice mode is not available right now.') +
+        ' Use the text chat instead.';
+      startBtn.disabled = false;
+      return;
+    }
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      startStatus.classList.add('error');
+      startStatus.textContent =
+        'Could not start: ' + (err.error || ('HTTP ' + resp.status)) +
+        '. Try again, or use the text chat.';
+      startBtn.disabled = false;
+      return;
+    }
+    const data = await resp.json();
+    if (!data.success) {
+      startStatus.classList.add('error');
+      startStatus.textContent =
+        'Could not start: ' + (data.error || 'unknown error') +
+        '. Try again, or use the text chat.';
+      startBtn.disabled = false;
+      return;
+    }
+    liveAvatarSession = data;
+  } catch (err) {
+    startStatus.classList.add('error');
+    startStatus.textContent =
+      'Network error reaching the server. Check your connection and try again.';
+    startBtn.disabled = false;
+    return;
+  }
+
+  // Step 2: connect to LiveKit room
+  startStatus.textContent = 'Connecting to avatar…';
+  try {
+    await connectLiveKit(
+      liveAvatarSession.livekit_url,
+      liveAvatarSession.livekit_client_token
+    );
+  } catch (err) {
+    console.error('LiveKit connect failed:', err);
+    startStatus.classList.add('error');
+    startStatus.textContent =
+      'Could not connect to the avatar stream. Try again, or use the text chat.';
+    startBtn.disabled = false;
+    return;
+  }
+
+  // Step 3: ask Flask for the opening message + create thomas session
+  startStatus.textContent = 'Saying hello…';
+  try {
+    const resp = await fetch('/opening', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({})
+    });
+    const data = await resp.json();
+    if (data.session_id) thomasSessionId = data.session_id;
+    if (data.reply) {
+      addBubble(data.reply, 'thomas');
+      await avatarSpeakText(data.reply);
+    }
+  } catch (err) {
+    console.warn('Opening fetch failed (continuing):', err);
+    addBubble(
+      "Hi, I'm Thomas — an AI advisor for Shiftwork Solutions. What's on your mind?",
+      'thomas'
+    );
+  }
+
+  // Step 4: dismiss overlay, start VAD
+  startOverlay.classList.add('hidden');
+  setTimeout(() => { startOverlay.style.display = 'none'; }, 500);
+  avatarCorner.classList.remove('hidden');
+  avatarPlace.style.display = 'none';
+
+  startSessionTimer(liveAvatarSession.max_session_duration || 300);
+
+  try {
+    await setupVAD();
+  } catch (err) {
+    console.error('VAD setup failed:', err);
+    setState('ended', 'Voice input failed to start. You can still see Thomas speak.');
+  }
+}
+
+/* ─────────────────────────────────────────────────────
+   LIVEKIT CONNECTION
+   ───────────────────────────────────────────────────── */
+async function connectLiveKit(url, token) {
+  const { Room, RoomEvent } = LivekitClient;
+  livekitRoom = new Room({
+    adaptiveStream: true,
+    dynacast: true,
+  });
+
+  // Avatar's video track arrives as a subscribed track
+  livekitRoom.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
+    if (track.kind === 'video') {
+      track.attach(avatarVideo);
+    } else if (track.kind === 'audio') {
+      // Attach audio to a hidden element so it plays through speakers
+      const audioEl = track.attach();
+      audioEl.style.display = 'none';
+      document.body.appendChild(audioEl);
+    }
+  });
+
+  livekitRoom.on(RoomEvent.TrackUnsubscribed, (track) => {
+    track.detach().forEach(el => el.remove());
+  });
+
+  // Listen for agent-response events on the data channel
+  livekitRoom.on(RoomEvent.DataReceived, (payload, participant, kind, topic) => {
+    if (topic !== 'agent-response') return;
+    try {
+      const evt = JSON.parse(new TextDecoder().decode(payload));
+      handleAgentResponseEvent(evt);
+    } catch (err) {
+      console.warn('Bad agent-response payload:', err);
+    }
+  });
+
+  livekitRoom.on(RoomEvent.Disconnected, () => {
+    console.log('LiveKit disconnected');
+    endVoiceSession('Connection ended.');
+  });
+
+  await livekitRoom.connect(url, token);
+  console.log('LiveKit connected. State:', livekitRoom.state);
+}
+
+/* ─────────────────────────────────────────────────────
+   AGENT-RESPONSE EVENT HANDLER
+   ───────────────────────────────────────────────────── */
+function handleAgentResponseEvent(evt) {
+  const type = evt.event_type;
+
+  if (type === 'avatar.speak_started') {
+    avatarSpeaking = true;
+    setState('speaking');
+  } else if (type === 'avatar.speak_ended') {
+    avatarSpeaking = false;
+    if (!sessionEnded) setState('listening');
+  } else if (type === 'session.stopped') {
+    const reason = (evt.payload && evt.payload.end_reason) || 'UNKNOWN';
+    console.log('Session stopped, reason:', reason);
+    let msg = 'Voice session ended.';
+    if (reason === 'MAX_DURATION_REACHED') {
+      msg = 'Voice session reached the 5-minute limit.';
+    } else if (reason === 'NO_CREDITS') {
+      msg = 'Voice credits ran out. Use text mode or try again later.';
+    } else if (reason === 'IDLE_TIMEOUT') {
+      msg = 'Voice session ended due to inactivity.';
+    }
+    endVoiceSession(msg);
+  }
+}
+
+/* ─────────────────────────────────────────────────────
+   VAD SETUP — continuous voice activity detection
+   Uses @ricky0123/vad-web. When the visitor starts
+   speaking, we start a MediaRecorder. When they pause,
+   we stop the recorder and send the blob to /transcribe.
+   ───────────────────────────────────────────────────── */
+async function setupVAD() {
+  // The MicVAD library exposes itself as `vad` on window when loaded
+  // via the CDN UMD bundle.
+  if (typeof vad === 'undefined' || !window.vad || !window.vad.MicVAD) {
+    throw new Error('VAD library not loaded');
+  }
+
+  setState('listening', 'Listening — go ahead.');
+
+  vad = await window.vad.MicVAD.new({
+    onSpeechStart: () => {
+      console.log('VAD: speech start');
+      if (avatarSpeaking) {
+        // User interrupts avatar (decision #5: interruption allowed)
+        avatarInterrupt();
+      }
+      startUtteranceRecording();
+    },
+    onSpeechEnd: (audio) => {
+      console.log('VAD: speech end (samples:', audio.length, ')');
+      stopUtteranceRecording();
+    },
+    // Tuning knobs — these defaults work well for normal conversation
+    positiveSpeechThreshold: 0.75,
+    negativeSpeechThreshold: 0.5,
+    minSpeechFrames: 4,
+    redemptionFrames: 8,
+  });
+
+  vad.start();
+  console.log('VAD started');
+}
+
+function startUtteranceRecording() {
+  if (audioRecorder && audioRecorder.state === 'recording') return;
+  // Use a fresh MediaStream so we have clean MIME-type control
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    recordingStream = stream;
+    audioChunks = [];
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+      ? 'audio/webm;codecs=opus'
+      : (MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '');
+    audioRecorder = mimeType
+      ? new MediaRecorder(stream, { mimeType: mimeType })
+      : new MediaRecorder(stream);
+    audioRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) audioChunks.push(e.data);
+    };
+    audioRecorder.onstop = handleUtteranceComplete;
+    audioRecorder.start(100);
+  }).catch(err => {
+    console.error('Could not start utterance recording:', err);
+  });
+}
+
+function stopUtteranceRecording() {
+  if (audioRecorder && audioRecorder.state === 'recording') {
+    audioRecorder.stop();
+  }
+}
+
+async function handleUtteranceComplete() {
+  // Tear down the recording stream
+  if (recordingStream) {
+    recordingStream.getTracks().forEach(t => t.stop());
+    recordingStream = null;
+  }
+
+  const mimeType = (audioRecorder && audioRecorder.mimeType) || 'audio/webm';
+  const blob = new Blob(audioChunks, { type: mimeType });
+  audioChunks = [];
+
+  if (blob.size < 1500) {
+    console.log('Utterance too short, ignoring (size:', blob.size, ')');
+    return;
+  }
+
+  setState('thinking', 'Transcribing what you said…');
+
+  // Step A: /transcribe via existing Flask route
+  let userText = '';
+  try {
+    const formData = new FormData();
+    formData.append('audio', blob, 'audio.webm');
+    const resp = await fetch('/transcribe', { method: 'POST', body: formData });
+    const data = await resp.json();
+    userText = (data.text || '').trim();
+  } catch (err) {
+    console.error('Transcribe failed:', err);
+    setState('listening', 'Transcription failed — try saying that again.');
+    return;
+  }
+
+  if (!userText) {
+    setState('listening', 'I didn’t catch that — try again.');
+    return;
+  }
+
+  addBubble(userText, 'user');
+  setState('thinking', 'Thomas is thinking…');
+  showTyping();
+
+  // Step B: /chat via existing Flask route
+  try {
+    const resp = await fetch('/chat', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        message:    userText,
+        session_id: thomasSessionId
+      })
+    });
+    const data = await resp.json();
+    hideTyping();
+
+    if (data.bot_detected) {
+      endVoiceSession('Voice session ended.');
+      return;
+    }
+
+    if (data.reply) {
+      // Decision #6: text bubble appears simultaneously with avatar speech
+      addBubble(data.reply, 'thomas');
+      setState('speaking', 'Thomas is speaking…');
+      await avatarSpeakText(data.reply);
+      // The avatar.speak_started / avatar.speak_ended events from the
+      // agent will flip state back to 'listening' when the avatar
+      // finishes speaking. We don't manually transition here.
+    } else {
+      addBubble("Sorry, something went wrong on my end. Please try again.", 'thomas');
+      setState('listening', 'Listening — go ahead.');
+    }
+  } catch (err) {
+    console.error('Chat failed:', err);
+    hideTyping();
+    addBubble("Connection issue — please try again.", 'thomas');
+    setState('listening', 'Listening — go ahead.');
+  }
+}
+
+/* ─────────────────────────────────────────────────────
+   END / RESTART
+   ───────────────────────────────────────────────────── */
+async function endVoiceSession(reasonText) {
+  if (sessionEnded) return;
+  sessionEnded = true;
+
+  stopSessionTimer();
+
+  if (vad) {
+    try { vad.pause(); } catch (e) { /* ignore */ }
+    vad = null;
+  }
+
+  if (audioRecorder && audioRecorder.state === 'recording') {
+    try { audioRecorder.stop(); } catch (e) { /* ignore */ }
+  }
+  if (recordingStream) {
+    recordingStream.getTracks().forEach(t => t.stop());
+    recordingStream = null;
+  }
+
+  if (livekitRoom && livekitRoom.state === 'connected') {
+    try { await livekitRoom.disconnect(); } catch (e) { /* ignore */ }
+  }
+
+  // Decision #4: avatar gracefully disappears, text mode continues
+  avatarCorner.classList.add('hidden');
+  setTimeout(() => {
+    avatarPlace.style.display = 'block';
+  }, 500);
+
+  setState('ended', reasonText || 'Voice session ended.');
+}
+
+async function restartSession() {
+  // Hide restart button, reset state, reopen overlay
+  vsRestart.classList.remove('visible');
+  sessionEnded = false;
+  setState('idle', '');
+  // Clear messages back to typing row only
+  Array.from(messagesEl.children).forEach(child => {
+    if (child.id !== 'typing-row') child.remove();
+  });
+  startOverlay.style.display = 'flex';
+  setTimeout(() => { startOverlay.classList.remove('hidden'); }, 10);
+  startBtn.disabled = false;
+  startStatus.classList.remove('error');
+  startStatus.textContent =
+    'You\u2019ll be asked for microphone permission once you click.';
+  thomasSessionId = null;
+  liveAvatarSession = null;
+}
+
+/* ─────────────────────────────────────────────────────
+   TRANSCRIPT DOWNLOAD (same as text chat)
+   ───────────────────────────────────────────────────── */
+async function downloadTranscript() {
+  if (!thomasSessionId) {
+    alert('Please start a conversation first — then you can download its transcript.');
+    return;
+  }
+  try {
+    const resp = await fetch('/transcript', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ session_id: thomasSessionId, lead_info: leadData || null })
+    });
+    if (!resp.ok) {
+      const err = await resp.json();
+      alert('Could not generate transcript: ' + (err.error || 'Unknown error'));
+      return;
+    }
+    const blob = await resp.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = 'Shiftwork-Diagnostic-' + new Date().toISOString().slice(0,10) + '.pdf';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    alert('Transcript download failed. Please try again.');
+  }
+}
+
+/* ─────────────────────────────────────────────────────
+   PAGE UNLOAD CLEANUP — best-effort
+   ───────────────────────────────────────────────────── */
+window.addEventListener('beforeunload', () => {
+  // Stop VAD
+  if (vad) { try { vad.pause(); } catch (e) {} }
+  // Stop LiveKit
+  if (livekitRoom && livekitRoom.state === 'connected') {
+    try { livekitRoom.disconnect(); } catch (e) {}
+  }
+  // Best-effort tell the server to close the LiveAvatar session
+  if (liveAvatarSession && liveAvatarSession.session_id && navigator.sendBeacon) {
+    const data = JSON.stringify({
+      session_id: liveAvatarSession.session_id
+    });
+    navigator.sendBeacon(
+      '/api/live/session/stop',
+      new Blob([data], { type: 'application/json' })
+    );
+  }
+});
+</script>
+
+</body>
+</html>
+
+<!-- I did no harm and this file is not truncated -->
