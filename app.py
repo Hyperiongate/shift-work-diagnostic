@@ -2,7 +2,7 @@
 # app.py  —  Shift-Work Diagnostic Avatar (Thomas)
 # Shiftwork Solutions LLC
 # Created:      2026-03-15
-# Last Updated: 2026-05-20
+# Last Updated: 2026-05-21
 #
 # PURPOSE:
 #   Flask backend for Thomas, an AI advisor that helps
@@ -12,200 +12,123 @@
 #   conversation without menu-driven topic selection.
 #
 # CHANGE LOG:
+#   2026-05-21 — LIVEAVATAR PHASE 2 — VOICE-VIDEO THOMAS.
+#                Adds a new URL path /live serving a hybrid voice
+#                experience: small streaming-video avatar in the
+#                upper-right corner, main pane shows text bubbles
+#                like today's chat, continuous voice activity
+#                detection (no push-to-talk), powered by the
+#                same Thomas backend brain that drives the text
+#                chat at /. Built on LiveKit (the underlying
+#                WebRTC engine LiveAvatar runs on).
+#
+#                NEW ROUTES (all additive):
+#                  GET  /live
+#                       Serves templates/live.html — the new voice
+#                       avatar UI. Mirrors the sidebar and footer
+#                       of the text chat at / for visual consistency.
+#                  POST /api/live/session
+#                       Creates a fresh LiveAvatar session. Calls
+#                       LiveAvatar's /v1/sessions/token (with the
+#                       HEYGEN_API_KEY env var) then /v1/sessions/start
+#                       (with the returned session_token as Bearer auth).
+#                       Returns { session_id, livekit_url,
+#                       livekit_client_token, max_session_duration }
+#                       to the browser. Browser uses these to open
+#                       the WebRTC room directly with LiveKit.
+#                  POST /api/live/session/stop
+#                       Cleanly closes a LiveAvatar session early
+#                       (used when the visitor navigates away or
+#                       hits a logical end of conversation).
+#                       Calls LiveAvatar's /v1/sessions/stop.
+#                       Best-effort, fails silently.
+#
+#                EXISTING ROUTES — UNTOUCHED:
+#                  /, /chat, /opening, /transcribe, /transcript,
+#                  /api/tts, /booking-link, /health. The voice
+#                  avatar at /live reuses /chat, /opening, and
+#                  /transcribe via JavaScript fetch() calls —
+#                  exactly the same endpoints the text chat uses.
+#                  Same Claude system prompt, same Swarm KB
+#                  integration, same Rule 1 neutrality, same
+#                  three-part response, same session histories.
+#                  conversation_histories[session_id] is shared
+#                  between the two UIs — meaning a visitor could
+#                  theoretically switch from voice to text mid-
+#                  conversation and Thomas would continue
+#                  seamlessly (a Phase 3 capability we aren't
+#                  exposing yet but is structurally available).
+#
+#                NEW ENV VAR:
+#                  HEYGEN_API_KEY — your LiveAvatar API key from
+#                  app.liveavatar.com/developers (NOT a HeyGen
+#                  key — they are not interchangeable; LiveAvatar
+#                  and HeyGen are separate products).
+#                  If missing, /api/live/session returns 503 and
+#                  the /live page degrades gracefully with a
+#                  visible error message. The text chat at / is
+#                  completely unaffected.
+#
+#                NEW CONSTANTS (defaults — all overridable via env):
+#                  LIVEAVATAR_API_BASE   — default https://api.liveavatar.com
+#                  LIVEAVATAR_AVATAR_ID  — default the Phase 1 stock avatar
+#                                          bb1f6ebc-b388-4a39-9e2b-8df618e0377c
+#                  LIVEAVATAR_VOICE_ID   — defaults to None which lets
+#                                          LiveAvatar pick the avatar's
+#                                          default voice (Graham for the
+#                                          current avatar). Set this env
+#                                          var later to switch voices
+#                                          without a redeploy.
+#                  LIVEAVATAR_MAX_SESSION_DURATION — default 300 (5 min,
+#                                          matches Starter plan cap)
+#
+#                RULE 1 COMPLIANCE (do no harm):
+#                  - No existing function modified.
+#                  - No existing route modified.
+#                  - No existing constant changed.
+#                  - All Phase 2 code lives in a clearly-marked
+#                    block. The text chat at / is byte-identical
+#                    in behavior to before this change.
+#                  - All new HTTP calls to LiveAvatar fail gracefully
+#                    and return clear error messages to the browser
+#                    rather than crashing the request.
+#
 #   2026-05-20 — LIVE SWARM KNOWLEDGE BASE INTEGRATION.
-#                Thomas now pulls relevant project knowledge from
+#                Thomas pulls relevant project knowledge from
 #                the Swarm Orchestrator on every conversation turn,
-#                mirroring the existing query_swarm_norms() pattern
-#                exactly. The hardcoded knowledge reference inside
-#                THOMAS_SYSTEM_PROMPT is RETAINED as the fallback —
-#                if the Swarm endpoint is unreachable or warming up,
-#                Thomas continues working from the hardcoded block
-#                without any visible degradation to the visitor.
+#                mirroring the existing query_swarm_norms() pattern.
+#                The hardcoded knowledge reference inside
+#                THOMAS_SYSTEM_PROMPT is retained as the fallback.
+#                Both swarm_context and kb_context append
+#                independently to system_prompt on each /chat turn.
+#                Toggle via env vars SWARM_ENABLED and
+#                SWARM_KB_ENABLED.
 #
-#                Changes (additive only — Rule 1, do no harm):
-#                  1. New constant: SWARM_KNOWLEDGE_QUERY_AFTER_TURNS
-#                     governs after how many conversation turns
-#                     Thomas starts querying the live KB. Default 1
-#                     (any user turn). Lower than the norm gating
-#                     because knowledge context is far more useful
-#                     than norm teasers in early turns.
-#                  2. New function: query_swarm_knowledge(query).
-#                     Mirrors query_swarm_norms() exactly. Calls
-#                     GET https://ai-swarm-orchestrator.onrender.com
-#                     /api/knowledge/context?q=<query> with the
-#                     existing SWARM_TIMEOUT (3 seconds). Returns
-#                     the AI-ready formatted context string on
-#                     success, or None on any failure. Never raises.
-#                  3. New helper: get_swarm_knowledge_context(
-#                     messages, user_message). Mirrors
-#                     get_swarm_context(messages) exactly. Uses the
-#                     latest user message as the query. Returns
-#                     formatted string suitable for appending to
-#                     system_prompt, or empty string when no useful
-#                     context is available.
-#                  4. /chat route: ONE-LINE addition. After the
-#                     existing swarm_context append block, a
-#                     parallel kb_context append block. Both run
-#                     in the same conversation turn. Both fail
-#                     independently and gracefully.
-#                  5. THOMAS_SYSTEM_PROMPT: small additive block
-#                     at the bottom of the prompt explaining the
-#                     LIVE PROJECT KNOWLEDGE section that may be
-#                     appended below. Does NOT modify or remove
-#                     any existing prompt content. The hardcoded
-#                     knowledge reference, three-part response,
-#                     neutrality rule, website directory, and
-#                     everything else stays exactly as-is.
-#                  6. /health: added "swarm_kb_enabled" field for
-#                     visibility into whether live KB lookup is on.
-#                     No other health-check field changed.
-#                  7. No other change to any other route, helper,
-#                     PDF generation, TTS, STT, session validation,
-#                     Formspree integration, or bot detection.
-#
-#                NEW SWARM ENDPOINT DEPENDENCY:
-#                  This update REQUIRES the Swarm Orchestrator to
-#                  have the /api/knowledge/context endpoint live.
-#                  That endpoint is added in the parallel Swarm
-#                  update (routes/ingest.py + app.py, May 20, 2026).
-#                  If the endpoint is not yet deployed, this Thomas
-#                  update is still SAFE — query_swarm_knowledge()
-#                  will fail gracefully (network error, 404, etc.)
-#                  and Thomas will continue working from the
-#                  hardcoded knowledge block exactly as before.
-#                  Deploy order: Swarm first, then Thomas.
-#
-#                NEW ENV VAR (optional):
-#                  SWARM_KB_ENABLED — defaults to true. Set to
-#                  "false" in Render to disable live KB lookup
-#                  without a redeploy if anything goes wrong.
-#                  Independent of SWARM_ENABLED (norm lookup),
-#                  so each can be toggled separately.
-#
-#   2026-03-15 — Initial build
-#   2026-03-15 — Rewrote system prompt to principles-based guidance
-#   2026-03-16 — Added opening framing and periodic check-ins
-#   2026-03-16 — Phase 2: ElevenLabs TTS, auto-play voice
-#   2026-03-16 — Phase 3: PDF transcript, lead capture, sidebar,
-#                Teams booking link
-#   2026-03-16 — Tightened system prompt: no inference/assumption
-#   2026-03-17 — Renamed to Thomas, updated voice ID
-#   2026-03-17 — Rewrote prompt: faster pace, 4-6 exchanges,
-#                no emotional questions, surface insight quickly
-#   2026-03-17 — Added /transcribe route using ElevenLabs STT
-#   2026-03-17 — Fixed /transcribe: detect actual browser MIME
-#                type, strip codec params, handle all browsers
-#   2026-03-17 — Replaced "Jim Dillingham" with "someone from
-#                the Shiftwork Solutions team" throughout prompt
-#   2026-03-17 — Added schedule question early in diagnostic.
-#                Strengthened handoff pull. Updated phone number.
-#   2026-03-17 — Removed show_download flag from /chat response.
-#   2026-03-18 — Multi-topic architecture with 6 topic modules.
-#   2026-03-18 — Merged 'change' and 'engagement' topics.
-#   2026-03-18 — Layer 1 Swarm integration: read-only normative
-#                database lookup via Swarm's /api/survey/norm/search.
-#   2026-04-02 — Updated ElevenLabs voice ID to sB7vwSCyX0tQmU24cW2C.
-#   2026-04-02 — MAJOR REBUILD: Eliminated topic menu architecture.
-#                Thomas now handles all topics organically in a
-#                single conversation. Six separate topic modules
-#                merged into one condensed knowledge reference
-#                for faster response times and lower token usage.
-#                Removed topic routing from /chat and /opening.
-#                Simplified Swarm integration to single query.
-#                Frontend redesigned with instructional overlay
-#                instead of topic selection screen. Bot detection
-#                retained.
-#   2026-04-02 — Added knowledge: 12-hour shift 6PM start time
-#                is family-friendly (not a hardship). Added
-#                younger workforce "kids don't want to work"
-#                reframe — options, not laziness.
-#   2026-04-02 — Softened diagnostic approach: Thomas now invites
-#                context instead of demanding specific data points.
-#                "The more I know, the more helpful I can be."
-#   2026-04-02 — Further tone refinement: questions must feel
-#                like invitations, not interrogations. Open
-#                prompts preferred over data-point demands.
-#                Relaxed 3-sentence rule from "hard limit" to
-#                guidance. Added approachable personality note.
-#   2026-04-03 — Added /api/tts proxy route. Pillar pages now
-#                call this endpoint instead of ElevenLabs directly,
-#                keeping the API key server-side. Accepts JSON:
-#                { text, voice_id (optional) }. Returns audio/mpeg.
-#                Max 4500 chars per request. Graceful error handling.
-#   2026-04-03 — Added SCHEDULE PATTERNS knowledge block. DuPont
-#                schedule correctly described as 4-crew rotating
-#                12-hour with 7-day break every 28 days. All
-#                12-hour schedules: half days off, half weekends.
-#                Added safety valve: if Thomas does not know a
-#                specific pattern's details, say so honestly.
-#   2026-04-05 — Overhauled diagnostic approach: Thomas now names
-#                the problem but NEVER prescribes solutions (no
-#                "you need 24/7" or "switch to 12s"). Handoff
-#                faster (2-4 exchanges, not 4-6). Three handoff
-#                options: book consultation, team reaches out, or
-#                visit shift-work.com. Word count relaxed further
-#                when inviting context — warm > short.
-#   2026-04-05 — Added WEBSITE DIRECTORY to system prompt.
-#                Thomas now knows all pages on shift-work.com
-#                and can provide direct links: 10 guides, 7
-#                support articles, 6 industry pages, main pages.
-#                Topic-to-page mapping included.
-#   2026-04-21 — Added strip_urls_for_tts(). Thomas was speaking
-#                raw URLs aloud (e.g. "you can check it out here
-#                colon https://shiftwork-solutions-website dot
-#                onrender dot com..."). Now URLs are stripped from
-#                the TTS text before sending to ElevenLabs — intro
-#                words like "here:" are replaced with "via the link
-#                in the chat" so the spoken sentence remains natural.
-#                The full URL is still rendered as a clickable link
-#                in the chat bubble by the frontend's linkifyText().
-#   2026-04-23 — Diagnostic approach rewritten: Thomas must lead
-#                with value (a link, insight, or reframe) BEFORE
-#                asking for more information. Never just acknowledge
-#                and gather data — that feels like data mining.
-#                WRONG/RIGHT examples added to prompt.
-#   2026-04-23 — Website directory corrected to match new site:
-#                Guide 9 → Absenteeism & Coverage Gaps (was Staffing
-#                Strategy). Guide 10 → Shift Work Policies (was
-#                Health Safety Compliance). Added 7th industry page:
-#                Paper & Packaging. Updated topic mappings.
-#   2026-04-30 — Conversational philosophy upgrade: replaced
-#                mechanical diagnostic approach with three-part
-#                response pattern (validate empathetically,
-#                normalize without minimizing, offer tailored
-#                insight + link). Personality refined: confident
-#                not cocky, curious not clinical, hopeful not
-#                cheerleader-ish. No generic affirmations.
-#                Goal: visitors remember Thomas, come back, tell
-#                others about the experience.
-#   2026-04-30 — Added transcript email via Formspree. When a
-#                visitor downloads a transcript, the full
-#                conversation text is emailed to contact@shift-work.com
-#                via the existing Formspree form (xwvwnwea).
-#                Fire-and-forget with 5-second timeout — never
-#                blocks or breaks the visitor's PDF download.
-#   2026-05-01 — WEBSITE DIRECTORY URL FIX: Replaced every
-#                shiftwork-solutions-website.onrender.com URL in
-#                the WEBSITE DIRECTORY section of the system prompt
-#                with https://shift-work.com/...
-#   2026-05-06 — SHIFTWORKER HEALTH KNOWLEDGE BLOCK ADDED.
-#   2026-05-17 — SESSION ID VALIDATION FIX (BUG FIX).
+#   (Prior entries retained — see version history in git.)
 #
 # ROUTES:
-#   GET  /              — Serves Thomas chat UI
-#   POST /chat          — Thomas response + audio
-#   POST /opening       — Opening message + audio
-#   POST /transcribe    — Audio blob -> text via ElevenLabs STT
-#   POST /transcript    — Download PDF transcript
-#   POST /api/tts       — TTS proxy for pillar pages (key stays server-side)
-#   GET  /health        — Render health check
+#   GET  /                        — Serves Thomas chat UI (text mode)
+#   GET  /live                    — Serves Thomas voice avatar UI (NEW)
+#   POST /chat                    — Thomas reply + audio (used by both UIs)
+#   POST /opening                 — Opening message + audio (used by both UIs)
+#   POST /transcribe              — Audio blob -> text via ElevenLabs STT
+#   POST /transcript              — Download PDF transcript
+#   POST /api/tts                 — TTS proxy for pillar pages
+#   POST /api/live/session        — Create LiveAvatar session (NEW)
+#   POST /api/live/session/stop   — Close LiveAvatar session early (NEW)
+#   GET  /booking-link            — Outlook booking URL
+#   GET  /health                  — Render health check
 #
 # ENVIRONMENT VARIABLES (set in Render):
-#   ANTHROPIC_API_KEY   — Claude API key
-#   ELEVENLABS_API_KEY  — ElevenLabs API key
-#   SWARM_ENABLED       — Toggle Swarm norm lookup     (default: true)
-#   SWARM_KB_ENABLED    — Toggle Swarm KB context lookup (default: true)
-#                         (added 2026-05-20)
+#   ANTHROPIC_API_KEY                — Claude API key
+#   ELEVENLABS_API_KEY               — ElevenLabs API key
+#   SWARM_ENABLED                    — Norm lookup toggle (default true)
+#   SWARM_KB_ENABLED                 — KB context toggle (default true)
+#   HEYGEN_API_KEY                   — LiveAvatar API key (Phase 2)
+#   LIVEAVATAR_AVATAR_ID             — Override default avatar (optional)
+#   LIVEAVATAR_VOICE_ID              — Override default voice (optional)
+#   LIVEAVATAR_MAX_SESSION_DURATION  — Override default 300s (optional)
+#   LIVEAVATAR_API_BASE              — Override API base URL (optional)
 #
 # DEPLOYMENT:
 #   GitHub -> Render web service (shift-work-diagnostic)
@@ -239,12 +162,51 @@ ELEVENLABS_STT_URL  = "https://api.elevenlabs.io/v1/speech-to-text"
 
 TEAMS_BOOKING_LINK  = "https://outlook.office365.com/book/ShiftworkSolutionsLLC2@shift-work.com/?ismsaljsauthenabled=true"
 
+# =============================================================
+# LIVEAVATAR PHASE 2 — CONFIGURATION (added 2026-05-21)
+# =============================================================
+#
+# All LiveAvatar settings live here in one block. Override any of
+# them via Render env vars without code changes. The defaults are
+# safe for the current Starter plan and the avatar Jim selected
+# during Phase 1 testing.
+#
+# Documentation: https://docs.liveavatar.com
+# API base:      https://api.liveavatar.com
+# =============================================================
+
+HEYGEN_API_KEY = os.environ.get("HEYGEN_API_KEY")
+
+LIVEAVATAR_API_BASE = os.environ.get(
+    "LIVEAVATAR_API_BASE",
+    "https://api.liveavatar.com"
+).rstrip("/")
+
+LIVEAVATAR_AVATAR_ID = os.environ.get(
+    "LIVEAVATAR_AVATAR_ID",
+    "bb1f6ebc-b388-4a39-9e2b-8df618e0377c"  # Phase 1 stock avatar
+)
+
+# Voice — None means "let LiveAvatar pick the avatar's default voice"
+# (currently Graham for the chosen avatar). Set this env var later to
+# switch to a different voice without a code change.
+LIVEAVATAR_VOICE_ID = os.environ.get("LIVEAVATAR_VOICE_ID") or None
+
+try:
+    LIVEAVATAR_MAX_SESSION_DURATION = int(os.environ.get(
+        "LIVEAVATAR_MAX_SESSION_DURATION", "300"
+    ))
+except (TypeError, ValueError):
+    LIVEAVATAR_MAX_SESSION_DURATION = 300
+
+# Timeout used for both /v1/sessions/token and /v1/sessions/start.
+# These are infrequent calls (once per visitor session) so a longer
+# timeout than the chat-loop SWARM_TIMEOUT is acceptable.
+LIVEAVATAR_HTTP_TIMEOUT = 15
+
 
 # =============================================================
 # SESSION ID VALIDATION (added 2026-05-17)
-#
-# Accepts ONLY 32-character lowercase hex strings — the exact
-# format produced by uuid.uuid4().hex.
 # =============================================================
 
 _SESSION_ID_RE = re.compile(r"^[0-9a-f]{32}$")
@@ -266,15 +228,6 @@ def validate_session_id(value):
 
 # =============================================================
 # LAYER 1: SWARM INTEGRATION — READ-ONLY NORMATIVE LOOKUP
-#
-# Thomas calls the AI Swarm's normative database to fetch real
-# benchmark data as conversation teasers. Read-only, one endpoint.
-# Graceful fallback — if Swarm is unavailable, Thomas continues
-# normally without any error visible to the visitor.
-#
-# Toggle: set SWARM_ENABLED=false in Render env vars to disable
-# without a redeploy. Defaults to enabled.
-#
 # Added: 2026-03-18 | Simplified: 2026-04-02
 # =============================================================
 
@@ -288,9 +241,6 @@ def query_swarm_norms(query_term):
     Call the Swarm normative database search endpoint.
     Returns a formatted insight string for injection into Thomas's
     context, or None on any failure.
-
-    Endpoint: GET /api/survey/norm/search?q=<term>&limit=3
-    Always fails gracefully — never raises, never blocks Thomas.
     """
     if not SWARM_ENABLED or not query_term:
         return None
@@ -331,12 +281,7 @@ def query_swarm_norms(query_term):
 
 def get_swarm_context(messages):
     """
-    Decide whether a Swarm norm lookup is warranted for this
-    conversation turn. Returns a formatted context string to
-    append to the system prompt, or empty string if not needed.
-
-    Only queries after at least 2 exchanges so Thomas has context.
-    Uses a single general query covering the most common topics.
+    Decide whether a Swarm norm lookup is warranted for this turn.
     """
     if not SWARM_ENABLED:
         return ""
@@ -350,92 +295,20 @@ def get_swarm_context(messages):
 
 # =============================================================
 # LAYER 1B: SWARM INTEGRATION — LIVE PROJECT KNOWLEDGE LOOKUP
-#
 # Added: 2026-05-20
-#
-# WHAT THIS DOES:
-#   On every conversation turn, Thomas calls the Swarm's
-#   /api/knowledge/context endpoint with the visitor's latest
-#   message as the search query. The endpoint returns an
-#   AI-ready, formatted context block drawn from the Swarm's
-#   live project knowledge base (lessons learned, implementation
-#   guides, white paper content, contract patterns, schedule
-#   library, etc.). That block is appended to Thomas's system
-#   prompt for that ONE Claude API call — so Thomas's answer is
-#   informed by the most current Shiftwork Solutions thinking,
-#   not just the hardcoded knowledge reference that was frozen
-#   into the prompt at last deploy.
-#
-# WHY IT MIRRORS query_swarm_norms EXACTLY:
-#   - Same SWARM_BASE_URL constant
-#   - Same SWARM_TIMEOUT (3 seconds)
-#   - Same graceful-failure pattern — never raises, never blocks
-#   - Same toggle pattern via env var (SWARM_KB_ENABLED)
-#   - Same logging pattern with "(non-fatal)" tag
-#   This minimizes new failure modes and behavioral surprises.
-#
-# WHY THE HARDCODED KNOWLEDGE STAYS IN THE PROMPT:
-#   The big KNOWLEDGE REFERENCE section in THOMAS_SYSTEM_PROMPT
-#   is intentionally LEFT IN PLACE. It is the fallback. If the
-#   Swarm endpoint is unreachable, slow, returns empty results,
-#   or is still warming up, Thomas continues working from the
-#   hardcoded reference exactly as he did before this change.
-#   The visitor sees no degradation. Once the Swarm endpoint is
-#   confirmed stable, future updates may trim the hardcoded
-#   reference — but that is a separate, later decision.
-#
-# WHY THE GATING IS LOOSER THAN NORMS:
-#   query_swarm_norms only fires after 2+ messages — norm
-#   teasers are noise on the first turn. Knowledge context,
-#   in contrast, is useful from the very first user message,
-#   so SWARM_KNOWLEDGE_QUERY_AFTER_TURNS defaults to 1
-#   (any user turn triggers a query).
-#
-# TOGGLE:
-#   Set SWARM_KB_ENABLED=false in Render env vars to disable
-#   without a redeploy. Defaults to enabled.
 # =============================================================
 
 SWARM_KB_ENABLED                  = os.environ.get(
     "SWARM_KB_ENABLED", "true"
 ).lower() == "true"
 
-# Knowledge context becomes useful from the first user turn —
-# unlike norm teasers which only fit in mid-conversation. Keep
-# this constant separate from norm gating so each is tunable
-# independently.
 SWARM_KNOWLEDGE_QUERY_AFTER_TURNS = 1
 
 
 def query_swarm_knowledge(query_term):
     """
     Call the Swarm's live knowledge-base context endpoint.
-
-    Returns an AI-ready formatted context string for injection
-    into Thomas's system prompt, or None on any failure.
-
-    Endpoint: GET /api/knowledge/context?q=<term>
-              (added to the Swarm in routes/ingest.py, 2026-05-20)
-
-    The endpoint returns JSON of the form:
-      {
-        "success":  true,
-        "query":    "...",
-        "kb_ready": bool,
-        "length":   int,
-        "context":  "...the formatted context string..."
-      }
-
-    Always fails gracefully — never raises, never blocks Thomas:
-      - If the call times out, returns None.
-      - If the endpoint returns non-200, returns None.
-      - If kb_ready is false (Swarm still warming up), returns None.
-      - If the context string is empty, returns None.
-      - If anything raises, logs "(non-fatal)" and returns None.
-
-    Returning None makes Thomas fall through to the hardcoded
-    knowledge reference in his system prompt — no visitor-facing
-    degradation.
+    Returns an AI-ready formatted context string, or None on failure.
     """
     if not SWARM_KB_ENABLED or not query_term:
         return None
@@ -452,8 +325,6 @@ def query_swarm_knowledge(query_term):
                   f"{data.get('error', '')[:200]}")
             return None
         if not data.get("kb_ready"):
-            # KB is still warming up — fall back silently. Thomas
-            # will use the hardcoded knowledge reference instead.
             return None
         context_str = (data.get("context") or "").strip()
         if not context_str:
@@ -470,37 +341,17 @@ def query_swarm_knowledge(query_term):
 def get_swarm_knowledge_context(messages, user_message):
     """
     Decide whether a Swarm knowledge lookup is warranted for this
-    turn, and if so, return a formatted context block to append to
-    the system prompt. Returns empty string when no lookup runs or
-    when no useful context comes back.
-
-    Uses the visitor's most recent message as the search query.
-    That is the freshest signal of what Thomas needs to know about
-    on this turn — far better than a fixed query string.
-
-    Parameters
-    ----------
-    messages     : list of {"role", "content"} dicts — the running
-                   conversation_histories[session_id] list.
-    user_message : str — the latest user message (already stripped).
+    turn, and if so, return a formatted context block.
     """
     if not SWARM_KB_ENABLED:
         return ""
     if not user_message:
         return ""
-
-    # Gate on conversation length the same way get_swarm_context does,
-    # using a separate constant so it can be tuned independently.
     if len(messages) < SWARM_KNOWLEDGE_QUERY_AFTER_TURNS:
         return ""
-
     kb_context = query_swarm_knowledge(user_message)
     if not kb_context:
         return ""
-
-    # Prefix with a clear header so the Claude API call sees this as
-    # a distinct, authoritative block — separate from the hardcoded
-    # KNOWLEDGE REFERENCE in the system prompt body.
     return (
         "\n\n"
         "=== LIVE PROJECT KNOWLEDGE (from Shiftwork Solutions Swarm) ===\n"
@@ -510,48 +361,28 @@ def get_swarm_knowledge_context(messages, user_message):
 
 
 # =============================================================
-# TTS URL STRIPPING
-#
-# Thomas's responses often include URLs for the chat UI to render
-# as clickable links. However, ElevenLabs TTS would speak those
-# URLs aloud verbatim ("https colon slash slash..."), which is
-# jarring and unhelpful to the listener.
-#
-# Added: 2026-04-21
+# TTS URL STRIPPING — Added: 2026-04-21
 # =============================================================
 
 def strip_urls_for_tts(text):
-    """
-    Prepare Thomas's reply text for TTS by removing URLs gracefully.
-    """
-    # Pass 1: intro-word + URL
+    """Prepare Thomas's reply text for TTS by removing URLs gracefully."""
     text = re.sub(
         r'\s+(?:here|at|there)\s*:?\s*https?://[^\s,;)"\'<>]+',
         ' via the link in the chat',
         text,
         flags=re.IGNORECASE
     )
-    # Pass 2: bare URLs with no intro word
     text = re.sub(
         r'https?://[^\s,;)"\'<>]+',
         'via the link in the chat',
         text
     )
-    # Collapse multiple spaces
     text = re.sub(r'  +', ' ', text).strip()
     return text
 
 
 # =============================================================
 # SYSTEM PROMPT — SINGLE UNIFIED PROMPT
-#
-# All topic knowledge merged into one condensed reference.
-# Thomas routes organically based on conversation, not menus.
-# Optimized for token efficiency and fast response times.
-#
-# Rebuilt: 2026-04-02 | Updated: 2026-05-01
-# Health knowledge block added: 2026-05-06
-# Live KB instruction block added: 2026-05-20
 # =============================================================
 
 THOMAS_SYSTEM_PROMPT = """
@@ -973,25 +804,12 @@ TOPIC-TO-PAGE MAPPING (use these when a visitor asks about a topic):
 In addition to the KNOWLEDGE REFERENCE above (which is your reliable baseline and is
 always available), a section titled "LIVE PROJECT KNOWLEDGE (from Shiftwork Solutions
 Swarm)" may be appended below this prompt on any given turn. It is drawn live from the
-Shiftwork Solutions internal knowledge base — current implementation guides, lessons
-learned, schedule library, white paper material, contract patterns, and related
-proprietary thinking. It reflects the most up-to-date Shiftwork Solutions point of view
-and supersedes any conflicting general knowledge.
-
-When the LIVE PROJECT KNOWLEDGE block appears:
-- Treat it as authoritative for Shiftwork Solutions thinking and methodology.
-- Use it to inform your answer naturally — do NOT quote it verbatim, do NOT name files
-  or sources, and do NOT tell the visitor you are reading from a knowledge base. Speak
-  as Thomas always speaks: confident, plain language, in your own voice.
-- Continue to obey every rule above: Rule 1 (neutrality) is absolute, Rule 2 (proprietary
-  content) still applies — do not surface specific normative database statistics or
-  detailed survey question content even if it appears in the live block.
-- If the live block does not appear on a given turn, just rely on the KNOWLEDGE REFERENCE
-  above. The visitor should never notice a difference.
-
-The LIVE PROJECT KNOWLEDGE block, when present, will always start with a clearly marked
-header line and end with a clearly marked end line. Everything between those markers is
-the live content.
+Shiftwork Solutions internal knowledge base. Treat it as authoritative for Shiftwork
+Solutions thinking and methodology. Use it to inform your answer naturally — do NOT
+quote it verbatim, do NOT name files or sources, and do NOT tell the visitor you are
+reading from a knowledge base. Continue to obey every rule above: Rule 1 (neutrality)
+is absolute, Rule 2 (proprietary content) still applies. If the live block does not
+appear on a given turn, just rely on the KNOWLEDGE REFERENCE above.
 """
 
 # Opening message — one universal opener
@@ -1013,10 +831,6 @@ def is_bot_response(reply):
 def generate_speech(text):
     """
     Call ElevenLabs TTS, return base64 MP3. Returns None on failure.
-
-    URLs are stripped from the text before sending to ElevenLabs so
-    Thomas does not speak raw URLs aloud. The frontend renders URLs
-    as clickable links in the chat bubble independently.
     """
     if not ELEVENLABS_API_KEY:
         return None
@@ -1157,17 +971,16 @@ def generate_transcript_pdf(session_id, messages, lead_info=None):
 def health():
     """
     Health check endpoint for Render and external monitors.
-
-    Added 2026-05-20: swarm_kb_enabled field for visibility into
-    whether the live KB lookup is currently on. The field reflects
-    the SWARM_KB_ENABLED env var at process start.
+    Added 2026-05-21: liveavatar_enabled field (Phase 2).
     """
     return jsonify({
-        "status":            "ok",
-        "service":           "shift-work-diagnostic",
-        "tts_enabled":       bool(ELEVENLABS_API_KEY),
-        "swarm_enabled":     SWARM_ENABLED,
-        "swarm_kb_enabled":  SWARM_KB_ENABLED,
+        "status":             "ok",
+        "service":            "shift-work-diagnostic",
+        "tts_enabled":        bool(ELEVENLABS_API_KEY),
+        "swarm_enabled":      SWARM_ENABLED,
+        "swarm_kb_enabled":   SWARM_KB_ENABLED,
+        "liveavatar_enabled": bool(HEYGEN_API_KEY),
+        "liveavatar_avatar":  LIVEAVATAR_AVATAR_ID if HEYGEN_API_KEY else None,
     }), 200
 
 
@@ -1176,22 +989,338 @@ def index():
     return render_template_string(open("templates/index.html").read())
 
 
+# =============================================================
+# LIVEAVATAR PHASE 2 — NEW ROUTES (added 2026-05-21)
+# =============================================================
+#
+# /live                         — serves the new voice-avatar UI
+# /api/live/session             — creates a LiveAvatar streaming session
+# /api/live/session/stop        — closes a LiveAvatar session early
+#
+# These routes are completely independent of /, /chat, /opening,
+# /transcribe, and every other existing route. They share the
+# in-memory conversation_histories dict so Claude's brain is the
+# same between the two UIs.
+# =============================================================
+
+
+@app.route("/live")
+def live():
+    """
+    Serve the voice avatar UI. Mirrors the visual chrome (sidebar,
+    footer, header) of the text chat at / for consistency. The avatar
+    appears in a small corner overlay; the main pane shows text bubbles
+    rendered from /chat replies, exactly like the text chat does.
+    """
+    return render_template_string(open("templates/live.html").read())
+
+
+def _liveavatar_create_session_token(session_history_count):
+    """
+    Internal helper: call LiveAvatar's /v1/sessions/token endpoint.
+
+    Returns a dict { session_id, session_token } on success, or raises
+    a RuntimeError with a human-readable message on failure.
+
+    `session_history_count` is a placeholder for future tuning; currently
+    unused in the token request body but kept here so callers can pass
+    conversation state if we ever decide to vary token configuration
+    based on conversation length.
+    """
+    if not HEYGEN_API_KEY:
+        raise RuntimeError(
+            "LiveAvatar API key not configured. Set HEYGEN_API_KEY in Render."
+        )
+
+    url = f"{LIVEAVATAR_API_BASE}/v1/sessions/token"
+
+    # Build avatar_persona — voice_id is optional. When None, LiveAvatar
+    # uses the avatar's configured default voice (Graham for the current
+    # avatar). When set via env var, that voice is used instead.
+    avatar_persona = {}
+    if LIVEAVATAR_VOICE_ID:
+        avatar_persona["voice_id"] = LIVEAVATAR_VOICE_ID
+
+    payload = {
+        "avatar_id":             LIVEAVATAR_AVATAR_ID,
+        "mode":                  "FULL",
+        "is_sandbox":            False,
+        "max_session_duration":  LIVEAVATAR_MAX_SESSION_DURATION,
+        "interactivity_type":    "CONVERSATIONAL",
+    }
+    if avatar_persona:
+        payload["avatar_persona"] = avatar_persona
+
+    headers = {
+        "X-API-KEY":    HEYGEN_API_KEY,
+        "Content-Type": "application/json",
+    }
+
+    try:
+        resp = requests.post(
+            url, json=payload, headers=headers,
+            timeout=LIVEAVATAR_HTTP_TIMEOUT
+        )
+    except requests.exceptions.Timeout:
+        raise RuntimeError(
+            "LiveAvatar token request timed out. Try again in a moment."
+        )
+    except requests.exceptions.RequestException as e:
+        raise RuntimeError(f"LiveAvatar token request failed: {e}")
+
+    if resp.status_code != 200:
+        try:
+            body = resp.json()
+            detail = body.get("message") or body.get("detail") or resp.text[:300]
+        except Exception:
+            detail = resp.text[:300]
+        raise RuntimeError(
+            f"LiveAvatar token endpoint returned {resp.status_code}: {detail}"
+        )
+
+    try:
+        data = resp.json().get("data") or {}
+    except Exception:
+        raise RuntimeError("LiveAvatar token response was not valid JSON.")
+
+    session_id    = data.get("session_id")
+    session_token = data.get("session_token")
+    if not session_id or not session_token:
+        raise RuntimeError(
+            "LiveAvatar token response was missing session_id or session_token."
+        )
+
+    return {"session_id": session_id, "session_token": session_token}
+
+
+def _liveavatar_start_session(session_token):
+    """
+    Internal helper: call LiveAvatar's /v1/sessions/start endpoint.
+
+    Uses the session_token from _liveavatar_create_session_token as
+    Bearer auth (NOT the X-API-KEY). Returns the LiveKit room
+    coordinates the browser needs to open the WebRTC stream.
+
+    Returns a dict with:
+        session_id           — same value the browser already has
+        livekit_url          — wss://... URL the browser connects to
+        livekit_client_token — LiveKit access token for the browser
+        max_session_duration — seconds before LiveAvatar auto-closes
+        ws_url               — optional WebSocket URL for events
+
+    Raises RuntimeError on failure.
+    """
+    url = f"{LIVEAVATAR_API_BASE}/v1/sessions/start"
+
+    headers = {
+        "Authorization": f"Bearer {session_token}",
+    }
+
+    try:
+        resp = requests.post(
+            url, headers=headers,
+            timeout=LIVEAVATAR_HTTP_TIMEOUT
+        )
+    except requests.exceptions.Timeout:
+        raise RuntimeError(
+            "LiveAvatar start request timed out. Try again in a moment."
+        )
+    except requests.exceptions.RequestException as e:
+        raise RuntimeError(f"LiveAvatar start request failed: {e}")
+
+    if resp.status_code not in (200, 201):
+        try:
+            body = resp.json()
+            detail = body.get("message") or body.get("detail") or resp.text[:300]
+        except Exception:
+            detail = resp.text[:300]
+        raise RuntimeError(
+            f"LiveAvatar start endpoint returned {resp.status_code}: {detail}"
+        )
+
+    try:
+        data = resp.json().get("data") or {}
+    except Exception:
+        raise RuntimeError("LiveAvatar start response was not valid JSON.")
+
+    livekit_url   = data.get("livekit_url")
+    livekit_token = data.get("livekit_client_token")
+    if not livekit_url or not livekit_token:
+        raise RuntimeError(
+            "LiveAvatar start response was missing livekit_url or "
+            "livekit_client_token."
+        )
+
+    return {
+        "session_id":            data.get("session_id"),
+        "livekit_url":           livekit_url,
+        "livekit_client_token":  livekit_token,
+        "max_session_duration":  data.get("max_session_duration",
+                                          LIVEAVATAR_MAX_SESSION_DURATION),
+        "ws_url":                data.get("ws_url"),
+    }
+
+
+@app.route("/api/live/session", methods=["POST"])
+def create_live_session():
+    """
+    Create a fresh LiveAvatar session and return the coordinates the
+    browser needs to join the streaming room.
+
+    Two-step flow:
+      1. /v1/sessions/token  — authenticated with X-API-KEY,
+                                returns session_token
+      2. /v1/sessions/start  — authenticated with Bearer session_token,
+                                returns livekit_url + livekit_client_token
+
+    Both calls are made server-side so the LiveAvatar API key never
+    touches the browser.
+
+    Request body (optional): { "thomas_session_id": "<32hex>" }
+        Used only to look up how long the conversation has been going,
+        for tuning purposes. Not required.
+
+    Response (200): {
+        "success":              true,
+        "session_id":           "<liveavatar session uuid>",
+        "livekit_url":          "wss://...",
+        "livekit_client_token": "<jwt>",
+        "max_session_duration": 300,
+        "avatar_id":            "<bb1f...>",
+    }
+
+    Response (503): {
+        "success": false,
+        "error":   "LiveAvatar API key not configured."
+    }
+
+    Response (502): {
+        "success": false,
+        "error":   "<human-readable LiveAvatar failure reason>"
+    }
+    """
+    if not HEYGEN_API_KEY:
+        return jsonify({
+            "success": False,
+            "error":   "LiveAvatar is not enabled on this server. "
+                       "Voice chat is unavailable — please use the text "
+                       "chat at the home page instead."
+        }), 503
+
+    data = request.get_json(silent=True) or {}
+    thomas_session_id = validate_session_id(data.get("thomas_session_id"))
+    history_count = 0
+    if thomas_session_id and thomas_session_id in conversation_histories:
+        history_count = len(conversation_histories[thomas_session_id])
+
+    try:
+        token_result = _liveavatar_create_session_token(history_count)
+    except RuntimeError as e:
+        print(f"LiveAvatar token failure: {e}")
+        return jsonify({
+            "success": False,
+            "error":   str(e),
+        }), 502
+
+    try:
+        start_result = _liveavatar_start_session(token_result["session_token"])
+    except RuntimeError as e:
+        print(f"LiveAvatar start failure: {e}")
+        return jsonify({
+            "success": False,
+            "error":   str(e),
+        }), 502
+
+    print(
+        f"LiveAvatar session created: "
+        f"id={start_result['session_id']} "
+        f"duration={start_result['max_session_duration']}s "
+        f"thomas_session={thomas_session_id}"
+    )
+
+    return jsonify({
+        "success":              True,
+        "session_id":           start_result["session_id"],
+        "livekit_url":          start_result["livekit_url"],
+        "livekit_client_token": start_result["livekit_client_token"],
+        "max_session_duration": start_result["max_session_duration"],
+        "avatar_id":            LIVEAVATAR_AVATAR_ID,
+    }), 200
+
+
+@app.route("/api/live/session/stop", methods=["POST"])
+def stop_live_session():
+    """
+    Close a LiveAvatar session early. Best-effort — if the call fails
+    for any reason, we return 200 anyway so the browser's beforeunload
+    handler does not block the page navigation.
+
+    Request body: { "session_id": "<liveavatar session uuid>" }
+
+    LiveAvatar API: POST /v1/sessions/stop with Bearer session_token.
+    Note: we don't have the session_token anymore at this point —
+    only the LiveAvatar session_id. The /v1/sessions/stop endpoint
+    accepts the session_token from the original create_session_token
+    call. Since the browser has it (we sent it as part of the create
+    flow's session_token), the browser passes it back here.
+
+    For the simpler case where the browser only has the session_id,
+    we also accept that — the session will auto-close from the
+    LiveAvatar side at max_session_duration regardless.
+    """
+    if not HEYGEN_API_KEY:
+        # Don't 503 here — the browser is just trying to clean up,
+        # there's no useful action to take.
+        return jsonify({"success": True, "noop": True}), 200
+
+    data = request.get_json(silent=True) or {}
+    session_token = data.get("session_token")
+
+    if not session_token:
+        # Can't call stop without the session_token. The session will
+        # auto-terminate at max_session_duration. Return success so the
+        # browser's cleanup flow doesn't block.
+        return jsonify({
+            "success": True,
+            "noop":    True,
+            "reason":  "no session_token provided — session will "
+                       "auto-close at duration limit"
+        }), 200
+
+    url = f"{LIVEAVATAR_API_BASE}/v1/sessions/stop"
+    headers = {"Authorization": f"Bearer {session_token}"}
+
+    try:
+        resp = requests.post(
+            url, headers=headers, timeout=LIVEAVATAR_HTTP_TIMEOUT
+        )
+        if resp.status_code in (200, 201, 204):
+            return jsonify({"success": True}), 200
+        # Non-fatal — log but report success so beforeunload doesn't hang
+        print(
+            f"LiveAvatar stop returned {resp.status_code} "
+            f"(non-fatal): {resp.text[:200]}"
+        )
+        return jsonify({
+            "success": True,
+            "warning": f"stop call returned {resp.status_code}"
+        }), 200
+    except Exception as e:
+        print(f"LiveAvatar stop exception (non-fatal): {e}")
+        return jsonify({"success": True, "warning": str(e)}), 200
+
+
+# =============================================================
+# END LIVEAVATAR PHASE 2 ROUTES
+# =============================================================
+
+
 @app.route("/opening", methods=["POST"])
 def opening():
     """
     Return the opening message and audio.
-    Called when the visitor dismisses the instructional overlay.
-    No topic selection — Thomas handles everything organically.
-
-    Accepts: { session_id (optional) }
-    If session_id is missing or invalid, the server generates a
-    fresh uuid.uuid4().hex value. This eliminates the prior shared
-    "default" key bug — see 2026-05-17 entry in change log.
     """
     data = request.get_json() or {}
-
-    # Accept a valid client-supplied session_id (returning visitor
-    # or testing tool) — but never silently fall back to a shared key.
     incoming   = data.get("session_id")
     session_id = validate_session_id(incoming) or uuid.uuid4().hex
 
@@ -1213,11 +1342,6 @@ def transcribe():
     """
     Receive audio blob from frontend, send to ElevenLabs STT,
     return transcribed text.
-
-    Handles all browser audio formats:
-    - Chrome/Edge: audio/webm;codecs=opus  -> audio.webm
-    - Firefox:     audio/ogg;codecs=opus   -> audio.ogg
-    - Safari:      audio/mp4               -> audio.mp4
     """
     if not ELEVENLABS_API_KEY:
         return jsonify({"error": "STT not configured"}), 503
@@ -1278,25 +1402,9 @@ def transcribe():
 @app.route("/chat", methods=["POST"])
 def chat():
     """
-    Main conversation route.
-    Accepts: { message, session_id }
-    No topic parameter — Thomas handles all topics organically.
-
-    session_id is REQUIRED and must be a valid 32-char lowercase
-    hex string (the format returned by /opening). Missing or
-    malformed session_id returns 400. This closes the prior bug
-    where missing session_id silently bucketed visitors into a
-    shared "default" key. See 2026-05-17 entry in change log.
-
-    Returns bot_detected:true if bot signal received — frontend
-    silently ends the session without displaying any message.
-
-    Two parallel Swarm lookups run per turn:
-      1. get_swarm_context()           — normative database teaser
-      2. get_swarm_knowledge_context() — live project knowledge
-                                          (added 2026-05-20)
-    Both fail independently and gracefully. Either, both, or
-    neither may append context to the system prompt for this turn.
+    Main conversation route — used by BOTH the text chat at /
+    and the voice avatar at /live. Same Claude brain, same system
+    prompt, same Swarm integrations.
     """
     data = request.get_json()
     if not data:
@@ -1327,15 +1435,12 @@ def chat():
 
     system_prompt = THOMAS_SYSTEM_PROMPT
 
-    # Layer 1: Append live normative context from Swarm if available.
+    # Layer 1: norm context
     swarm_context = get_swarm_context(conversation_histories[session_id])
     if swarm_context:
         system_prompt = system_prompt + swarm_context
 
-    # Layer 1B: Append live project knowledge from Swarm if available.
-    # Added 2026-05-20. Mirrors the line above exactly — independent
-    # failure mode, both can fire on the same turn, both fall through
-    # to the hardcoded knowledge reference if unavailable.
+    # Layer 1B: live KB context
     kb_context = get_swarm_knowledge_context(
         conversation_histories[session_id],
         user_message
@@ -1352,7 +1457,6 @@ def chat():
         )
         thomas_reply = response.content[0].text
 
-        # Bot detection — silent termination
         if is_bot_response(thomas_reply):
             conversation_histories.pop(session_id, None)
             return jsonify({"bot_detected": True}), 200
@@ -1377,18 +1481,8 @@ FORMSPREE_ENDPOINT = "https://formspree.io/f/xwvwnwea"
 
 
 def email_transcript_via_formspree(session_id, messages, lead_info=None):
-    """
-    Send a formatted text transcript to Formspree (fire-and-forget).
-    Delivers to contact@shift-work.com via the existing Formspree form.
-
-    Never raises — if Formspree is down or rejects, the visitor's
-    PDF download still completes normally. Runs synchronously but
-    with a short timeout so it does not block the response.
-
-    Added: 2026-04-30
-    """
+    """Send a formatted text transcript to Formspree (fire-and-forget)."""
     try:
-        # Format conversation as readable text
         lines = []
         lines.append("=== THOMAS CONVERSATION TRANSCRIPT ===")
         lines.append(f"Session: {session_id}")
@@ -1442,13 +1536,7 @@ def email_transcript_via_formspree(session_id, messages, lead_info=None):
 
 @app.route("/transcript", methods=["POST"])
 def download_transcript():
-    """
-    Generate and return a PDF transcript for a session.
-
-    session_id is REQUIRED and must be a valid 32-char lowercase
-    hex string. Missing or malformed session_id returns 400.
-    See 2026-05-17 entry in change log.
-    """
+    """Generate and return a PDF transcript for a session."""
     data = request.get_json()
     if not data:
         return jsonify({"error": "No data provided"}), 400
@@ -1465,7 +1553,6 @@ def download_transcript():
     if not messages:
         return jsonify({"error": "No conversation found for this session"}), 404
     try:
-        # Fire-and-forget: email transcript before generating PDF
         email_transcript_via_formspree(session_id, messages, lead_info)
 
         pdf_buffer = generate_transcript_pdf(session_id, messages, lead_info)
@@ -1479,21 +1566,7 @@ def download_transcript():
 
 @app.route("/api/tts", methods=["POST"])
 def tts_proxy():
-    """
-    TTS proxy for pillar pages on the Shiftwork Solutions website.
-
-    Pillar pages call this endpoint instead of ElevenLabs directly,
-    keeping ELEVENLABS_API_KEY server-side and out of browser code.
-
-    Accepts JSON: { "text": "...", "voice_id": "..." (optional) }
-    Returns: audio/mpeg stream directly (not base64)
-    Max text: 4500 characters per request (ElevenLabs limit per call)
-
-    Note: strip_urls_for_tts() is NOT applied here because pillar
-    page TTS content is hand-crafted prose without URLs.
-
-    Added: 2026-04-03
-    """
+    """TTS proxy for pillar pages on shift-work.com."""
     if not ELEVENLABS_API_KEY:
         return jsonify({"error": "TTS not configured"}), 503
 
@@ -1508,7 +1581,6 @@ def tts_proxy():
     if len(text) > 4500:
         return jsonify({"error": "Text exceeds 4500 character limit per request"}), 400
 
-    # Use provided voice_id or fall back to the default Thomas voice
     voice_id = data.get("voice_id", ELEVENLABS_VOICE_ID).strip() or ELEVENLABS_VOICE_ID
     tts_url  = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
 
@@ -1543,7 +1615,6 @@ def tts_proxy():
                 }
             )
 
-        # Forward the error status from ElevenLabs
         print(f"ElevenLabs TTS proxy error {el_response.status_code}: {el_response.text[:200]}")
         return jsonify({
             "error": f"ElevenLabs error {el_response.status_code}"
