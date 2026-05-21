@@ -3,19 +3,35 @@
   live.html  —  Thomas Voice Avatar (Phase 2)
   File: templates/live.html (served by app.py /live route)
   Created:      2026-05-21
-  Last Updated: 2026-05-21 (v3 — diagnostic build)
+  Last Updated: 2026-05-21 (v4 — payload flatten fix)
 
   PURPOSE:
-    Voice-and-video front door for Thomas. v3 adds extensive
-    diagnostic logging to the browser console so we can observe
-    what LiveAvatar actually does on the wire — what topics it
-    uses, what events it sends, what events it expects, and the
-    exact payload structures. Functional behavior is unchanged
-    from v2 (the avatar is still silent because we haven't yet
-    fixed the event format problem). This build's only job is
-    to collect data so the real fix is data-driven, not guessed.
+    Voice-and-video front door for Thomas. v4 fixes the silent-
+    avatar bug observed in v2 deploys. v3 diagnostic logs proved
+    that our outbound avatar.speak_text events were succeeding at
+    the publishData level but the agent was silently ignoring them
+    (zero responses on any topic — confirmed by the catch-all
+    DataReceived logger). The bug: we nested the text under a
+    payload field. The LiveAvatar protocol expects event data at
+    the TOP LEVEL of the JSON object, alongside event_type and
+    session_id.
 
   CHANGE LOG:
+    2026-05-21 (v4 — payload flatten fix):
+      Single targeted change inside sendAvatarEvent:
+        - Event data is now spread at the TOP LEVEL of the JSON
+          object, not nested under a "payload" key. The docs
+          state: "event_type: str, session_id: str, ...event
+          data passed at top level." We were wrapping the
+          payload, the agent was silently dropping the message.
+        - source_event_id is now omitted when null. Only included
+          when we are responding to a specific prior event.
+      No other code changes. All v3 diagnostic logging remains in
+      place so we can immediately confirm whether the fix worked —
+      if we now see [LA-LK-DATA] entries from
+      liveavatar-agent-{session_id} on topic "agent-response", the
+      fix is confirmed.
+
     2026-05-21 (v3 — diagnostic build):
       Added [LA] prefix logs throughout the LiveKit / VAD /
       avatar event paths. No functional change to the visible
@@ -1122,13 +1138,24 @@ async function sendAvatarEvent(eventType, payload) {
                  livekitRoom ? livekitRoom.state : 'no room');
     return;
   }
+  //
+  // v4 FIX: event data is spread at the TOP LEVEL of the JSON object.
+  // Previously we wrapped event-specific fields under a "payload" key
+  // which the LiveAvatar agent silently dropped. The docs state the
+  // canonical format is:
+  //   { event_type: str, session_id: str, ...event-specific fields }
+  // with the event-specific fields at top level. source_event_id is
+  // now omitted unless we actually have a value (only used when
+  // responding to a specific prior event from the agent).
+  //
   const evt = {
-    event_id:        crypto.randomUUID(),
-    event_type:      eventType,
-    session_id:      liveAvatarSession ? liveAvatarSession.session_id : null,
-    source_event_id: null,
+    event_id:   crypto.randomUUID(),
+    event_type: eventType,
+    session_id: liveAvatarSession ? liveAvatarSession.session_id : null,
   };
-  if (payload) Object.assign(evt, payload);
+  if (payload && typeof payload === 'object') {
+    Object.assign(evt, payload);  // spread event data at TOP LEVEL
+  }
   console.log('[LA-SEND] ▶ Final event object:', JSON.stringify(evt, null, 2));
   try {
     const encoded = new TextEncoder().encode(JSON.stringify(evt));
@@ -1147,7 +1174,12 @@ async function sendAvatarEvent(eventType, payload) {
 async function avatarSpeakText(text) {
   console.log('[LA-SPEAK] ▶ avatarSpeakText called with text length:', text.length);
   console.log('[LA-SPEAK] ▶ Text preview:', text.substring(0, 100));
-  await sendAvatarEvent('avatar.speak_text', { payload: { text: text } });
+  //
+  // v4 FIX: text is passed at top level, not nested under payload.
+  // The avatar.speak_text event envelope expects:
+  //   { event_type: "avatar.speak_text", session_id: "...", text: "..." }
+  //
+  await sendAvatarEvent('avatar.speak_text', { text: text });
 }
 
 async function avatarInterrupt() {
@@ -1738,4 +1770,4 @@ window.addEventListener('beforeunload', () => {
 </body>
 </html>
 
-<!-- I did no harm and this file is not truncated — v3 diagnostic build -->
+<!-- I did no harm and this file is not truncated — v4 payload flatten fix -->
