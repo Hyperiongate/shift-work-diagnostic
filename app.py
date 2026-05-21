@@ -2,7 +2,7 @@
 # app.py  —  Shift-Work Diagnostic Avatar (Thomas)
 # Shiftwork Solutions LLC
 # Created:      2026-03-15
-# Last Updated: 2026-05-21
+# Last Updated: 2026-05-21 (hotfix v2)
 #
 # PURPOSE:
 #   Flask backend for Thomas, an AI advisor that helps
@@ -12,6 +12,28 @@
 #   conversation without menu-driven topic selection.
 #
 # CHANGE LOG:
+#   2026-05-21 (v2 hotfix) — FIX 422 ERROR ON LIVEAVATAR TOKEN.
+#                FIRST DEPLOY OF PHASE 2 RETURNED:
+#                  "LiveAvatar token endpoint returned 422:
+#                   body -> FULL -> avatar_persona: Field required"
+#                ROOT CAUSE: avatar_persona is REQUIRED on FULL-mode
+#                token requests, not optional as the v1 code assumed.
+#                The v1 code only included avatar_persona in the
+#                payload when LIVEAVATAR_VOICE_ID env var was set,
+#                which it isn't on the current Render config.
+#                FIX: _liveavatar_create_session_token() now always
+#                builds an avatar_persona object. When voice_id is
+#                not configured, it sends a minimal avatar_persona
+#                with just language: "en" — LiveAvatar uses the
+#                avatar's configured default voice (Graham) and
+#                default STT (Deepgram). When LIVEAVATAR_VOICE_ID
+#                IS set, voice_id is included. This is the ONLY
+#                code change in this hotfix.
+#                NO other function modified. NO other route modified.
+#                NO existing constant changed. The new /live route,
+#                templates/live.html, and all v1 Phase 2 behavior is
+#                otherwise untouched.
+#
 #   2026-05-21 — LIVEAVATAR PHASE 2 — VOICE-VIDEO THOMAS.
 #                Adds a new URL path /live serving a hybrid voice
 #                experience: small streaming-video avatar in the
@@ -1034,22 +1056,29 @@ def _liveavatar_create_session_token(session_history_count):
 
     url = f"{LIVEAVATAR_API_BASE}/v1/sessions/token"
 
-    # Build avatar_persona — voice_id is optional. When None, LiveAvatar
-    # uses the avatar's configured default voice (Graham for the current
-    # avatar). When set via env var, that voice is used instead.
-    avatar_persona = {}
+    # Build avatar_persona — REQUIRED field on FULL-mode requests
+    # (the v1 hotfix changed this from "optional" to "always present").
+    #
+    # When LIVEAVATAR_VOICE_ID env var is set, we pass voice_id and
+    # LiveAvatar uses that specific voice. When it is NOT set (the
+    # default and current state), we pass only language: "en" — that
+    # is sufficient to satisfy the validator, and LiveAvatar falls back
+    # to the avatar's own default voice (Graham for the current stock
+    # avatar) and the default STT provider (Deepgram).
+    avatar_persona = {
+        "language": "en",
+    }
     if LIVEAVATAR_VOICE_ID:
         avatar_persona["voice_id"] = LIVEAVATAR_VOICE_ID
 
     payload = {
         "avatar_id":             LIVEAVATAR_AVATAR_ID,
+        "avatar_persona":        avatar_persona,
         "mode":                  "FULL",
         "is_sandbox":            False,
         "max_session_duration":  LIVEAVATAR_MAX_SESSION_DURATION,
         "interactivity_type":    "CONVERSATIONAL",
     }
-    if avatar_persona:
-        payload["avatar_persona"] = avatar_persona
 
     headers = {
         "X-API-KEY":    HEYGEN_API_KEY,
