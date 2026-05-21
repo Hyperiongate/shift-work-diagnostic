@@ -3,39 +3,36 @@
   live.html  —  Thomas Voice Avatar (Phase 2)
   File: templates/live.html (served by app.py /live route)
   Created:      2026-05-21
-  Last Updated: 2026-05-21
+  Last Updated: 2026-05-21 (v3 — diagnostic build)
 
   PURPOSE:
-    Voice-and-video front door for Thomas. Visitor sees:
-      - Streaming video avatar in upper-right corner (~3" square)
-      - Text-bubble conversation in the main pane (mirrors text Thomas)
-      - Continuous voice activity detection — no push-to-talk
-      - Same sidebar + footer + chrome as the text chat at /
-
-    Brain: same Flask backend, same /chat endpoint, same Claude system
-    prompt, same Swarm KB integration. The visitor's voice → ElevenLabs
-    STT via /transcribe → /chat → Claude reply → simultaneously
-    (a) rendered as a text bubble and (b) sent to LiveAvatar via
-    avatar.speak_text event so the on-screen avatar speaks it.
-
-  ARCHITECTURE:
-    - LiveKit JS SDK (CDN): WebRTC connection to LiveAvatar's room
-    - @ricky0123/vad-web (CDN): browser-side voice activity detection
-    - Vanilla JS — no build pipeline, no npm, no bundler
-    - All existing /chat, /opening, /transcribe routes reused
-
-  KEY DECISIONS (locked in 2026-05-21):
-    1. VAD library: @ricky0123/vad-web (ML-based, reliable across browsers)
-    2. Avatar position: fixed upper-right, ~280px square, non-draggable
-    3. Opening: explicit "Start Conversation" button (browser autoplay safe)
-    4. Session timeout: avatar disappears gracefully, text chat continues
-    5. Interruption: visitor can talk over the avatar (avatar.interrupt)
-    6. Text bubbles render simultaneously with avatar speech
+    Voice-and-video front door for Thomas. v3 adds extensive
+    diagnostic logging to the browser console so we can observe
+    what LiveAvatar actually does on the wire — what topics it
+    uses, what events it sends, what events it expects, and the
+    exact payload structures. Functional behavior is unchanged
+    from v2 (the avatar is still silent because we haven't yet
+    fixed the event format problem). This build's only job is
+    to collect data so the real fix is data-driven, not guessed.
 
   CHANGE LOG:
-    2026-05-21 — Initial build. Phase 2 / Option B (SDK-based with
-                 LiveKit direct, no LiveAvatar SDK due to its npm-only
-                 packaging).
+    2026-05-21 (v3 — diagnostic build):
+      Added [LA] prefix logs throughout the LiveKit / VAD /
+      avatar event paths. No functional change to the visible
+      UI. Specifically:
+        - Log on every LiveKit RoomEvent (any kind)
+        - Log local + remote participant identity + attributes
+        - Log every track subscription and unsubscription
+        - Log every DataReceived event on ANY topic
+          (previously filtered to 'agent-response')
+        - Log every outbound publishData call before and after
+        - Log the raw bytes length, topic, and stringified payload
+        - Log the avatar.speak_text payload object explicitly
+        - Log VAD lifecycle events (start/end/silence)
+      Plan: collect a 30-second test conversation transcript
+      from the console, then write the real fix in a v4.
+
+    2026-05-21 (v1, v2): Initial Phase 2 build.
 
   I did no harm and this file is not truncated
 -->
@@ -1119,8 +1116,10 @@ function stopSessionTimer() {
    ───────────────────────────────────────────────────── */
 
 async function sendAvatarEvent(eventType, payload) {
+  console.log('[LA-SEND] ▶ sendAvatarEvent called:', { eventType, payload });
   if (!livekitRoom || livekitRoom.state !== 'connected') {
-    console.warn('Cannot send avatar event — room not connected:', eventType);
+    console.warn('[LA-SEND] ✗ Cannot send — room not connected. State:',
+                 livekitRoom ? livekitRoom.state : 'no room');
     return;
   }
   const evt = {
@@ -1130,22 +1129,29 @@ async function sendAvatarEvent(eventType, payload) {
     source_event_id: null,
   };
   if (payload) Object.assign(evt, payload);
+  console.log('[LA-SEND] ▶ Final event object:', JSON.stringify(evt, null, 2));
   try {
-    const data = new TextEncoder().encode(JSON.stringify(evt));
-    await livekitRoom.localParticipant.publishData(data, {
+    const encoded = new TextEncoder().encode(JSON.stringify(evt));
+    console.log('[LA-SEND] ▶ Publishing', encoded.byteLength,
+                'bytes to topic "agent-control", reliable=true');
+    await livekitRoom.localParticipant.publishData(encoded, {
       reliable: true,
       topic:    'agent-control',
     });
+    console.log('[LA-SEND] ✓ publishData succeeded for event:', eventType);
   } catch (err) {
-    console.error('Failed to publish avatar event:', eventType, err);
+    console.error('[LA-SEND] ✗ publishData failed:', eventType, err);
   }
 }
 
 async function avatarSpeakText(text) {
+  console.log('[LA-SPEAK] ▶ avatarSpeakText called with text length:', text.length);
+  console.log('[LA-SPEAK] ▶ Text preview:', text.substring(0, 100));
   await sendAvatarEvent('avatar.speak_text', { payload: { text: text } });
 }
 
 async function avatarInterrupt() {
+  console.log('[LA-INTERRUPT] ▶ avatarInterrupt called');
   await sendAvatarEvent('avatar.interrupt');
 }
 
@@ -1153,17 +1159,20 @@ async function avatarInterrupt() {
    START SESSION — wired to the orange button
    ───────────────────────────────────────────────────── */
 async function startSession() {
+  console.log('[LA-START] ▶ startSession invoked');
   startBtn.disabled = true;
   startStatus.classList.remove('error');
   startStatus.textContent = 'Connecting…';
 
   // Step 1: ask backend for LiveAvatar coords
+  console.log('[LA-START] ▶ Step 1: POST /api/live/session');
   try {
     const resp = await fetch('/api/live/session', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({})
     });
+    console.log('[LA-START] ◀ /api/live/session HTTP', resp.status);
     if (resp.status === 503) {
       const err = await resp.json().catch(() => ({}));
       startStatus.classList.add('error');
@@ -1192,6 +1201,11 @@ async function startSession() {
       return;
     }
     liveAvatarSession = data;
+    console.log('[LA-START] ✓ Session coords received:',
+                'session_id=', data.session_id,
+                'livekit_url=', data.livekit_url,
+                'max_session_duration=', data.max_session_duration,
+                'avatar_id=', data.avatar_id);
   } catch (err) {
     startStatus.classList.add('error');
     startStatus.textContent =
@@ -1217,6 +1231,7 @@ async function startSession() {
   }
 
   // Step 3: ask Flask for the opening message + create thomas session
+  console.log('[LA-START] ▶ Step 3: POST /opening');
   startStatus.textContent = 'Saying hello…';
   try {
     const resp = await fetch('/opening', {
@@ -1225,13 +1240,18 @@ async function startSession() {
       body:    JSON.stringify({})
     });
     const data = await resp.json();
+    console.log('[LA-START] ◀ /opening response:',
+                'session_id=', data.session_id,
+                'has_reply=', !!data.reply,
+                'reply_len=', data.reply ? data.reply.length : 0);
     if (data.session_id) thomasSessionId = data.session_id;
     if (data.reply) {
       addBubble(data.reply, 'thomas');
+      console.log('[LA-START] ▶ Calling avatarSpeakText for opening line');
       await avatarSpeakText(data.reply);
     }
   } catch (err) {
-    console.warn('Opening fetch failed (continuing):', err);
+    console.warn('[LA-START] ✗ Opening fetch failed (continuing):', err);
     addBubble(
       "Hi, I'm Thomas — an AI advisor for Shiftwork Solutions. What's on your mind?",
       'thomas'
@@ -1239,6 +1259,7 @@ async function startSession() {
   }
 
   // Step 4: dismiss overlay, start VAD
+  console.log('[LA-START] ▶ Step 4: dismiss overlay, start VAD');
   startOverlay.classList.add('hidden');
   setTimeout(() => { startOverlay.style.display = 'none'; }, 500);
   avatarCorner.classList.remove('hidden');
@@ -1248,8 +1269,9 @@ async function startSession() {
 
   try {
     await setupVAD();
+    console.log('[LA-START] ✓ Full startSession flow complete');
   } catch (err) {
-    console.error('VAD setup failed:', err);
+    console.error('[LA-START] ✗ VAD setup failed:', err);
     setState('ended', 'Voice input failed to start. You can still see Thomas speak.');
   }
 }
@@ -1258,18 +1280,76 @@ async function startSession() {
    LIVEKIT CONNECTION
    ───────────────────────────────────────────────────── */
 async function connectLiveKit(url, token) {
-  const { Room, RoomEvent } = LivekitClient;
+  console.log('[LA-LK] ▶ connectLiveKit called');
+  console.log('[LA-LK] ▶ LiveKit URL:', url);
+  console.log('[LA-LK] ▶ Token length:', token ? token.length : 0);
+
+  const LK = LivekitClient;
+  console.log('[LA-LK] ▶ LiveKit globals available:', !!LK,
+              'Room class:', !!LK.Room,
+              'RoomEvent:', !!LK.RoomEvent);
+
+  const { Room, RoomEvent } = LK;
+  console.log('[LA-LK] ▶ All RoomEvent names:', Object.keys(RoomEvent));
+
   livekitRoom = new Room({
     adaptiveStream: true,
     dynacast: true,
   });
 
-  // Avatar's video track arrives as a subscribed track
+  // Catch-all: log every RoomEvent that fires
+  Object.values(RoomEvent).forEach(eventName => {
+    livekitRoom.on(eventName, (...args) => {
+      // Skip extremely-noisy events that fire many times per second
+      const noisy = ['activeSpeakersChanged', 'connectionQualityChanged'];
+      if (noisy.includes(eventName)) return;
+      try {
+        // Keep args summary short
+        const summary = args.map(a => {
+          if (a === undefined) return 'undefined';
+          if (a === null) return 'null';
+          if (typeof a === 'string') return a.substring(0, 80);
+          if (typeof a === 'number' || typeof a === 'boolean') return String(a);
+          if (a && a.identity) return 'Participant<' + a.identity + '>';
+          if (a && a.kind && a.sid) return 'Track<' + a.kind + ' ' + a.sid + '>';
+          if (a && a.trackSid) return 'TrackPub<' + a.trackSid + '>';
+          if (a instanceof Uint8Array) return 'Bytes<' + a.byteLength + '>';
+          return typeof a;
+        });
+        console.log('[LA-LK-EVT] ◆', eventName, summary);
+      } catch (e) {
+        console.log('[LA-LK-EVT] ◆', eventName, '(logging failed)');
+      }
+    });
+  });
+
+  // Specific handlers we actually act on
+  livekitRoom.on(RoomEvent.ParticipantConnected, (participant) => {
+    console.log('[LA-LK] ★ ParticipantConnected:',
+                'identity=', participant.identity,
+                'name=', participant.name,
+                'kind=', participant.kind,
+                'sid=', participant.sid,
+                'metadata=', participant.metadata,
+                'attributes=', JSON.stringify(participant.attributes || {}));
+  });
+
+  livekitRoom.on(RoomEvent.ParticipantDisconnected, (participant) => {
+    console.log('[LA-LK] ★ ParticipantDisconnected:',
+                'identity=', participant.identity);
+  });
+
   livekitRoom.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
+    console.log('[LA-LK] ★ TrackSubscribed:',
+                'kind=', track.kind,
+                'sid=', track.sid,
+                'source=', track.source,
+                'fromParticipant=', participant.identity);
     if (track.kind === 'video') {
+      console.log('[LA-LK] ★ Attaching video track to #avatar-video');
       track.attach(avatarVideo);
     } else if (track.kind === 'audio') {
-      // Attach audio to a hidden element so it plays through speakers
+      console.log('[LA-LK] ★ Attaching audio track to body');
       const audioEl = track.attach();
       audioEl.style.display = 'none';
       document.body.appendChild(audioEl);
@@ -1277,34 +1357,95 @@ async function connectLiveKit(url, token) {
   });
 
   livekitRoom.on(RoomEvent.TrackUnsubscribed, (track) => {
+    console.log('[LA-LK] ★ TrackUnsubscribed:', 'kind=', track.kind, 'sid=', track.sid);
     track.detach().forEach(el => el.remove());
   });
 
-  // Listen for agent-response events on the data channel
+  livekitRoom.on(RoomEvent.TrackPublished, (publication, participant) => {
+    console.log('[LA-LK] ★ TrackPublished by',
+                participant.identity, ':',
+                'kind=', publication.kind,
+                'source=', publication.source,
+                'trackSid=', publication.trackSid);
+  });
+
+  // *** CRITICAL DIAGNOSTIC ***
+  // Original code filtered to topic 'agent-response' only.
+  // v3 logs ALL data received regardless of topic so we can see
+  // what topic the avatar agent actually uses.
   livekitRoom.on(RoomEvent.DataReceived, (payload, participant, kind, topic) => {
-    if (topic !== 'agent-response') return;
+    const fromIdentity = participant ? participant.identity : '(no participant)';
+    let textPayload = '';
     try {
-      const evt = JSON.parse(new TextDecoder().decode(payload));
-      handleAgentResponseEvent(evt);
-    } catch (err) {
-      console.warn('Bad agent-response payload:', err);
+      textPayload = new TextDecoder().decode(payload);
+    } catch (e) {
+      textPayload = '(could not decode as UTF-8)';
+    }
+    console.log('[LA-LK-DATA] ▼ DataReceived',
+                'topic=', topic || '(no topic)',
+                'from=', fromIdentity,
+                'kind=', kind,
+                'bytes=', payload.byteLength);
+    console.log('[LA-LK-DATA] ▼ Payload:', textPayload);
+
+    // Try to parse as JSON and pretty-print
+    try {
+      const parsed = JSON.parse(textPayload);
+      console.log('[LA-LK-DATA] ▼ Parsed JSON:', parsed);
+    } catch (e) {
+      // Not JSON, already logged as text above
+    }
+
+    // Original handler logic — only act on agent-response topic
+    if (topic === 'agent-response') {
+      try {
+        const evt = JSON.parse(textPayload);
+        handleAgentResponseEvent(evt);
+      } catch (err) {
+        console.warn('[LA-LK-DATA] ✗ Bad agent-response payload:', err);
+      }
     }
   });
 
-  livekitRoom.on(RoomEvent.Disconnected, () => {
-    console.log('LiveKit disconnected');
+  livekitRoom.on(RoomEvent.Disconnected, (reason) => {
+    console.log('[LA-LK] ★ Disconnected. Reason:', reason);
     endVoiceSession('Connection ended.');
   });
 
+  livekitRoom.on(RoomEvent.ConnectionStateChanged, (state) => {
+    console.log('[LA-LK] ★ ConnectionStateChanged:', state);
+  });
+
+  console.log('[LA-LK] ▶ Calling room.connect…');
   await livekitRoom.connect(url, token);
-  console.log('LiveKit connected. State:', livekitRoom.state);
+  console.log('[LA-LK] ✓ room.connect resolved. State:', livekitRoom.state);
+  console.log('[LA-LK] ✓ Local participant:',
+              'identity=', livekitRoom.localParticipant.identity,
+              'name=', livekitRoom.localParticipant.name,
+              'sid=', livekitRoom.localParticipant.sid);
+
+  // Log existing remote participants (they may have joined before us)
+  const remoteIdentities = [];
+  livekitRoom.remoteParticipants.forEach((p, key) => {
+    remoteIdentities.push({
+      key:        key,
+      identity:   p.identity,
+      name:       p.name,
+      kind:       p.kind,
+      sid:        p.sid,
+      attributes: p.attributes,
+    });
+  });
+  console.log('[LA-LK] ✓ Remote participants at connect time:',
+              remoteIdentities.length, remoteIdentities);
 }
 
 /* ─────────────────────────────────────────────────────
    AGENT-RESPONSE EVENT HANDLER
    ───────────────────────────────────────────────────── */
 function handleAgentResponseEvent(evt) {
-  const type = evt.event_type;
+  const type = evt.event_type || evt.type;
+  console.log('[LA-RECV] ◀ handleAgentResponseEvent type=', type, 'full=', evt);
 
   if (type === 'avatar.speak_started') {
     avatarSpeaking = true;
@@ -1344,15 +1485,16 @@ async function setupVAD() {
 
   vad = await window.vad.MicVAD.new({
     onSpeechStart: () => {
-      console.log('VAD: speech start');
+      console.log('[LA-VAD] ▶ speech START');
       if (avatarSpeaking) {
+        console.log('[LA-VAD] ▶ User interrupted avatar — sending avatar.interrupt');
         // User interrupts avatar (decision #5: interruption allowed)
         avatarInterrupt();
       }
       startUtteranceRecording();
     },
     onSpeechEnd: (audio) => {
-      console.log('VAD: speech end (samples:', audio.length, ')');
+      console.log('[LA-VAD] ◀ speech END (samples:', audio.length, ')');
       stopUtteranceRecording();
     },
     // Tuning knobs — these defaults work well for normal conversation
@@ -1363,7 +1505,7 @@ async function setupVAD() {
   });
 
   vad.start();
-  console.log('VAD started');
+  console.log('[LA-VAD] ✓ VAD started');
 }
 
 function startUtteranceRecording() {
@@ -1413,6 +1555,7 @@ async function handleUtteranceComplete() {
   setState('thinking', 'Transcribing what you said…');
 
   // Step A: /transcribe via existing Flask route
+  console.log('[LA-UTT] ▶ POST /transcribe blob bytes=', blob.size, 'type=', mimeType);
   let userText = '';
   try {
     const formData = new FormData();
@@ -1420,13 +1563,15 @@ async function handleUtteranceComplete() {
     const resp = await fetch('/transcribe', { method: 'POST', body: formData });
     const data = await resp.json();
     userText = (data.text || '').trim();
+    console.log('[LA-UTT] ◀ /transcribe result:', JSON.stringify(userText));
   } catch (err) {
-    console.error('Transcribe failed:', err);
+    console.error('[LA-UTT] ✗ /transcribe failed:', err);
     setState('listening', 'Transcription failed — try saying that again.');
     return;
   }
 
   if (!userText) {
+    console.log('[LA-UTT] ✗ /transcribe returned empty text');
     setState('listening', 'I didn’t catch that — try again.');
     return;
   }
@@ -1436,6 +1581,7 @@ async function handleUtteranceComplete() {
   showTyping();
 
   // Step B: /chat via existing Flask route
+  console.log('[LA-CHAT] ▶ POST /chat with userText (', userText.length, 'chars)');
   try {
     const resp = await fetch('/chat', {
       method:  'POST',
@@ -1446,6 +1592,10 @@ async function handleUtteranceComplete() {
       })
     });
     const data = await resp.json();
+    console.log('[LA-CHAT] ◀ /chat response:',
+                'bot_detected=', !!data.bot_detected,
+                'has_reply=', !!data.reply,
+                'reply_len=', data.reply ? data.reply.length : 0);
     hideTyping();
 
     if (data.bot_detected) {
@@ -1457,7 +1607,9 @@ async function handleUtteranceComplete() {
       // Decision #6: text bubble appears simultaneously with avatar speech
       addBubble(data.reply, 'thomas');
       setState('speaking', 'Thomas is speaking…');
+      console.log('[LA-CHAT] ▶ Calling avatarSpeakText with reply');
       await avatarSpeakText(data.reply);
+      console.log('[LA-CHAT] ✓ avatarSpeakText returned (event published)');
       // The avatar.speak_started / avatar.speak_ended events from the
       // agent will flip state back to 'listening' when the avatar
       // finishes speaking. We don't manually transition here.
@@ -1466,7 +1618,7 @@ async function handleUtteranceComplete() {
       setState('listening', 'Listening — go ahead.');
     }
   } catch (err) {
-    console.error('Chat failed:', err);
+    console.error('[LA-CHAT] ✗ /chat fetch failed:', err);
     hideTyping();
     addBubble("Connection issue — please try again.", 'thomas');
     setState('listening', 'Listening — go ahead.');
@@ -1586,4 +1738,4 @@ window.addEventListener('beforeunload', () => {
 </body>
 </html>
 
-<!-- I did no harm and this file is not truncated -->
+<!-- I did no harm and this file is not truncated — v3 diagnostic build -->
