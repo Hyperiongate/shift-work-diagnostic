@@ -3,50 +3,63 @@
   live.html  —  Thomas Voice Avatar (Phase 2)
   File: templates/live.html (served by app.py /live route)
   Created:      2026-05-21
-  Last Updated: 2026-05-21 (v4 — payload flatten fix)
+  Last Updated: 2026-05-21 (v5 — echo loop + UX polish)
 
   PURPOSE:
-    Voice-and-video front door for Thomas. v4 fixes the silent-
-    avatar bug observed in v2 deploys. v3 diagnostic logs proved
-    that our outbound avatar.speak_text events were succeeding at
-    the publishData level but the agent was silently ignoring them
-    (zero responses on any topic — confirmed by the catch-all
-    DataReceived logger). The bug: we nested the text under a
-    payload field. The LiveAvatar protocol expects event data at
-    the TOP LEVEL of the JSON object, alongside event_type and
-    session_id.
+    Voice-and-video front door for Thomas. v5 fixes the echo loop
+    bug where the avatar's own voice came through the user's
+    speakers and into the microphone, causing the VAD to think
+    the user was speaking, which triggered avatar.interrupt and
+    cut Thomas off mid-sentence. Also enables browser echo
+    cancellation as a defense-in-depth measure, and trims the
+    diagnostic logging to a useful subset.
 
   CHANGE LOG:
+    2026-05-21 (v5 — echo loop + UX polish):
+      Three targeted changes plus logging cleanup.
+        1. VAD gating while avatar speaks.
+           When avatar.speak_started arrives from the agent,
+           set avatarSpeaking = true. When avatar.speak_ended
+           arrives, set avatarSpeaking = false. The VAD's
+           onSpeechStart handler now does an EARLY RETURN if
+           avatarSpeaking is true. This means the user CANNOT
+           accidentally trigger an interrupt while the avatar
+           is speaking. To explicitly interrupt, the user must
+           wait for the avatar to pause, then speak.
+           (This intentionally changes the decision-#5 behavior
+           from "interruption allowed" to "interruption requires
+           waiting for a natural pause." A future v6 could add a
+           click-to-interrupt button if needed, but the echo loop
+           makes auto-interrupt impractical in real environments.)
+        2. Echo cancellation on the microphone stream.
+           getUserMedia is now called with explicit constraints:
+             { echoCancellation: true,
+               noiseSuppression: true,
+               autoGainControl:  true }
+           These are standard WebRTC audio constraints used by
+           virtually all production video chat apps. Defense in
+           depth against the echo loop even when the user is not
+           wearing headphones and the TV is on.
+        3. Optimistic UI state.
+           When we send avatar.speak_text, immediately set the
+           UI state to 'speaking' rather than waiting 200-500ms
+           for avatar.speak_started to arrive over the data
+           channel. Visible improvement: the corner avatar gets
+           the orange "speaking" border immediately, not delayed.
+        4. Logging trimmed.
+           The catch-all [LA-LK-EVT] firehose logger is removed.
+           The targeted [LA-SEND], [LA-RECV], [LA-LK-DATA] logs
+           remain so we still have actionable visibility, but
+           the console is now readable in normal use.
+      No backend changes (app.py stays as v2 hotfix).
+
     2026-05-21 (v4 — payload flatten fix):
-      Single targeted change inside sendAvatarEvent:
-        - Event data is now spread at the TOP LEVEL of the JSON
-          object, not nested under a "payload" key. The docs
-          state: "event_type: str, session_id: str, ...event
-          data passed at top level." We were wrapping the
-          payload, the agent was silently dropping the message.
-        - source_event_id is now omitted when null. Only included
-          when we are responding to a specific prior event.
-      No other code changes. All v3 diagnostic logging remains in
-      place so we can immediately confirm whether the fix worked —
-      if we now see [LA-LK-DATA] entries from
-      liveavatar-agent-{session_id} on topic "agent-response", the
-      fix is confirmed.
+      Event data spread at top level instead of nested under
+      payload key. The agent was silently dropping nested events.
 
     2026-05-21 (v3 — diagnostic build):
       Added [LA] prefix logs throughout the LiveKit / VAD /
-      avatar event paths. No functional change to the visible
-      UI. Specifically:
-        - Log on every LiveKit RoomEvent (any kind)
-        - Log local + remote participant identity + attributes
-        - Log every track subscription and unsubscription
-        - Log every DataReceived event on ANY topic
-          (previously filtered to 'agent-response')
-        - Log every outbound publishData call before and after
-        - Log the raw bytes length, topic, and stringified payload
-        - Log the avatar.speak_text payload object explicitly
-        - Log VAD lifecycle events (start/end/silence)
-      Plan: collect a 30-second test conversation transcript
-      from the console, then write the real fix in a v4.
+      avatar event paths.
 
     2026-05-21 (v1, v2): Initial Phase 2 build.
 
@@ -1279,6 +1292,12 @@ async function startSession() {
     if (data.session_id) thomasSessionId = data.session_id;
     if (data.reply) {
       addBubble(data.reply, 'thomas');
+      //
+      // v5 FIX: same optimistic state as the chat flow. Mark
+      // avatarSpeaking BEFORE the publish so the VAD (which has just
+      // been started) cannot trigger an interrupt during the opening.
+      //
+      avatarSpeaking = true;
       console.log('[LA-START] ▶ Calling avatarSpeakText for opening line');
       await avatarSpeakText(data.reply);
     }
@@ -1322,38 +1341,19 @@ async function connectLiveKit(url, token) {
               'RoomEvent:', !!LK.RoomEvent);
 
   const { Room, RoomEvent } = LK;
-  console.log('[LA-LK] ▶ All RoomEvent names:', Object.keys(RoomEvent));
 
   livekitRoom = new Room({
     adaptiveStream: true,
     dynacast: true,
   });
 
-  // Catch-all: log every RoomEvent that fires
-  Object.values(RoomEvent).forEach(eventName => {
-    livekitRoom.on(eventName, (...args) => {
-      // Skip extremely-noisy events that fire many times per second
-      const noisy = ['activeSpeakersChanged', 'connectionQualityChanged'];
-      if (noisy.includes(eventName)) return;
-      try {
-        // Keep args summary short
-        const summary = args.map(a => {
-          if (a === undefined) return 'undefined';
-          if (a === null) return 'null';
-          if (typeof a === 'string') return a.substring(0, 80);
-          if (typeof a === 'number' || typeof a === 'boolean') return String(a);
-          if (a && a.identity) return 'Participant<' + a.identity + '>';
-          if (a && a.kind && a.sid) return 'Track<' + a.kind + ' ' + a.sid + '>';
-          if (a && a.trackSid) return 'TrackPub<' + a.trackSid + '>';
-          if (a instanceof Uint8Array) return 'Bytes<' + a.byteLength + '>';
-          return typeof a;
-        });
-        console.log('[LA-LK-EVT] ◆', eventName, summary);
-      } catch (e) {
-        console.log('[LA-LK-EVT] ◆', eventName, '(logging failed)');
-      }
-    });
-  });
+  //
+  // v5: the catch-all RoomEvent firehose ([LA-LK-EVT]) is removed.
+  // It was useful for diagnostics but made the console unreadable in
+  // normal use. The targeted handlers below (TrackSubscribed,
+  // DataReceived, ParticipantConnected, etc.) provide enough
+  // visibility for ops monitoring.
+  //
 
   // Specific handlers we actually act on
   livekitRoom.on(RoomEvent.ParticipantConnected, (participant) => {
@@ -1401,10 +1401,13 @@ async function connectLiveKit(url, token) {
                 'trackSid=', publication.trackSid);
   });
 
-  // *** CRITICAL DIAGNOSTIC ***
-  // Original code filtered to topic 'agent-response' only.
-  // v3 logs ALL data received regardless of topic so we can see
-  // what topic the avatar agent actually uses.
+  //
+  // v5: log DataReceived selectively. We still log everything not on
+  // 'agent-response' (so we'd catch new topics). On 'agent-response',
+  // we log the full payload for "interesting" events but only a
+  // 1-line summary for the per-word avatar.transcription.chunk
+  // stream that floods the console.
+  //
   livekitRoom.on(RoomEvent.DataReceived, (payload, participant, kind, topic) => {
     const fromIdentity = participant ? participant.identity : '(no participant)';
     let textPayload = '';
@@ -1413,29 +1416,37 @@ async function connectLiveKit(url, token) {
     } catch (e) {
       textPayload = '(could not decode as UTF-8)';
     }
-    console.log('[LA-LK-DATA] ▼ DataReceived',
-                'topic=', topic || '(no topic)',
-                'from=', fromIdentity,
-                'kind=', kind,
-                'bytes=', payload.byteLength);
-    console.log('[LA-LK-DATA] ▼ Payload:', textPayload);
 
-    // Try to parse as JSON and pretty-print
+    // Try to parse as JSON early so we can route logging by type
+    let parsed = null;
     try {
-      const parsed = JSON.parse(textPayload);
-      console.log('[LA-LK-DATA] ▼ Parsed JSON:', parsed);
+      parsed = JSON.parse(textPayload);
     } catch (e) {
-      // Not JSON, already logged as text above
+      // Not JSON — fall through to verbose log
+    }
+
+    const evtType = parsed && (parsed.event_type || parsed.type);
+
+    if (topic === 'agent-response' && evtType === 'avatar.transcription.chunk') {
+      // Quiet per-word stream — one-line summary only
+      console.log('[LA-LK-DATA] ▼ chunk:', JSON.stringify(parsed.text || ''));
+    } else {
+      console.log('[LA-LK-DATA] ▼ DataReceived',
+                  'topic=', topic || '(no topic)',
+                  'from=', fromIdentity,
+                  'bytes=', payload.byteLength);
+      console.log('[LA-LK-DATA] ▼ Payload:', textPayload);
     }
 
     // Original handler logic — only act on agent-response topic
-    if (topic === 'agent-response') {
+    if (topic === 'agent-response' && parsed) {
       try {
-        const evt = JSON.parse(textPayload);
-        handleAgentResponseEvent(evt);
+        handleAgentResponseEvent(parsed);
       } catch (err) {
-        console.warn('[LA-LK-DATA] ✗ Bad agent-response payload:', err);
+        console.warn('[LA-LK-DATA] ✗ handler threw on agent-response:', err);
       }
+    } else if (topic === 'agent-response' && !parsed) {
+      console.warn('[LA-LK-DATA] ✗ Bad agent-response payload (not JSON)');
     }
   });
 
@@ -1477,14 +1488,20 @@ async function connectLiveKit(url, token) {
    ───────────────────────────────────────────────────── */
 function handleAgentResponseEvent(evt) {
   const type = evt.event_type || evt.type;
-  console.log('[LA-RECV] ◀ handleAgentResponseEvent type=', type, 'full=', evt);
+  console.log('[LA-RECV] ◀ handleAgentResponseEvent type=', type);
 
   if (type === 'avatar.speak_started') {
+    // Confirms the optimistic state we already set
     avatarSpeaking = true;
     setState('speaking');
   } else if (type === 'avatar.speak_ended') {
+    //
+    // v5: this is the authoritative signal that the avatar has
+    // finished. Clear the speaking gate so VAD can resume hearing
+    // the user, and flip UI back to listening.
+    //
     avatarSpeaking = false;
-    if (!sessionEnded) setState('listening');
+    if (!sessionEnded) setState('listening', 'Listening — go ahead.');
   } else if (type === 'session.stopped') {
     const reason = (evt.payload && evt.payload.end_reason) || 'UNKNOWN';
     console.log('Session stopped, reason:', reason);
@@ -1517,15 +1534,27 @@ async function setupVAD() {
 
   vad = await window.vad.MicVAD.new({
     onSpeechStart: () => {
-      console.log('[LA-VAD] ▶ speech START');
+      //
+      // v5 FIX: gate VAD while avatar is speaking. This prevents the
+      // echo loop where the avatar's own voice (via speakers) gets
+      // picked up by the microphone and treated as the user speaking.
+      // Defense in depth: also handled by echoCancellation:true on
+      // getUserMedia in startUtteranceRecording, but the gate is the
+      // primary protection.
+      //
       if (avatarSpeaking) {
-        console.log('[LA-VAD] ▶ User interrupted avatar — sending avatar.interrupt');
-        // User interrupts avatar (decision #5: interruption allowed)
-        avatarInterrupt();
+        console.log('[LA-VAD] ▶ speech START suppressed — avatar is speaking');
+        return;
       }
+      console.log('[LA-VAD] ▶ speech START');
       startUtteranceRecording();
     },
     onSpeechEnd: (audio) => {
+      // If we suppressed the start, don't process the end either —
+      // there's no recording in progress.
+      if (!audioRecorder || audioRecorder.state !== 'recording') {
+        return;
+      }
       console.log('[LA-VAD] ◀ speech END (samples:', audio.length, ')');
       stopUtteranceRecording();
     },
@@ -1542,8 +1571,21 @@ async function setupVAD() {
 
 function startUtteranceRecording() {
   if (audioRecorder && audioRecorder.state === 'recording') return;
-  // Use a fresh MediaStream so we have clean MIME-type control
-  navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+  //
+  // v5 FIX: explicit audio constraints. echoCancellation prevents the
+  // browser from feeding speaker output back into the mic input —
+  // critical defense against the echo loop in environments without
+  // headphones. noiseSuppression and autoGainControl improve STT
+  // accuracy by cleaning up background noise and normalizing
+  // microphone levels.
+  //
+  navigator.mediaDevices.getUserMedia({
+    audio: {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl:  true,
+    }
+  }).then(stream => {
     recordingStream = stream;
     audioChunks = [];
     const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
@@ -1638,6 +1680,15 @@ async function handleUtteranceComplete() {
     if (data.reply) {
       // Decision #6: text bubble appears simultaneously with avatar speech
       addBubble(data.reply, 'thomas');
+      //
+      // v5 FIX: optimistic state transition. We mark avatarSpeaking=true
+      // and switch UI to 'speaking' immediately, before the round-trip
+      // for avatar.speak_started arrives. This gates the VAD right away
+      // so user echo can't trigger an interrupt during the brief gap
+      // between us sending avatar.speak_text and the agent acknowledging.
+      // The avatar.speak_ended event will flip both back when done.
+      //
+      avatarSpeaking = true;
       setState('speaking', 'Thomas is speaking…');
       console.log('[LA-CHAT] ▶ Calling avatarSpeakText with reply');
       await avatarSpeakText(data.reply);
@@ -1770,4 +1821,4 @@ window.addEventListener('beforeunload', () => {
 </body>
 </html>
 
-<!-- I did no harm and this file is not truncated — v4 payload flatten fix -->
+<!-- I did no harm and this file is not truncated — v5 echo loop fix + UX polish -->
