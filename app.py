@@ -2,7 +2,7 @@
 # app.py  —  Shift-Work Diagnostic Avatar (Thomas)
 # Shiftwork Solutions LLC
 # Created:      2026-03-15
-# Last Updated: 2026-05-21 (hotfix v2)
+# Last Updated: 2026-06-29 (maintenance: session TTL, msg cap, adaptive norms)
 #
 # PURPOSE:
 #   Flask backend for Thomas, an AI advisor that helps
@@ -12,6 +12,31 @@
 #   conversation without menu-driven topic selection.
 #
 # CHANGE LOG:
+#   2026-06-29 — MAINTENANCE HARDENING (code-review HIGH items #1–#3).
+#                Three targeted, additive fixes. No routes added or
+#                removed, no other behavior changed.
+#                  FIX #1 — In-memory session TTL purge. conversation_histories
+#                    previously grew unbounded between Render restarts. Added
+#                    session_last_seen tracking + purge_stale_sessions(), swept
+#                    on each /opening and /chat call. Sessions older than
+#                    MAX_SESSION_AGE (env, default 7200s / 2h) are evicted.
+#                    Bot-detected sessions now clear their timestamp too.
+#                  FIX #2 — Adaptive Swarm norm query. get_swarm_context() now
+#                    queries the normative database with the visitor's actual
+#                    latest message (capped by FIX #3) instead of a single
+#                    hardcoded string, so live benchmarks track the topic under
+#                    discussion. Falls back to the prior broad query only if the
+#                    message is empty.
+#                  FIX #3 — Inbound message length cap. /chat now truncates
+#                    user_message to MAX_USER_MESSAGE_LEN (env, default 2000)
+#                    before any processing — guards Anthropic cost and limits
+#                    oversized prompt-injection payloads.
+#                NOT in this change (tracked separately): requirements.txt
+#                'resend' review (#4), /live canonical tag (#5), end-of-session
+#                warning (#6), norm-query throttle (#7), friendly API-outage
+#                fallback (#8), surfaced voice<->text handoff (#9), config-driven
+#                URL map (#10).
+#
 #   2026-05-21 (v2 hotfix) — FIX 422 ERROR ON LIVEAVATAR TOKEN.
 #                FIRST DEPLOY OF PHASE 2 RETURNED:
 #                  "LiveAvatar token endpoint returned 422:
@@ -163,7 +188,7 @@ import uuid
 import base64
 import requests
 import io
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Flask, request, jsonify, render_template_string, send_file, Response
 from flask_cors import CORS
 import anthropic
@@ -301,15 +326,24 @@ def query_swarm_norms(query_term):
         return None
 
 
-def get_swarm_context(messages):
+def get_swarm_context(messages, user_message):
     """
     Decide whether a Swarm norm lookup is warranted for this turn.
+
+    FIX #2 (2026-06-29): the query term is now the visitor's actual
+    latest message (already length-capped in /chat) so the live norm
+    benchmarks track whatever the visitor is actually discussing.
+    Previously this fired the same hardcoded query on every turn, so
+    Thomas always received the same norm data regardless of topic.
+    Falls back to the prior broad query only if the message is empty.
     """
     if not SWARM_ENABLED:
         return ""
     if len(messages) < 2:
         return ""
-    norm_context = query_swarm_norms("schedule satisfaction overtime employee preferences")
+    query_term = (user_message or "").strip() or \
+        "schedule satisfaction overtime employee preferences"
+    norm_context = query_swarm_norms(query_term)
     if not norm_context:
         return ""
     return f"\n\n{norm_context}\n"
@@ -845,6 +879,68 @@ THOMAS_OPENING = (
 conversation_histories = {}
 
 
+# =============================================================
+# SESSION LIFECYCLE / MEMORY MANAGEMENT
+# Added: 2026-06-29 (code-review FIX #1 + supporting constant for FIX #3)
+# =============================================================
+#
+# conversation_histories is an in-memory dict. On Render the process
+# restarts periodically (which wipes it), and between restarts it would
+# otherwise grow without bound as new visitors arrive. This block adds a
+# simple time-to-live sweep: each session's last-seen time is tracked,
+# and any session older than MAX_SESSION_AGE is evicted on the next
+# /opening or /chat call.
+#
+# This is the proper lightweight fix for a single-instance deployment.
+# If sessions ever need to survive restarts OR if the app scales to
+# multiple Render instances, the correct next step is Redis (a Render
+# add-on) — that is a larger architectural change, not needed now.
+#
+# MAX_USER_MESSAGE_LEN (used by FIX #3 in /chat) lives here too so all
+# request-shaping limits sit in one place.
+# =============================================================
+
+session_last_seen = {}
+
+try:
+    MAX_SESSION_AGE = int(os.environ.get("MAX_SESSION_AGE", "7200"))  # 2 hours
+except (TypeError, ValueError):
+    MAX_SESSION_AGE = 7200
+
+try:
+    MAX_USER_MESSAGE_LEN = int(os.environ.get("MAX_USER_MESSAGE_LEN", "2000"))
+except (TypeError, ValueError):
+    MAX_USER_MESSAGE_LEN = 2000
+
+
+def touch_session(session_id):
+    """Record (or refresh) the last-seen time for a session id."""
+    if session_id:
+        session_last_seen[session_id] = datetime.utcnow()
+
+
+def purge_stale_sessions():
+    """
+    Evict conversation histories whose last-seen time is older than
+    MAX_SESSION_AGE. Iterates over snapshots (list(...)) so we never
+    mutate a dict while iterating it. Also gives any orphaned history
+    (one with no recorded timestamp) a fresh lease so it cannot live
+    forever.
+    """
+    if not conversation_histories and not session_last_seen:
+        return
+    cutoff = datetime.utcnow() - timedelta(seconds=MAX_SESSION_AGE)
+    for sid, last_seen in list(session_last_seen.items()):
+        if last_seen < cutoff:
+            conversation_histories.pop(sid, None)
+            session_last_seen.pop(sid, None)
+    # Defensive: any history without a timestamp gets one now so the
+    # sweep can reach it on a future pass.
+    for sid in list(conversation_histories.keys()):
+        if sid not in session_last_seen:
+            session_last_seen[sid] = datetime.utcnow()
+
+
 def is_bot_response(reply):
     """Check if Claude returned the bot detection signal."""
     return reply.strip() == "BOT_DETECTED"
@@ -1353,10 +1449,14 @@ def opening():
     incoming   = data.get("session_id")
     session_id = validate_session_id(incoming) or uuid.uuid4().hex
 
+    # FIX #1 (2026-06-29): sweep stale sessions before creating a new one.
+    purge_stale_sessions()
+
     conversation_histories[session_id] = [{
         "role":    "assistant",
         "content": THOMAS_OPENING
     }]
+    touch_session(session_id)
 
     audio_b64 = generate_speech(THOMAS_OPENING)
     return jsonify({
@@ -1450,6 +1550,18 @@ def chat():
     if not user_message:
         return jsonify({"error": "No message provided"}), 400
 
+    # FIX #3 (2026-06-29): cap incoming message length before any
+    # processing. Protects against runaway Anthropic cost and oversized
+    # prompt-injection payloads. We truncate rather than reject so a
+    # long-but-legitimate description still gets a useful answer.
+    if len(user_message) > MAX_USER_MESSAGE_LEN:
+        user_message = user_message[:MAX_USER_MESSAGE_LEN]
+
+    # FIX #1 (2026-06-29): evict stale in-memory sessions, then mark this
+    # session as freshly seen so its TTL clock resets on activity.
+    purge_stale_sessions()
+    touch_session(session_id)
+
     if session_id not in conversation_histories:
         conversation_histories[session_id] = []
 
@@ -1465,7 +1577,9 @@ def chat():
     system_prompt = THOMAS_SYSTEM_PROMPT
 
     # Layer 1: norm context
-    swarm_context = get_swarm_context(conversation_histories[session_id])
+    swarm_context = get_swarm_context(
+        conversation_histories[session_id], user_message
+    )
     if swarm_context:
         system_prompt = system_prompt + swarm_context
 
@@ -1488,6 +1602,7 @@ def chat():
 
         if is_bot_response(thomas_reply):
             conversation_histories.pop(session_id, None)
+            session_last_seen.pop(session_id, None)
             return jsonify({"bot_detected": True}), 200
 
         conversation_histories[session_id].append({
