@@ -3,7 +3,7 @@
   live.html  —  Thomas Voice Avatar (Phase 2)
   File: templates/live.html (served by app.py /live route)
   Created:      2026-05-21
-  Last Updated: 2026-05-21 (v5 — echo loop + UX polish)
+  Last Updated: 2026-06-29 (v6 — SEO canonical tag)
 
   PURPOSE:
     Voice-and-video front door for Thomas. v5 fixes the echo loop
@@ -15,6 +15,15 @@
     diagnostic logging to a useful subset.
 
   CHANGE LOG:
+    2026-06-29 (v6 — SEO canonical tag):
+      Added a single <link rel="canonical"> in <head> pointing to
+      the indexable text chat (https://shift-work-diagnostic.onrender.com/).
+      This page already carries robots "noindex, follow", so it is
+      not indexed on its own; the canonical ensures any links to
+      /live consolidate their SEO signal onto the text chat rather
+      than dissipating. No structural, CSS, or JavaScript changes —
+      the v5 voice behavior is byte-identical.
+
     2026-05-21 (v5 — echo loop + UX polish):
       Three targeted changes plus logging cleanup.
         1. VAD gating while avatar speaks.
@@ -73,6 +82,7 @@
 
 <meta name="description" content="Talk live with Thomas, the AI shift operations advisor from Shiftwork Solutions LLC. Voice and video conversation backed by hundreds of facilities worth of consulting experience.">
 <meta name="robots" content="noindex, follow">
+<link rel="canonical" href="https://shift-work-diagnostic.onrender.com/"><!-- 2026-06-29: /live is noindex; canonical points to the indexable text chat -->
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1821,4 +1831,4 @@ window.addEventListener('beforeunload', () => {
 </body>
 </html>
 
-<!-- I did no harm and this file is not truncated — v5 echo loop fix + UX polish -->
+<!-- I did no harm and this file is not truncated — v6 SEO canonical tag -->
