@@ -2,7 +2,7 @@
 # app.py  —  Shift-Work Diagnostic Avatar (Thomas)
 # Shiftwork Solutions LLC
 # Created:      2026-03-15
-# Last Updated: 2026-06-29 (maintenance: session TTL, msg cap, adaptive norms)
+# Last Updated: 2026-06-29 (model fix: retired Sonnet 4 -> 4.6; + TTL, msg cap, adaptive norms, friendly errors)
 #
 # PURPOSE:
 #   Flask backend for Thomas, an AI advisor that helps
@@ -12,6 +12,26 @@
 #   conversation without menu-driven topic selection.
 #
 # CHANGE LOG:
+#   2026-06-29 (b) — PRODUCTION FIX: every Thomas /chat message was
+#                returning the generic "Sorry, something went wrong on my
+#                end." ROOT CAUSE: the model string
+#                "claude-sonnet-4-20250514" (original Claude Sonnet 4,
+#                May 2025) was RETIRED from the Anthropic API on
+#                2026-06-15. Calls to it now return an error with no
+#                failover, so every /chat hit the except block and 500'd.
+#                /opening kept working because it does not call Claude.
+#                  FIX A — model swapped to "claude-sonnet-4-6", Anthropic's
+#                    documented drop-in replacement. The request only sends
+#                    model/max_tokens/system/messages (no temperature/top_p/
+#                    top_k/thinking), so no other request changes are needed.
+#                  FIX B (review item #8) — the /chat except blocks now
+#                    (1) print the real error to the server log so Render
+#                    surfaces it, and (2) return HTTP 503 with a friendly
+#                    "message" the existing frontend already renders (input
+#                    stays enabled for retry) instead of a bare 500 the UI
+#                    showed as "something went wrong". This is why the outage
+#                    was hard to see; future failures will be visible.
+#
 #   2026-06-29 — MAINTENANCE HARDENING (code-review HIGH items #1–#3).
 #                Three targeted, additive fixes. No routes added or
 #                removed, no other behavior changed.
@@ -1593,7 +1613,7 @@ def chat():
 
     try:
         response = anthropic_client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-6",
             max_tokens=600,
             system=system_prompt,
             messages=conversation_histories[session_id]
@@ -1616,9 +1636,24 @@ def chat():
         }), 200
 
     except anthropic.APIError as e:
-        return jsonify({"error": f"API error: {str(e)}"}), 500
+        # Log the real error server-side (visible in Render logs) so an
+        # outage is diagnosable, then return a friendly 503 — the frontend
+        # already renders 503 with the input left enabled for retry.
+        print(f"Anthropic API error on /chat: {e}")
+        return jsonify({
+            "error":   f"API error: {str(e)}",
+            "message": "I'm having a little trouble connecting right now — "
+                       "give it a moment and try again, or reach the team "
+                       "directly at (415) 265-1621."
+        }), 503
     except Exception as e:
-        return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
+        print(f"Unexpected error on /chat: {e}")
+        return jsonify({
+            "error":   f"Unexpected error: {str(e)}",
+            "message": "I'm having a little trouble connecting right now — "
+                       "give it a moment and try again, or reach the team "
+                       "directly at (415) 265-1621."
+        }), 503
 
 
 FORMSPREE_ENDPOINT = "https://formspree.io/f/xwvwnwea"
