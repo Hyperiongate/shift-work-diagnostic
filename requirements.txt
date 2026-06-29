@@ -2,7 +2,7 @@
 # requirements.txt  -  Shift-Work Diagnostic Avatar (Thomas)
 # Shiftwork Solutions LLC
 # Created:      2026-03-15
-# Last Updated: 2026-04-17
+# Last Updated: 2026-06-29
 #
 # CHANGE LOG:
 #   2026-03-15 -- Initial build
@@ -10,6 +10,11 @@
 #   2026-04-17 -- Added Flask-Limiter>=3.5.0 for IP rate limiting
 #                 (part of Thomas security hardening release).
 #                 Flask-Limiter pulls in 'limits' automatically.
+#   2026-06-29 -- Removed unused 'resend>=2.0.0'. Email is sent via
+#                 Formspree (see email_transcript_via_formspree in app.py);
+#                 nothing in the codebase imports 'resend', so it only added
+#                 install time to every Render deploy. Re-add it if/when a
+#                 resend-based email feature is actually implemented.
 #
 # PINNED FOR PYTHON 3.11 COMPATIBILITY ON RENDER
 # flask          -- web framework
@@ -29,5 +34,4 @@ requests==2.31.0
 python-dotenv==1.0.1
 gunicorn==22.0.0
 reportlab==4.2.2
-resend>=2.0.0
 # I did no harm and this file is not truncated
