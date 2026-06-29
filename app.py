@@ -2,7 +2,7 @@
 # app.py  —  Shift-Work Diagnostic Avatar (Thomas)
 # Shiftwork Solutions LLC
 # Created:      2026-03-15
-# Last Updated: 2026-06-29 (model fix: retired Sonnet 4 -> 4.6; + TTL, msg cap, adaptive norms, friendly errors)
+# Last Updated: 2026-06-29 (norm-query throttle; six-day prompt; model fix; TTL, msg cap, adaptive norms, friendly errors)
 #
 # PURPOSE:
 #   Flask backend for Thomas, an AI advisor that helps
@@ -12,6 +12,29 @@
 #   conversation without menu-driven topic selection.
 #
 # CHANGE LOG:
+#   2026-06-29 (d) — FIX #7: throttle the Swarm norm lookup. Previously
+#                every /chat turn after the first queried the Swarm norm
+#                endpoint. get_swarm_context() now queries at most once
+#                every SWARM_NORM_QUERY_EVERY_TURNS user turns (env, default
+#                3) per session and reuses the last successful norm context
+#                in between, cutting Swarm load to ~1/N. New per-session
+#                cache swarm_norm_cache is purged with the session in
+#                purge_stale_sessions(), the bot-detect branch, and /opening
+#                so it does NOT reintroduce the FIX #1 leak. get_swarm_context
+#                now also takes session_id.
+#
+#   2026-06-29 (c) — PROMPT TUNING: added a "COVERAGE FOOTPRINT — DO NOT
+#                DEFAULT TO 24/7" block to THOMAS_SYSTEM_PROMPT. Thomas was
+#                jumping straight to a full 24/7 schedule when a visitor
+#                described a weekday-only operation leaning on Saturday
+#                overtime. A three-crew 8-hour M-F operation is already 24/5;
+#                concentrated Saturday OT more often points to a six-day
+#                (24/6) need than to full 24/7. The new block tells Thomas to
+#                raise the six-day option (uncommon, so it sparks interest)
+#                alongside 24/7 as a possibility — not a recommendation, and
+#                without designing a pattern. Prompt text only; no code or
+#                request-shape change.
+#
 #   2026-06-29 (b) — PRODUCTION FIX: every Thomas /chat message was
 #                returning the generic "Sorry, something went wrong on my
 #                end." ROOT CAUSE: the model string
@@ -302,6 +325,27 @@ SWARM_BASE_URL  = "https://ai-swarm-orchestrator.onrender.com"
 SWARM_ENABLED   = os.environ.get("SWARM_ENABLED", "true").lower() == "true"
 SWARM_TIMEOUT   = 3  # seconds — never slow Thomas down waiting for Swarm
 
+# FIX #7 (2026-06-29): throttle the norm lookup. Previously every turn
+# after the first hit the Swarm. Now we query at most once every
+# SWARM_NORM_QUERY_EVERY_TURNS user turns per session and reuse the last
+# successful norm context in between — cutting Swarm load to roughly 1/N
+# while still keeping fresh, topic-relevant benchmarks in the prompt.
+#
+# IMPORTANT (do no harm to FIX #1): swarm_norm_cache is per-session state,
+# so it MUST be purged everywhere a session is purged — see
+# purge_stale_sessions(), the /chat bot-detect branch, and /opening — or
+# it would reintroduce the unbounded-growth leak that FIX #1 closed.
+swarm_norm_cache = {}  # session_id -> {"context": str, "turns_since_query": int}
+
+try:
+    SWARM_NORM_QUERY_EVERY_TURNS = int(
+        os.environ.get("SWARM_NORM_QUERY_EVERY_TURNS", "3")
+    )
+except (TypeError, ValueError):
+    SWARM_NORM_QUERY_EVERY_TURNS = 3
+if SWARM_NORM_QUERY_EVERY_TURNS < 1:
+    SWARM_NORM_QUERY_EVERY_TURNS = 1
+
 
 def query_swarm_norms(query_term):
     """
@@ -346,24 +390,53 @@ def query_swarm_norms(query_term):
         return None
 
 
-def get_swarm_context(messages, user_message):
+def get_swarm_context(messages, user_message, session_id=None):
     """
-    Decide whether a Swarm norm lookup is warranted for this turn.
+    Return a Swarm norm-context block for this turn, throttled per session.
 
-    FIX #2 (2026-06-29): the query term is now the visitor's actual
-    latest message (already length-capped in /chat) so the live norm
-    benchmarks track whatever the visitor is actually discussing.
-    Previously this fired the same hardcoded query on every turn, so
-    Thomas always received the same norm data regardless of topic.
-    Falls back to the prior broad query only if the message is empty.
+    FIX #2 (2026-06-29): when we do query, the query term is the visitor's
+    actual latest message (already length-capped in /chat) so the norm
+    benchmarks track whatever the visitor is discussing.
+
+    FIX #7 (2026-06-29): we no longer hit the Swarm on every turn. We query
+    on the first eligible turn and then only once every
+    SWARM_NORM_QUERY_EVERY_TURNS user turns, reusing the last successful
+    norm context in between. If a scheduled query fails, we fall back to the
+    cached context (if any) and retry on the next turn. The cache is keyed
+    by session_id and is purged with the session (see the note at
+    swarm_norm_cache) so it cannot leak.
     """
     if not SWARM_ENABLED:
         return ""
     if len(messages) < 2:
         return ""
-    query_term = (user_message or "").strip() or \
-        "schedule satisfaction overtime employee preferences"
-    norm_context = query_swarm_norms(query_term)
+
+    entry = swarm_norm_cache.get(session_id) if session_id else None
+
+    if entry is None:
+        should_query = True
+    else:
+        entry["turns_since_query"] = entry.get("turns_since_query", 0) + 1
+        should_query = entry["turns_since_query"] >= SWARM_NORM_QUERY_EVERY_TURNS
+
+    if should_query:
+        query_term = (user_message or "").strip() or \
+            "schedule satisfaction overtime employee preferences"
+        norm_context = query_swarm_norms(query_term)
+        if norm_context:
+            if session_id:
+                swarm_norm_cache[session_id] = {
+                    "context":           norm_context,
+                    "turns_since_query": 0,
+                }
+        else:
+            # Query failed this turn — fall back to cached context (if any).
+            # Leave the counter as-is so we retry on the next turn rather
+            # than waiting another full interval.
+            norm_context = entry.get("context") if entry else None
+    else:
+        norm_context = entry.get("context")
+
     if not norm_context:
         return ""
     return f"\n\n{norm_context}\n"
@@ -696,6 +769,23 @@ you are not confident in the details of a specific pattern, say so honestly and 
 on the operational issues the visitor is describing rather than characterizing the
 schedule incorrectly.
 
+COVERAGE FOOTPRINT — DO NOT DEFAULT TO 24/7:
+A very common setup is a weekday round-the-clock operation — for example three eight-hour
+crews covering Monday through Friday, which is already 24-hour coverage five days a week
+(24/5) — that has started leaning on Saturday overtime. When overtime is concentrated on
+one extra day like this, resist the reflex to jump straight to a full 24/7 schedule. The
+more precise read is that the operation is outgrowing a five-day footprint, and the
+right-sized answer might be a six-day (24/6) operation — adding Saturday as planned
+coverage rather than overtime — with a full seven-day, 24/7 schedule warranted only if
+there is genuine Sunday demand as well. Six-day patterns are less common, which is exactly
+why they are worth raising: many managers have never pictured one and find the idea
+genuinely interesting ("I hadn't thought about that — what would that look like?"). Offer
+the six-day possibility alongside 24/7 as a real option, framed as a possibility rather
+than a recommendation, then find out what is actually driving the weekend work — is the
+Saturday demand a genuine business need, or a workaround for not having enough capacity
+during the week? Do not design the six-day pattern or name a specific rotation; just open
+the door to the idea and invite them to explore it with the team.
+
 YOUNGER WORKFORCE — "KIDS DON'T WANT TO WORK" (hear this constantly):
 This is one of the most common complaints from operations managers and it comes up in
 almost every engagement. Do not dismiss it, but reframe it with depth. The real dynamic
@@ -954,6 +1044,7 @@ def purge_stale_sessions():
         if last_seen < cutoff:
             conversation_histories.pop(sid, None)
             session_last_seen.pop(sid, None)
+            swarm_norm_cache.pop(sid, None)
     # Defensive: any history without a timestamp gets one now so the
     # sweep can reach it on a future pass.
     for sid in list(conversation_histories.keys()):
@@ -1477,6 +1568,7 @@ def opening():
         "content": THOMAS_OPENING
     }]
     touch_session(session_id)
+    swarm_norm_cache.pop(session_id, None)  # FIX #7: fresh conversation -> fresh norm cache
 
     audio_b64 = generate_speech(THOMAS_OPENING)
     return jsonify({
@@ -1598,7 +1690,7 @@ def chat():
 
     # Layer 1: norm context
     swarm_context = get_swarm_context(
-        conversation_histories[session_id], user_message
+        conversation_histories[session_id], user_message, session_id
     )
     if swarm_context:
         system_prompt = system_prompt + swarm_context
@@ -1623,6 +1715,7 @@ def chat():
         if is_bot_response(thomas_reply):
             conversation_histories.pop(session_id, None)
             session_last_seen.pop(session_id, None)
+            swarm_norm_cache.pop(session_id, None)
             return jsonify({"bot_detected": True}), 200
 
         conversation_histories[session_id].append({
