@@ -3,7 +3,7 @@
   live.html  —  Thomas Voice Avatar (Phase 2)
   File: templates/live.html (served by app.py /live route)
   Created:      2026-05-21
-  Last Updated: 2026-06-29 (v6 — SEO canonical tag)
+  Last Updated: 2026-06-29 (v7 — end-of-session warning)
 
   PURPOSE:
     Voice-and-video front door for Thomas. v5 fixes the echo loop
@@ -15,6 +15,20 @@
     diagnostic logging to a useful subset.
 
   CHANGE LOG:
+    2026-06-29 (v7 — end-of-session warning, review item #6):
+      The 5-minute session countdown already existed (#avatar-timer /
+      startSessionTimer / updateTimer). This adds the missing heads-up
+      so the voice session does not just cut off mid-sentence:
+        - A new #voice-warning banner appears once, when ~60 seconds
+          remain (VOICE_WARN_AT_SECONDS), reading "About a minute left
+          in this voice session — you can keep going in text mode
+          anytime" with a link to the text chat at /.
+        - The corner timer turns orange (#avatar-timer.ending) for the
+          final minute as a visual cue.
+        - State is one-shot per session: reset in startSessionTimer and
+          restartSession, hidden in endVoiceSession. No change to the
+          LiveKit / VAD / avatar logic.
+
     2026-06-29 (v6 — SEO canonical tag):
       Added a single <link rel="canonical"> in <head> pointing to
       the indexable text chat (https://shift-work-diagnostic.onrender.com/).
@@ -681,6 +695,26 @@
   .voice-restart-btn:hover { background: var(--orange); }
   .voice-restart-btn.visible { display: inline-block; }
 
+  /* v6 (#6): end-of-session warning banner + timer color cue */
+  .voice-warning {
+    display: none;
+    background: #fff7ed;
+    border-top: 1px solid #fed7aa;
+    color: #c2410c;
+    font-size: 12.5px;
+    font-weight: 600;
+    text-align: center;
+    padding: 8px 16px;
+    line-height: 1.5;
+  }
+  .voice-warning.visible { display: block; }
+  .voice-warning a { color: var(--orange); text-decoration: underline; }
+
+  #avatar-timer.ending {
+    background: rgba(232,97,10,0.9);
+    color: #ffffff;
+  }
+
   .disclaimer {
     text-align: center;
     font-size: 11px;
@@ -874,6 +908,11 @@
       </div>
     </div>
 
+    <div class="voice-warning" id="voice-warning">
+      About a minute left in this voice session &mdash; you can keep going in
+      <a href="/">text mode</a> anytime.
+    </div>
+
     <div class="voice-status-area">
       <div class="voice-status-icon" id="vs-icon">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
@@ -981,6 +1020,7 @@ const avatarTimer  = document.getElementById('avatar-timer');
 const vsIcon       = document.getElementById('vs-icon');
 const vsText       = document.getElementById('vs-text');
 const vsRestart    = document.getElementById('vs-restart');
+const voiceWarning = document.getElementById('voice-warning');
 
 let thomasSessionId      = null;
 let liveAvatarSession    = null;
@@ -995,6 +1035,8 @@ let sessionTimerEndsAt   = null;
 let leadData             = null;
 let avatarSpeaking       = false;
 let sessionEnded         = false;
+let sessionWarned        = false;          // v6 (#6): one-shot end-of-session warning
+const VOICE_WARN_AT_SECONDS = 60;          // v6 (#6): warn when this many seconds remain
 
 /* ─────────────────────────────────────────────────────
    UI HELPERS
@@ -1124,6 +1166,10 @@ function addBubble(text, who) {
    SESSION TIMER — counts down max_session_duration
    ───────────────────────────────────────────────────── */
 function startSessionTimer(durationSec) {
+  // v6 (#6): reset the one-shot warning state for a fresh session
+  sessionWarned = false;
+  voiceWarning.classList.remove('visible');
+  avatarTimer.classList.remove('ending');
   sessionTimerEndsAt = Date.now() + durationSec * 1000;
   updateTimer();
   if (sessionTimerInterval) clearInterval(sessionTimerInterval);
@@ -1136,6 +1182,17 @@ function updateTimer() {
   const mm = Math.floor(remaining / 60);
   const ss = remaining % 60;
   avatarTimer.textContent = mm + ':' + (ss < 10 ? '0' + ss : ss);
+
+  // v6 (#6): when ~1 minute remains, color the timer and show a one-time
+  // banner letting the visitor know they can continue in text mode.
+  if (remaining > 0 && remaining <= VOICE_WARN_AT_SECONDS) {
+    avatarTimer.classList.add('ending');
+    if (!sessionWarned) {
+      sessionWarned = true;
+      voiceWarning.classList.add('visible');
+    }
+  }
+
   if (remaining === 0) {
     clearInterval(sessionTimerInterval);
     sessionTimerInterval = null;
@@ -1750,12 +1807,18 @@ async function endVoiceSession(reasonText) {
     avatarPlace.style.display = 'block';
   }, 500);
 
+  // v6 (#6): the "about a minute left" banner is moot once the session ends
+  voiceWarning.classList.remove('visible');
+  avatarTimer.classList.remove('ending');
+
   setState('ended', reasonText || 'Voice session ended.');
 }
 
 async function restartSession() {
   // Hide restart button, reset state, reopen overlay
   vsRestart.classList.remove('visible');
+  voiceWarning.classList.remove('visible');   // v6 (#6)
+  sessionWarned = false;                       // v6 (#6)
   sessionEnded = false;
   setState('idle', '');
   // Clear messages back to typing row only
@@ -1831,4 +1894,4 @@ window.addEventListener('beforeunload', () => {
 </body>
 </html>
 
-<!-- I did no harm and this file is not truncated — v6 SEO canonical tag -->
+<!-- I did no harm and this file is not truncated — v7 end-of-session warning -->
