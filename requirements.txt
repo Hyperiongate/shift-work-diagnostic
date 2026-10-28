@@ -2,7 +2,7 @@
 # requirements.txt  -  Shift-Work Diagnostic Avatar (Thomas)
 # Shiftwork Solutions LLC
 # Created:      2026-03-15
-# Last Updated: 2026-06-29
+# Last Updated: 2026-10-28
 #
 # CHANGE LOG:
 #   2026-03-15 -- Initial build
@@ -15,6 +15,16 @@
 #                 nothing in the codebase imports 'resend', so it only added
 #                 install time to every Render deploy. Re-add it if/when a
 #                 resend-based email feature is actually implemented.
+#   2026-10-28 -- SECURITY (eMudhra CA compromise, Render advisory Oct 2026).
+#                 Added certifi>=2026.10.19. 'requests' (ElevenLabs calls)
+#                 checks HTTPS certificates against certifi's own bundle, NOT
+#                 the server's system store, so a Render rebuild alone does not
+#                 remove the compromised eMudhra intermediates. (Current
+#                 'anthropic' releases use the system store, which the rebuild
+#                 refreshes; older releases used certifi too.) certifi was only
+#                 an unpinned indirect dependency before, so a cached build
+#                 could keep an old bundle. No other package changed. Deploy with "Clear build cache & deploy" and confirm
+#                 the build log shows certifi 2026.10.19 or later.
 #
 # PINNED FOR PYTHON 3.11 COMPATIBILITY ON RENDER
 # flask          -- web framework
@@ -25,6 +35,7 @@
 # python-dotenv  -- local dev env loading
 # gunicorn       -- production WSGI server on Render
 # reportlab      -- PDF transcript generation
+# certifi        -- trusted-certificate bundle for HTTPS (NEW 2026-10-28)
 # =============================================================
 flask==3.0.3
 flask-cors==4.0.1
@@ -34,4 +45,5 @@ requests==2.31.0
 python-dotenv==1.0.1
 gunicorn==22.0.0
 reportlab==4.2.2
+certifi>=2026.10.19
 # I did no harm and this file is not truncated
